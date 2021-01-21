@@ -19,10 +19,10 @@ import prawcore.exceptions
 
 # ----------------- Constants -----------------
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 # General constants
-CONFIG_DIRECTORY = Path("~/.config/megathread_manager").expanduser()
+CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
 CONFIG_PATH = CONFIG_DIRECTORY / "config.json"
 CURRENT_DATETIME = datetime.datetime.now(datetime.timezone.utc)
 USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
@@ -47,6 +47,7 @@ DEFAULT_SYNC_SECTION = {
     }
 
 DEFAULT_CONFIG = {
+    "megathread_enabled": True,
     "new_thread_interval": "month",
     "pin_thread": "top",
     "post_title_template": ("{subreddit_name} Megathread "
@@ -195,7 +196,7 @@ def load_config(return_default=False, config_path=CONFIG_PATH):
 def generate_post_details(session):
     """Generate the title and post templates."""
     template_variables = {
-        "current_datetime": CURRENT_DATETIME,
+        "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
         "subreddit_name": session.config["subreddit_name"],
         "thread_number": session.config["thread_number"],
@@ -243,7 +244,7 @@ def create_new_thread(session):
 
 
 def manage_thread(session):
-    """Manage the current thread, creating or updating it as nessesary."""
+    """Manage the current thread, creating or updating it as necessary."""
     wiki_updated = (session.mod.wiki_page.revision_date
                     > session.config["wiki_page_timestamp"])
     interval = session.config["new_thread_interval"]
@@ -251,9 +252,10 @@ def manage_thread(session):
     if session.config["thread_url"]:
         last_post_timestamp = datetime.datetime.fromtimestamp(
             session.user.current_thread.created_utc, tz=datetime.timezone.utc)
+    current_datetime = datetime.datetime.now(datetime.timezone.utc)
     should_post_new_thread = not last_post_timestamp or (
         interval and (getattr(last_post_timestamp, interval)
-                      != getattr(CURRENT_DATETIME, interval)))
+                      != getattr(current_datetime, interval)))
 
     if wiki_updated or should_post_new_thread:
         if should_post_new_thread:
@@ -339,7 +341,8 @@ def run_manage(config_path=CONFIG_PATH):
     config = load_config(config_path=config_path)
     session = MegathreadSession(config=copy.deepcopy(config))
     sync_sections(session)
-    manage_thread(session)
+    if session.config["megathread_enabled"]:
+        manage_thread(session)
     if session.config != config:
         write_config(session.config, config_path=config_path)
 
