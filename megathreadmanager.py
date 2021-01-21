@@ -5,6 +5,7 @@ Generate, pin and update a regular megathread for a subreddit.
 
 # Standard library imports
 import argparse
+import copy
 import datetime
 import json
 from pathlib import Path
@@ -68,7 +69,7 @@ class MegathreadSession:
     """Common cached state for managing megathreads."""
 
     def __init__(self, config):
-        self.config = config
+        self.config = {**DEFAULT_CONFIG, **config}
         self.user = MegathreadUserSession(
             config=config, credential_key="praw_credentials_post")
         self.mod = MegathreadUserSession(
@@ -169,14 +170,17 @@ def manage_thread(session):
             update_current_thread(session)
         session.config["wiki_page_timestamp"] = (
             session.user.wiki_page.revision_date)
+        return True
+    return False
 
 
 def run_manage(config_path=CONFIG_PATH):
     """Load the config file and run the thread manager."""
     config = load_config(config_path=config_path)
-    session = MegathreadSession(config=config)
+    session = MegathreadSession(config=copy.deepcopy(config))
     manage_thread(session)
-    write_config(session.config, config_path=config_path)
+    if session.config != config:
+        write_config(session.config, config_path=config_path)
 
 
 def run_manage_loop(config_path=CONFIG_PATH, repeat=True):
