@@ -9,6 +9,7 @@ import copy
 import datetime
 import json
 from pathlib import Path
+import re
 import time
 
 # Third party imports
@@ -16,13 +17,34 @@ import praw
 import prawcore.exceptions
 
 
-__version__ = "0.1.2"
+# ----------------- Constants -----------------
+
+__version__ = "0.2.0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread_manager").expanduser()
 CONFIG_PATH = CONFIG_DIRECTORY / "config.json"
 CURRENT_DATETIME = datetime.datetime.now(datetime.timezone.utc)
 USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
+
+# Config
+DEFAULT_SYNC_ITEM = {
+    "name": "",
+    "pattern": "",
+    "pattern_end": " End",
+    "pattern_start": " Start",
+    "replace_patterns": {},
+    "wiki_page": "",
+    "wiki_page_timestamp": 0,
+    }
+
+DEFAULT_SYNC_SECTION = {
+    "enabled": True,
+    "name": "",
+    "source": {},
+    "targets": [],
+    "wiki_page_timestamp": 0,
+    }
 
 DEFAULT_CONFIG = {
     "new_thread_interval": "month",
@@ -36,7 +58,35 @@ DEFAULT_CONFIG = {
     "praw_credentials_mod": {},
     "praw_credentials_post": {},
     "repeat_interval_s": 300,
+    "replace_patterns": {
+        "https://old.reddit.com": "https://www.reddit.com",
+        },
     "subreddit_name": "YOURSUBNAME",
+    "sync_sections": [
+        {
+            "enabled": False,
+            "name": "Sync Sidebar Demo",
+            "source": {
+                "pattern": "Sidebar",
+                "pattern_end": " End",
+                "pattern_start": " Start",
+                "replace_patterns": {
+                    "https://www.reddit.com": "https://old.reddit.com",
+                    },
+                "wiki_page": "",
+                },
+            "targets": [
+                {
+                    "name": "Sidebar",
+                    "pattern": "Sidebar",
+                    "pattern_end": " Start",
+                    "pattern_start": " End",
+                    "replace_patterns": {},
+                    "wiki_page": "config/sidebar",
+                    },
+                ],
+            },
+        ],
     "thread_number": 0,
     "thread_url": "",
     "wiki_page_name": "WIKIPAGENAME",
@@ -44,7 +94,44 @@ DEFAULT_CONFIG = {
     }
 
 
+# ----------------- Helper functions -----------------
+
+def replace_patterns(text, patterns):
+    for old, new in patterns.items():
+        text = text.replace(old, new)
+    return text
+
+
+def startend_to_pattern(start, end=None):
+    end = start if end is None else end
+    pattern = r"(?<={start})(\s|\S)*(?={end})".format(
+        start=re.escape(start), end=re.escape(end))
+    return pattern
+
+
+def startend_to_pattern_md(start, end=None):
+    end = start if end is None else end
+    start, end = [f"[](/# {pattern})" for pattern in (start, end)]
+    return startend_to_pattern(start, end)
+
+
+def search_startend(source_text, pattern="", start="", end=""):
+    start = pattern + start
+    end = pattern + end
+    if start or end:
+        pattern = startend_to_pattern_md(start, end)
+        match_obj = re.search(pattern, source_text)
+        return match_obj
+    return None
+
+
+# ----------------- Helper classes -----------------
+
 class ConfigError(RuntimeError):
+    pass
+
+
+class ConfigNotFoundError(ConfigError):
     pass
 
 
@@ -76,6 +163,8 @@ class MegathreadSession:
             config=config, credential_key="praw_credentials_mod")
 
 
+# ----------------- Config functions -----------------
+
 def write_config(config, config_path=CONFIG_PATH):
     """Write the passed config to the default config path as JSON."""
     with open(config_path, mode="w",
@@ -101,6 +190,8 @@ def load_config(return_default=False, config_path=CONFIG_PATH):
     return config
 
 
+# ----------------- Core megathread logic -----------------
+
 def generate_post_details(session):
     """Generate the title and post templates."""
     template_variables = {
@@ -112,7 +203,8 @@ def generate_post_details(session):
         }
     post_title = session.config["post_title_template"].format(
         **template_variables)
-    post_text = session.user.wiki_page.content_md.format(**template_variables)
+    post_text = session.mod.wiki_page.content_md.format(**template_variables)
+    post_text = replace_patterns(post_text, session.config["replace_patterns"])
     return {"title": post_title, "selftext": post_text}
 
 
@@ -152,7 +244,7 @@ def create_new_thread(session):
 
 def manage_thread(session):
     """Manage the current thread, creating or updating it as nessesary."""
-    wiki_updated = (session.user.wiki_page.revision_date
+    wiki_updated = (session.mod.wiki_page.revision_date
                     > session.config["wiki_page_timestamp"])
     interval = session.config["new_thread_interval"]
     last_post_timestamp = 0
@@ -169,15 +261,84 @@ def manage_thread(session):
         else:
             update_current_thread(session)
         session.config["wiki_page_timestamp"] = (
-            session.user.wiki_page.revision_date)
+            session.mod.wiki_page.revision_date)
         return True
     return False
 
+
+# ----------------- Section-sync functionality -----------------
+
+def get_item_text(session, item):
+    if item["wiki_page"]:
+        item_page = session.mod.subreddit.wiki[item["wiki_page"]]
+    else:
+        item_page = session.mod.wiki_page
+    item_text = item_page.content_md
+    return item_page, item_text
+
+
+def sync_sections(session):
+    """Update sections of the sub's sidebar based on the wiki page."""
+    for section in session.config["sync_sections"]:
+        original_section = section
+        section = {**DEFAULT_SYNC_SECTION, **section}
+        name = section["name"]
+
+        if not section["enabled"]:
+            continue
+        if not section["targets"]:
+            raise ConfigError(f"No sync targets specified for section {name}")
+
+        source = {**DEFAULT_SYNC_ITEM, **section["source"]}
+        source_page, source_text = get_item_text(session, source)
+
+        source_updated = (
+            source_page.revision_date > section["wiki_page_timestamp"])
+        if not source_updated:
+            continue
+        original_section["wiki_page_timestamp"] = source_page.revision_date
+
+        match_obj = search_startend(
+            source_text, source["pattern"],
+            source["pattern_start"], source["pattern_end"])
+        if match_obj is not None:
+            if not match_obj:
+                print(f"Sync section {name} pattern not found on "
+                      f"source wiki page {source_page.name}; skipping")
+                continue
+            source_text = match_obj.group()
+        source_text = replace_patterns(source_text, source["replace_patterns"])
+
+        for target in section["targets"]:
+            target = {**DEFAULT_SYNC_ITEM, **source, **target}
+            target_page, target_text = get_item_text(session, target)
+            target_name = target["name"]
+            source_text_target = replace_patterns(
+                source_text, target["replace_patterns"])
+            match_obj = search_startend(
+                target_text, target["pattern"],
+                target["pattern_start"], target["pattern_end"])
+            if match_obj is not None:
+                if not match_obj:
+                    print(f"Sync section {target_name} pattern not found on "
+                          f"target wiki page {target_page.name}; skipping")
+                    continue
+                target_text = re.sub(
+                    match_obj.re.pattern, source_text_target, target_text)
+            else:
+                target_text = source_text_target
+            target_page.edit(
+                target_text,
+                reason=f"Auto-synced {name} from {source_page.name}")
+
+
+# ----------------- Orchestration -----------------
 
 def run_manage(config_path=CONFIG_PATH):
     """Load the config file and run the thread manager."""
     config = load_config(config_path=config_path)
     session = MegathreadSession(config=copy.deepcopy(config))
+    sync_sections(session)
     manage_thread(session)
     if session.config != config:
         write_config(session.config, config_path=config_path)
@@ -186,7 +347,8 @@ def run_manage(config_path=CONFIG_PATH):
 def run_manage_loop(config_path=CONFIG_PATH, repeat=True):
     config = load_config(config_path=config_path)
     if repeat is True:
-        repeat = config["repeat_interval_s"]
+        repeat = config.get(
+            "repeat_interval_s", DEFAULT_CONFIG["repeat_interval_s"])
     while True:
         print(f"Running megathread manager for config at {config_path}")
         run_manage(config_path=config_path)
@@ -237,7 +399,7 @@ def main(sys_argv=None):
     else:
         try:
             run_manage_loop(**vars(parsed_args))
-        except ConfigError as e:
+        except ConfigNotFoundError as e:
             print(f"Default config file generated. {e}")
 
 
