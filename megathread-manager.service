@@ -1,0 +1,8 @@
+[Unit]
+Description=Megathread Manager Service
+
+[Service]
+ExecStart=%h/bots/megathread-manager/env/bin/python %h/bots/megathread-manager/megathreadmanager.py --repeat
+
+[Install]
+WantedBy=default.target
