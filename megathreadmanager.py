@@ -241,8 +241,11 @@ def create_new_thread(session):
         bottom_sticky = session.config["pin_thread"] != "top"
         if thread_url:
             session.mod.current_thread.mod.sticky(state=False)
+            time.sleep(10)
         try:
             sticky_to_keep = session.mod.subreddit.sticky(number=1)
+            if sticky_to_keep.id == session.user.current_thread.id:
+                sticky_to_keep = session.mod.subreddit.sticky(number=2)
         except prawcore.exceptions.NotFound:
             sticky_to_keep = None
         new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
