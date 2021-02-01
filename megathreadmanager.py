@@ -19,7 +19,7 @@ import prawcore.exceptions
 
 # ----------------- Constants -----------------
 
-__version__ = "0.2.2dev0"
+__version__ = "0.2.2"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()

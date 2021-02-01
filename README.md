@@ -87,33 +87,3 @@ systemctl --user start megathread-manager
 ```
 
 Note that there are [a few considerations to keep in mind](https://wiki.archlinux.org/index.php/systemd/User#Automatic_start-up_of_systemd_user_instances) when running as a user instance of systemd, most notably to get it to autostart on boot rather than login and persist after the user is logged out (e.g. on a server, VPS or other unattended box).
-
-
-
-## Roadmap
-
-### v0.3.x
-
-* Refactor to modular Python package structure with ``setup.py`` and modular components
-* Add support for adding/updating megathread links various places
-* Make a proper changelog and version tagging
-
-
-### v0.x
-
-* Further additional short-term features as needed
-
-
-### v1.0
-
-* Add support for running within the Brokkr framework
-    * Create wrappers for plugin(s) for session, wiki sync and megathread sync
-    * Create preset(s) for plugins(s)
-* Add features to Brokkr/serviceinstaller needed by Megathread-Manager
-    - Add basic JSON reader and writer
-    - Add new features
-* Split configuration into dynamic/runtime and user-facing
-* Create example Brokkr system config
-    - Metadata
-    - Pipeline
-* Add more detailed logging, optionally integrated with Brokkr
