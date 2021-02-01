@@ -19,12 +19,11 @@ import prawcore.exceptions
 
 # ----------------- Constants -----------------
 
-__version__ = "0.2.1"
+__version__ = "0.2.2dev0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
 CONFIG_PATH = CONFIG_DIRECTORY / "config.json"
-CURRENT_DATETIME = datetime.datetime.now(datetime.timezone.utc)
 USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 # Config
@@ -47,6 +46,7 @@ DEFAULT_SYNC_SECTION = {
     }
 
 DEFAULT_CONFIG = {
+    "link_update_pages": [],
     "megathread_enabled": True,
     "new_thread_interval": "month",
     "pin_thread": "top",
@@ -124,6 +124,15 @@ def search_startend(source_text, pattern="", start="", end=""):
         match_obj = re.search(pattern, source_text)
         return match_obj
     return None
+
+
+def get_item_text(session, item):
+    if item:
+        item_page = session.mod.subreddit.wiki[item]
+    else:
+        item_page = session.mod.wiki_page
+    item_text = item_page.content_md
+    return item_page, item_text
 
 
 # ----------------- Helper classes -----------------
@@ -220,13 +229,15 @@ def create_new_thread(session):
     session.config["thread_number"] += 1
     post_details = generate_post_details(session)
 
+    # Submit and approve new thread
+    thread_url = session.config["thread_url"]
     new_thread = session.user.subreddit.submit(**post_details)
     new_thread.disable_inbox_replies()
     new_thread_mod = session.mod.reddit.submission(url=new_thread.url)
     new_thread_mod.mod.approve()
 
+    # Unpin old thread and pin new one
     if session.config["pin_thread"]:
-        thread_url = session.config["thread_url"]
         bottom_sticky = session.config["pin_thread"] != "top"
         if thread_url:
             session.mod.current_thread.mod.sticky(state=False)
@@ -238,6 +249,24 @@ def create_new_thread(session):
         if sticky_to_keep:
             sticky_to_keep.mod.sticky(state=True)
 
+    # Update links to point to new thread
+    if thread_url:
+        links = [
+            tuple([getattr(thread, link_type).strip("/")
+                   for thread in [session.user.current_thread, new_thread]])
+            for link_type in ["permalink", "shortlink"]]
+        for page_name in session.config["link_update_pages"]:
+            page, page_content = get_item_text(session, page_name)
+            for old_link, new_link in links:
+                page_content = re.sub(
+                    pattern=re.escape(old_link),
+                    repl=new_link,
+                    string=page_content,
+                    flags=re.IGNORECASE,
+                    )
+            page.edit(page_content, reason="Update megathread URLs")
+
+    # Update session and config accordingly
     session.config["thread_url"] = new_thread.url
     session.user.current_thread = new_thread
     session.mod.current_thread = new_thread_mod
@@ -270,15 +299,6 @@ def manage_thread(session):
 
 # ----------------- Section-sync functionality -----------------
 
-def get_item_text(session, item):
-    if item["wiki_page"]:
-        item_page = session.mod.subreddit.wiki[item["wiki_page"]]
-    else:
-        item_page = session.mod.wiki_page
-    item_text = item_page.content_md
-    return item_page, item_text
-
-
 def sync_sections(session):
     """Update sections of the sub's sidebar based on the wiki page."""
     for section in session.config["sync_sections"]:
@@ -292,7 +312,7 @@ def sync_sections(session):
             raise ConfigError(f"No sync targets specified for section {name}")
 
         source = {**DEFAULT_SYNC_ITEM, **section["source"]}
-        source_page, source_text = get_item_text(session, source)
+        source_page, source_text = get_item_text(session, source["wiki_page"])
 
         source_updated = (
             source_page.revision_date > section["wiki_page_timestamp"])
@@ -313,7 +333,8 @@ def sync_sections(session):
 
         for target in section["targets"]:
             target = {**DEFAULT_SYNC_ITEM, **source, **target}
-            target_page, target_text = get_item_text(session, target)
+            target_page, target_text = get_item_text(
+                session, target["wiki_page"])
             target_name = target["name"]
             source_text_target = replace_patterns(
                 source_text, target["replace_patterns"])
