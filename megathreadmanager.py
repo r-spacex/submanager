@@ -27,9 +27,9 @@ CONFIG_PATH = CONFIG_DIRECTORY / "config.json"
 USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 # Config
-DEFAULT_SYNC_ITEM = {
+DEFAULT_SYNC_ENDPOINT = {
     "description": "",
-    "name": "",
+    "enabled": True,
     "pattern": "",
     "pattern_end": " End",
     "pattern_start": " Start",
@@ -37,9 +37,9 @@ DEFAULT_SYNC_ITEM = {
     "timestamp": 0,
     }
 
-DEFAULT_SYNC_SECTION = {
-    "enabled": True,
+DEFAULT_SYNC_PAIR = {
     "description": "",
+    "enabled": True,
     "source": {},
     "targets": [],
     }
@@ -57,18 +57,19 @@ DEFAULT_CONFIG = {
         },
     "praw_credentials_mod": {},
     "praw_credentials_post": {},
-    "repeat_interval_s": 300,
+    "repeat_interval_s": 60,
     "replace_patterns": {
         "https://old.reddit.com": "https://www.reddit.com",
         },
     "subreddit_name": "YOURSUBNAME",
-    "sync_sections": [
+    "sync_enabled": True,
+    "sync_pairs": [
         {
-            "enabled": False,
             "description": "Sync Sidebar Demo",
             "source": {
-                "description": "Sidebar wiki page",
-                "name": "",
+                "description": "Thread source wiki page",
+                "enabled": False,
+                "name": "threads",
                 "pattern": "Sidebar",
                 "pattern_end": " End",
                 "pattern_start": " Start",
@@ -78,8 +79,9 @@ DEFAULT_CONFIG = {
                 },
             "targets": [
                 {
-                    "name": "config/sidebar",
                     "description": "Sub Sidebar",
+                    "enabled": True,
+                    "name": "config/sidebar",
                     "pattern": "Sidebar",
                     "pattern_end": " Start",
                     "pattern_start": " End",
@@ -126,13 +128,10 @@ def search_startend(source_text, pattern="", start="", end=""):
     return None
 
 
-def get_item_text(session, item):
-    if item:
-        item_page = session.mod.subreddit.wiki[item]
-    else:
-        item_page = session.mod.wiki_page
-    item_text = item_page.content_md
-    return item_page, item_text
+def get_item(subreddit, item):
+    item_object = subreddit.wiki[item["name"]]
+    item_text = item_object.content_md
+    return item_object, item_text
 
 
 # ----------------- Helper classes -----------------
@@ -259,7 +258,7 @@ def create_new_thread(session):
                    for thread in [session.user.current_thread, new_thread]])
             for link_type in ["permalink", "shortlink"]]
         for page_name in session.config["link_update_pages"]:
-            page, page_content = get_item_text(session, page_name)
+            page, page_content = get_item(session, {"name": page_name})
             for old_link, new_link in links:
                 page_content = re.sub(
                     pattern=re.escape(old_link),
@@ -300,62 +299,74 @@ def manage_thread(session):
     return False
 
 
-# ----------------- Section-sync functionality -----------------
+# ----------------- Sync functionality -----------------
 
-def sync_sections(session):
-    """Sync sections or sources of wiki pages or other targets on a sub."""
-    for section in session.config["sync_sections"]:
-        section = {**DEFAULT_SYNC_SECTION, **section}
-        description = section["description"]
+def sync_one(sync_pair, subreddit):
+    """Sync one specific pair of sources and targets."""
+    sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
+    description = sync_pair.get("description", "Unnamed")
 
-        if not section["enabled"]:
+    if not sync_pair["enabled"]:
+        return None
+    if not sync_pair["targets"]:
+        raise ConfigError(
+            f"No sync targets specified for sync_pair {description}")
+
+    original_source = sync_pair["source"]
+    source = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["source"]}
+    source_page, source_text = get_item(subreddit, source)
+    source_description = (
+        source["description"] if source["description"] else source["name"])
+
+    source_updated = (
+        source_page.revision_date > source["timestamp"])
+    if not source_updated:
+        return False
+    original_source["timestamp"] = source_page.revision_date
+
+    match_obj = search_startend(
+        source_text, source["pattern"],
+        source["pattern_start"], source["pattern_end"])
+    if match_obj is not None:
+        if not match_obj:
+            print(f"Sync pair {description} pattern not found in "
+                  f"source {source_description}; skipping")
+            return False
+        source_text = match_obj.group()
+    source_text = replace_patterns(source_text, source["replace_patterns"])
+
+    for target in sync_pair["targets"]:
+        target = {**DEFAULT_SYNC_ENDPOINT, **source, **target}
+        if not target["enabled"]:
             continue
-        if not section["targets"]:
-            raise ConfigError(
-                f"No sync targets specified for section {description}")
-
-        original_source = section["source"]
-        source = {**DEFAULT_SYNC_ITEM, **section["source"]}
-        source_page, source_text = get_item_text(session, source["name"])
-
-        source_updated = (
-            source_page.revision_date > source["timestamp"])
-        if not source_updated:
-            continue
-        original_source["timestamp"] = source_page.revision_date
-
+        target_page, target_text = get_item(subreddit, target)
+        target_description = (
+            target["description"] if target["description"] else target["name"])
+        source_text_target = replace_patterns(
+            source_text, target["replace_patterns"])
         match_obj = search_startend(
-            source_text, source["pattern"],
-            source["pattern_start"], source["pattern_end"])
+            target_text, target["pattern"],
+            target["pattern_start"], target["pattern_end"])
         if match_obj is not None:
             if not match_obj:
-                print(f"Sync section {description} pattern not found on "
-                      f"source {source_page.name}; skipping")
-                continue
-            source_text = match_obj.group()
-        source_text = replace_patterns(source_text, source["replace_patterns"])
+                print(f"Sync pair {description} pattern not found in "
+                      f"target {target_description}; skipping")
+                return False
 
-        for target in section["targets"]:
-            target = {**DEFAULT_SYNC_ITEM, **source, **target}
-            target_page, target_text = get_item_text(session, target["name"])
-            target_name = target["description"]
-            source_text_target = replace_patterns(
-                source_text, target["replace_patterns"])
-            match_obj = search_startend(
-                target_text, target["pattern"],
-                target["pattern_start"], target["pattern_end"])
-            if match_obj is not None:
-                if not match_obj:
-                    print(f"Sync section {target_name} pattern not found on "
-                          f"target {target_page.name}; skipping")
-                    continue
-                target_text = re.sub(
-                    match_obj.re.pattern, source_text_target, target_text)
-            else:
-                target_text = source_text_target
-            target_page.edit(
-                target_text,
-                reason=f"Auto-sync {description} from {source_page.name}")
+            target_text = re.sub(
+                match_obj.re.pattern, source_text_target, target_text)
+        else:
+            target_text = source_text_target
+        target_page.edit(
+            target_text,
+            reason=f"Auto-sync {description} from {source_page.name}")
+    return True
+
+
+def sync_all(session):
+    """Sync all pairs of sources/targets (pages,threads, sections) on a sub."""
+    for sync_pair in session.config["sync_pairs"]:
+        sync_one(sync_pair, session.mod.subreddit)
 
 
 # ----------------- Orchestration -----------------
@@ -364,7 +375,8 @@ def run_manage(config_path=CONFIG_PATH):
     """Load the config file and run the thread manager."""
     config = load_config(config_path=config_path)
     session = MegathreadSession(config=copy.deepcopy(config))
-    sync_sections(session)
+    if session.config["sync_enabled"]:
+        sync_all(session)
     if session.config["megathread_enabled"]:
         manage_thread(session)
     if session.config != config:
