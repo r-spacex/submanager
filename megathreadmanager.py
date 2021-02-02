@@ -28,18 +28,18 @@ USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 # Config
 DEFAULT_SYNC_ITEM = {
+    "description": "",
     "name": "",
     "pattern": "",
     "pattern_end": " End",
     "pattern_start": " Start",
     "replace_patterns": {},
-    "wiki_page": "",
-    "wiki_page_timestamp": 0,
+    "timestamp": 0,
     }
 
 DEFAULT_SYNC_SECTION = {
     "enabled": True,
-    "name": "",
+    "description": "",
     "source": {},
     "targets": [],
     }
@@ -65,24 +65,25 @@ DEFAULT_CONFIG = {
     "sync_sections": [
         {
             "enabled": False,
-            "name": "Sync Sidebar Demo",
+            "description": "Sync Sidebar Demo",
             "source": {
+                "description": "Sidebar wiki page",
+                "name": "",
                 "pattern": "Sidebar",
                 "pattern_end": " End",
                 "pattern_start": " Start",
                 "replace_patterns": {
                     "https://www.reddit.com": "https://old.reddit.com",
                     },
-                "wiki_page": "",
                 },
             "targets": [
                 {
-                    "name": "Sidebar",
+                    "name": "config/sidebar",
+                    "description": "Sub Sidebar",
                     "pattern": "Sidebar",
                     "pattern_end": " Start",
                     "pattern_start": " End",
                     "replace_patterns": {},
-                    "wiki_page": "config/sidebar",
                     },
                 ],
             },
@@ -302,42 +303,42 @@ def manage_thread(session):
 # ----------------- Section-sync functionality -----------------
 
 def sync_sections(session):
-    """Update sections of the sub's sidebar based on the wiki page."""
+    """Sync sections or sources of wiki pages or other targets on a sub."""
     for section in session.config["sync_sections"]:
         section = {**DEFAULT_SYNC_SECTION, **section}
-        name = section["name"]
+        description = section["description"]
 
         if not section["enabled"]:
             continue
         if not section["targets"]:
-            raise ConfigError(f"No sync targets specified for section {name}")
+            raise ConfigError(
+                f"No sync targets specified for section {description}")
 
         original_source = section["source"]
         source = {**DEFAULT_SYNC_ITEM, **section["source"]}
-        source_page, source_text = get_item_text(session, source["wiki_page"])
+        source_page, source_text = get_item_text(session, source["name"])
 
         source_updated = (
-            source_page.revision_date > source["wiki_page_timestamp"])
+            source_page.revision_date > source["timestamp"])
         if not source_updated:
             continue
-        original_source["wiki_page_timestamp"] = source_page.revision_date
+        original_source["timestamp"] = source_page.revision_date
 
         match_obj = search_startend(
             source_text, source["pattern"],
             source["pattern_start"], source["pattern_end"])
         if match_obj is not None:
             if not match_obj:
-                print(f"Sync section {name} pattern not found on "
-                      f"source wiki page {source_page.name}; skipping")
+                print(f"Sync section {description} pattern not found on "
+                      f"source {source_page.name}; skipping")
                 continue
             source_text = match_obj.group()
         source_text = replace_patterns(source_text, source["replace_patterns"])
 
         for target in section["targets"]:
             target = {**DEFAULT_SYNC_ITEM, **source, **target}
-            target_page, target_text = get_item_text(
-                session, target["wiki_page"])
-            target_name = target["name"]
+            target_page, target_text = get_item_text(session, target["name"])
+            target_name = target["description"]
             source_text_target = replace_patterns(
                 source_text, target["replace_patterns"])
             match_obj = search_startend(
@@ -346,7 +347,7 @@ def sync_sections(session):
             if match_obj is not None:
                 if not match_obj:
                     print(f"Sync section {target_name} pattern not found on "
-                          f"target wiki page {target_page.name}; skipping")
+                          f"target {target_page.name}; skipping")
                     continue
                 target_text = re.sub(
                     match_obj.re.pattern, source_text_target, target_text)
@@ -354,7 +355,7 @@ def sync_sections(session):
                 target_text = source_text_target
             target_page.edit(
                 target_text,
-                reason=f"Auto-synced {name} from {source_page.name}")
+                reason=f"Auto-sync {description} from {source_page.name}")
 
 
 # ----------------- Orchestration -----------------
