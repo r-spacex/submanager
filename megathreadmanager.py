@@ -19,7 +19,7 @@ import prawcore.exceptions
 
 # ----------------- Constants -----------------
 
-__version__ = "0.2.2"
+__version__ = "0.3.0dev0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
@@ -42,7 +42,6 @@ DEFAULT_SYNC_SECTION = {
     "name": "",
     "source": {},
     "targets": [],
-    "wiki_page_timestamp": 0,
     }
 
 DEFAULT_CONFIG = {
@@ -305,7 +304,6 @@ def manage_thread(session):
 def sync_sections(session):
     """Update sections of the sub's sidebar based on the wiki page."""
     for section in session.config["sync_sections"]:
-        original_section = section
         section = {**DEFAULT_SYNC_SECTION, **section}
         name = section["name"]
 
@@ -314,14 +312,15 @@ def sync_sections(session):
         if not section["targets"]:
             raise ConfigError(f"No sync targets specified for section {name}")
 
+        original_source = section["source"]
         source = {**DEFAULT_SYNC_ITEM, **section["source"]}
         source_page, source_text = get_item_text(session, source["wiki_page"])
 
         source_updated = (
-            source_page.revision_date > section["wiki_page_timestamp"])
+            source_page.revision_date > source["wiki_page_timestamp"])
         if not source_updated:
             continue
-        original_section["wiki_page_timestamp"] = source_page.revision_date
+        original_source["wiki_page_timestamp"] = source_page.revision_date
 
         match_obj = search_startend(
             source_text, source["pattern"],
