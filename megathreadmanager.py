@@ -139,13 +139,13 @@ def startend_to_pattern_md(start, end=None):
 
 
 def search_startend(source_text, pattern="", start="", end=""):
+    if not pattern or not (start and end):
+        return False
     start = pattern + start
     end = pattern + end
-    if start or end:
-        pattern = startend_to_pattern_md(start, end)
-        match_obj = re.search(pattern, source_text)
-        return match_obj
-    return None
+    pattern = startend_to_pattern_md(start, end)
+    match_obj = re.search(pattern, source_text)
+    return match_obj
 
 
 def get_item(subreddit, item):
@@ -366,7 +366,7 @@ def sync_one(sync_pair, subreddit):
     match_obj = search_startend(
         source_text, source["pattern"],
         source["pattern_start"], source["pattern_end"])
-    if match_obj is not None:
+    if match_obj is not False:
         if not match_obj:
             print(f"Sync pair {description} pattern not found in "
                   f"source {source_description}; skipping")
@@ -386,7 +386,7 @@ def sync_one(sync_pair, subreddit):
         match_obj = search_startend(
             target_text, target["pattern"],
             target["pattern_start"], target["pattern_end"])
-        if match_obj is not None:
+        if match_obj is not False:
             if not match_obj:
                 print(f"Sync pair {description} pattern not found in "
                       f"target {target_description}; skipping")
