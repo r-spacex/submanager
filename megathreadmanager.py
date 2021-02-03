@@ -44,23 +44,47 @@ DEFAULT_SYNC_PAIR = {
     "targets": [],
     }
 
-DEFAULT_CONFIG = {
+DEFAULT_MEGATHREAD_CONFIG = {
+    "description": "",
+    "enabled": True,
     "link_update_pages": [],
-    "megathread_enabled": True,
     "new_thread_interval": "month",
     "pin_thread": "top",
     "post_title_template": ("{subreddit_name} Megathread "
                             "({current_datetime:%B %Y}, #{thread_number})"),
-    "praw_credentials": {
-        "client_id": "CLIENT_ID",
-        "client_secret": "CLIENT_SECRET",
+    "replace_patterns": {},
+    "thread_number": 0,
+    "thread_url": "",
+    "wiki_page_timestamp": 0,
+    }
+
+DEFAULT_CONFIG = {
+    "credentials_praw": {
+        "DEFAULT": {},
+        "mod": {},
+        "post": {},
         },
-    "praw_credentials_mod": {},
-    "praw_credentials_post": {},
+    "megathreads_enabled": True,
+    "megathreads": [
+        {
+            "description": "Primary megathread",
+            "enabled": True,
+            "link_update_pages": [],
+            "new_thread_interval": "month",
+            "pin_thread": "top",
+            "post_title_template": ("{subreddit_name} Megathread "
+                                    "({current_datetime:%B %Y}, "
+                                    "#{thread_number})"),
+            "replace_patterns": {
+                "https://old.reddit.com": "https://www.reddit.com",
+                },
+            "thread_number": 0,
+            "thread_url": "",
+            "wiki_page_name": "WIKIPAGENAME",
+            "wiki_page_timestamp": 0,
+            },
+        ],
     "repeat_interval_s": 60,
-    "replace_patterns": {
-        "https://old.reddit.com": "https://www.reddit.com",
-        },
     "subreddit_name": "YOURSUBNAME",
     "sync_enabled": True,
     "sync_pairs": [
@@ -90,10 +114,6 @@ DEFAULT_CONFIG = {
                 ],
             },
         ],
-    "thread_number": 0,
-    "thread_url": "",
-    "wiki_page_name": "WIKIPAGENAME",
-    "wiki_page_timestamp": 0,
     }
 
 
@@ -149,16 +169,12 @@ class MegathreadUserSession:
 
     def __init__(self, config, credential_key):
         self.reddit = praw.Reddit(**{
-            **config["praw_credentials"],
-            **config[credential_key],
+            **config["credentials_praw"].get("DEFAULT", {}),
+            **config["credentials_praw"].get(credential_key, {}),
             **{"user_agent": USER_AGENT},
             })
         self.subreddit = self.reddit.subreddit(
             config["subreddit_name"])
-        self.wiki_page = self.subreddit.wiki[
-            config["wiki_page_name"]]
-        self.current_thread = self.reddit.submission(
-            url=config["thread_url"]) if config["thread_url"] else None
 
 
 class MegathreadSession:
@@ -167,9 +183,9 @@ class MegathreadSession:
     def __init__(self, config):
         self.config = {**DEFAULT_CONFIG, **config}
         self.user = MegathreadUserSession(
-            config=config, credential_key="praw_credentials_post")
+            config=config, credential_key="post")
         self.mod = MegathreadUserSession(
-            config=config, credential_key="praw_credentials_mod")
+            config=config, credential_key="mod")
 
 
 # ----------------- Config functions -----------------
@@ -201,49 +217,55 @@ def load_config(return_default=False, config_path=CONFIG_PATH):
 
 # ----------------- Core megathread logic -----------------
 
-def generate_post_details(session):
+def generate_post_details(session, thread_config):
     """Generate the title and post templates."""
     template_variables = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
         "subreddit_name": session.config["subreddit_name"],
-        "thread_number": session.config["thread_number"],
-        "thread_url": session.config["thread_url"],
+        "thread_number": thread_config["thread_number"],
+        "thread_url": thread_config["thread_url"],
         }
-    post_title = session.config["post_title_template"].format(
+    post_title = thread_config["post_title_template"].format(
         **template_variables)
-    post_text = session.mod.wiki_page.content_md.format(**template_variables)
-    post_text = replace_patterns(post_text, session.config["replace_patterns"])
+    source_page = session.mod.subreddit.wiki[thread_config["wiki_page_name"]]
+    post_text = source_page.content_md.format(**template_variables)
+    post_text = replace_patterns(post_text, thread_config["replace_patterns"])
     return {"title": post_title, "selftext": post_text}
 
 
-def update_current_thread(session):
+def update_current_thread(session, thread_config):
     """Update the text of the current thread."""
-    post_details = generate_post_details(session)
-    session.user.current_thread.edit(post_details["selftext"])
+    post_details = generate_post_details(session, thread_config)
+    current_thread = session.user.reddit.submission(
+        url=thread_config["thread_url"])
+    current_thread.edit(post_details["selftext"])
 
 
-def create_new_thread(session):
+def create_new_thread(session, thread_config):
     """Create a new thread based on the title and post template."""
-    session.config["thread_number"] += 1
-    post_details = generate_post_details(session)
+    thread_config["thread_number"] += 1
+    post_details = generate_post_details(session, thread_config)
 
     # Submit and approve new thread
-    thread_url = session.config["thread_url"]
+    thread_url = thread_config["thread_url"]
+    current_thread = session.user.reddit.submission(
+        url=thread_config["thread_url"])
+
     new_thread = session.user.subreddit.submit(**post_details)
     new_thread.disable_inbox_replies()
     new_thread_mod = session.mod.reddit.submission(url=new_thread.url)
     new_thread_mod.mod.approve()
 
     # Unpin old thread and pin new one
-    if session.config["pin_thread"]:
-        bottom_sticky = session.config["pin_thread"] != "top"
+    if thread_config["pin_thread"]:
+        bottom_sticky = thread_config["pin_thread"] != "top"
         if thread_url:
-            session.mod.current_thread.mod.sticky(state=False)
+            current_thread.mod.sticky(state=False)
             time.sleep(10)
         try:
             sticky_to_keep = session.mod.subreddit.sticky(number=1)
-            if sticky_to_keep.id == session.user.current_thread.id:
+            if sticky_to_keep.id == current_thread.id:
                 sticky_to_keep = session.mod.subreddit.sticky(number=2)
         except prawcore.exceptions.NotFound:
             sticky_to_keep = None
@@ -255,10 +277,11 @@ def create_new_thread(session):
     if thread_url:
         links = [
             tuple([getattr(thread, link_type).strip("/")
-                   for thread in [session.user.current_thread, new_thread]])
+                   for thread in [current_thread, new_thread]])
             for link_type in ["permalink", "shortlink"]]
-        for page_name in session.config["link_update_pages"]:
-            page, page_content = get_item(session, {"name": page_name})
+        for page_name in thread_config["link_update_pages"]:
+            page, page_content = get_item(
+                session.mod.subreddit, {"name": page_name})
             for old_link, new_link in links:
                 page_content = re.sub(
                     pattern=re.escape(old_link),
@@ -268,21 +291,29 @@ def create_new_thread(session):
                     )
             page.edit(page_content, reason="Update megathread URLs")
 
-    # Update session and config accordingly
-    session.config["thread_url"] = new_thread.url
-    session.user.current_thread = new_thread
-    session.mod.current_thread = new_thread_mod
+    # Update config accordingly
+    thread_config["thread_url"] = new_thread.url
 
 
-def manage_thread(session):
+def manage_thread(session, thread_config):
     """Manage the current thread, creating or updating it as necessary."""
-    wiki_updated = (session.mod.wiki_page.revision_date
-                    > session.config["wiki_page_timestamp"])
-    interval = session.config["new_thread_interval"]
+    if not thread_config["enabled"]:
+        return None
+    original_thread_config = thread_config
+    thread_config = {**DEFAULT_MEGATHREAD_CONFIG, **thread_config}
+    interval = thread_config["new_thread_interval"]
+
+    source_timestamp = session.mod.subreddit.wiki[
+        thread_config["wiki_page_name"]].revision_date
+    wiki_updated = (source_timestamp > thread_config["wiki_page_timestamp"])
+
+    current_thread = None
     last_post_timestamp = 0
-    if session.config["thread_url"]:
+    if thread_config["thread_url"]:
+        current_thread = session.user.reddit.submission(
+            url=thread_config["thread_url"])
         last_post_timestamp = datetime.datetime.fromtimestamp(
-            session.user.current_thread.created_utc, tz=datetime.timezone.utc)
+            current_thread.created_utc, tz=datetime.timezone.utc)
     current_datetime = datetime.datetime.now(datetime.timezone.utc)
     should_post_new_thread = not last_post_timestamp or (
         interval and (getattr(last_post_timestamp, interval)
@@ -290,13 +321,18 @@ def manage_thread(session):
 
     if wiki_updated or should_post_new_thread:
         if should_post_new_thread:
-            create_new_thread(session)
+            create_new_thread(session, thread_config)
         else:
-            update_current_thread(session)
-        session.config["wiki_page_timestamp"] = (
-            session.mod.wiki_page.revision_date)
+            update_current_thread(session, thread_config)
+        original_thread_config["wiki_page_timestamp"] = source_timestamp
         return True
     return False
+
+
+def manage_threads(session):
+    """Check and create/update all defined megathreads for a sub."""
+    for thread_config in session.config["megathreads"]:
+        manage_thread(session, thread_config)
 
 
 # ----------------- Sync functionality -----------------
@@ -314,6 +350,9 @@ def sync_one(sync_pair, subreddit):
 
     original_source = sync_pair["source"]
     source = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["source"]}
+    if not source["enabled"]:
+        return None
+
     source_page, source_text = get_item(subreddit, source)
     source_description = (
         source["description"] if source["description"] else source["name"])
@@ -378,7 +417,7 @@ def run_manage(config_path=CONFIG_PATH):
     if session.config["sync_enabled"]:
         sync_all(session)
     if session.config["megathread_enabled"]:
-        manage_thread(session)
+        manage_threads(session)
     if session.config != config:
         write_config(session.config, config_path=config_path)
 
