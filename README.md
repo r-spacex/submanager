@@ -48,7 +48,7 @@ python megathreadmanager.py --help
 
 Megathread manager automatically generates its config file, currently formatted as JSON, on first run, and updates it with any new parameters added thereafter.
 Currently, both the static and dynamic/runtime configuration are stored in this file, though this will change in the future.
-By default, the file is located at ``~/.config/megathread_manager/config.json``, but you can specify an alternate config file with the ``--config-file`` command line argument, allowing you to run multiple bots (e.g. for different subs) with different configurations.
+By default, the file is located at ``~/.config/megathread_manager/config.json``, but you can specify an alternate config file with the ``--config-path`` command line argument, allowing you to run multiple bots (e.g. for different subs) with different configurations.
 
 All configuration, except for ``repeat_interval_s``, is read and updated for each run while ``megathread-manager`` is active, so settings can be changed on the fly without stopping and restarting it.
 

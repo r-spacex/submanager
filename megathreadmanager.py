@@ -23,7 +23,8 @@ __version__ = "0.3.0dev0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
-CONFIG_PATH = CONFIG_DIRECTORY / "config.json"
+CONFIG_PATH_STATIC = CONFIG_DIRECTORY / "config.json"
+CONFIG_PATH_DYNAMIC = CONFIG_DIRECTORY / "config_dynamic.json"
 USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 # Config
@@ -34,7 +35,6 @@ DEFAULT_SYNC_ENDPOINT = {
     "pattern_end": " End",
     "pattern_start": " Start",
     "replace_patterns": {},
-    "timestamp": 0,
     }
 
 DEFAULT_SYNC_PAIR = {
@@ -47,15 +47,27 @@ DEFAULT_SYNC_PAIR = {
 DEFAULT_MEGATHREAD_CONFIG = {
     "description": "",
     "enabled": True,
+    "initial": {
+        "thread_number": 0,
+        "thread_url": "",
+        },
     "link_update_pages": [],
     "new_thread_interval": "month",
     "pin_thread": "top",
     "post_title_template": ("{subreddit_name} Megathread "
                             "({current_datetime:%B %Y}, #{thread_number})"),
     "replace_patterns": {},
-    "thread_number": 0,
-    "thread_url": "",
-    "wiki_page_timestamp": 0,
+    }
+
+DEFAULT_DYNAMIC_CONFIGS = {
+    "megathreads": {
+        "thread_number": 0,
+        "thread_url": "",
+        "source_timestamp": 0,
+        },
+    "sync_pairs": {
+        "source_timestamp": 0,
+        },
     }
 
 DEFAULT_CONFIG = {
@@ -65,10 +77,14 @@ DEFAULT_CONFIG = {
         "post": {},
         },
     "megathreads_enabled": True,
-    "megathreads": [
-        {
+    "megathreads": {
+        "primary": {
             "description": "Primary megathread",
-            "enabled": True,
+            "enabled": False,
+            "initial": {
+                "thread_number": 0,
+                "thread_url": "",
+                },
             "link_update_pages": [],
             "new_thread_interval": "month",
             "pin_thread": "top",
@@ -78,17 +94,14 @@ DEFAULT_CONFIG = {
             "replace_patterns": {
                 "https://old.reddit.com": "https://www.reddit.com",
                 },
-            "thread_number": 0,
-            "thread_url": "",
-            "wiki_page_name": "WIKIPAGENAME",
-            "wiki_page_timestamp": 0,
+            "source_name": "threads",
             },
-        ],
+        },
     "repeat_interval_s": 60,
     "subreddit_name": "YOURSUBNAME",
     "sync_enabled": True,
-    "sync_pairs": [
-        {
+    "sync_pairs": {
+        "sidebar": {
             "description": "Sync Sidebar Demo",
             "source": {
                 "description": "Thread source wiki page",
@@ -113,7 +126,7 @@ DEFAULT_CONFIG = {
                     },
                 ],
             },
-        ],
+        },
     }
 
 
@@ -180,77 +193,117 @@ class MegathreadUserSession:
 class MegathreadSession:
     """Common cached state for managing megathreads."""
 
-    def __init__(self, config):
-        self.config = {**DEFAULT_CONFIG, **config}
+    def __init__(self, static_config, dynamic_config):
+        self.config = static_config
+        self.dynamic_config = dynamic_config
         self.user = MegathreadUserSession(
-            config=config, credential_key="post")
+            config=self.config, credential_key="post")
         self.mod = MegathreadUserSession(
-            config=config, credential_key="mod")
+            config=self.config, credential_key="mod")
 
 
 # ----------------- Config functions -----------------
 
-def write_config(config, config_path=CONFIG_PATH):
-    """Write the passed config to the default config path as JSON."""
+def write_config(config, config_path=CONFIG_PATH_DYNAMIC):
+    """Write the passed config to the specified config path."""
+    Path(config_path).parent.mkdir(parents=True, exist_ok=True)
     with open(config_path, mode="w",
               encoding="utf-8", newline="\n") as config_file:
         json.dump(config, config_file, indent=4)
 
 
-def generate_config(config_path=CONFIG_PATH):
-    """Generate a new, default configuration file for Megathread Manager."""
-    Path(config_path).parent.mkdir(parents=True, exist_ok=True)
-    write_config(DEFAULT_CONFIG, config_path=config_path)
-    return DEFAULT_CONFIG
-
-
-def load_config(return_default=False, config_path=CONFIG_PATH):
-    """Load Megathread Manager's config file, creating it if nessesary."""
-    if not Path(config_path).exists():
-        generate_config(config_path=config_path)
+def load_config(config_path):
+    """Load the config file at the specified path."""
     with open(config_path, mode="r", encoding="utf-8") as config_file:
         config = json.load(config_file)
-    if not config or (not return_default and config == DEFAULT_CONFIG):
-        raise ConfigError(f"Config file at {config_path} needs to be set up.")
     return config
+
+
+def load_static_config(config_path=CONFIG_PATH_STATIC):
+    """Load manager's static (user) config file, creating it if needed."""
+    if not Path(config_path).exists():
+        write_config(DEFAULT_CONFIG, config_path=config_path)
+    static_config = load_config(config_path)
+    static_config = {**DEFAULT_CONFIG, **static_config}
+    if not static_config or static_config == DEFAULT_CONFIG:
+        raise ConfigError(f"Config file at {config_path} needs to be set up.")
+    return static_config
+
+
+def render_dynamic_config(static_config=None, dynamic_config=None):
+    """Generate the dynamic config, filling defaults as needed."""
+    # Set up existing config
+    if static_config is None:
+        static_config = load_static_config()
+    if dynamic_config is None:
+        dynamic_config = {}
+
+    # Fill defaults in dynamic config
+    for config_key, defaults in DEFAULT_DYNAMIC_CONFIGS.items():
+        config_section = dynamic_config.get(config_key, {})
+        for config_id, static_config_item in static_config[config_key].items():
+            initial = static_config_item.get("initial", {})
+            config_section[config_id] = {
+                **defaults, **initial, **config_section.get(config_id, {})}
+        dynamic_config[config_key] = config_section
+
+    return dynamic_config
+
+
+def load_dynamic_config(config_path=CONFIG_PATH_DYNAMIC, static_config=None):
+    """Load manager's dynamic runtime config file, creating it if needed."""
+    if not Path(config_path).exists():
+        dynamic_config = render_dynamic_config(
+            static_config=static_config, dynamic_config={})
+        write_config(dynamic_config, config_path=config_path)
+    else:
+        dynamic_config = load_config(config_path)
+        dynamic_config = render_dynamic_config(
+            static_config=static_config, dynamic_config=dynamic_config)
+
+    return dynamic_config
 
 
 # ----------------- Core megathread logic -----------------
 
-def generate_post_details(session, thread_config):
+def generate_post_details(session, thread_config, dynamic_config):
     """Generate the title and post templates."""
     template_variables = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
         "subreddit_name": session.config["subreddit_name"],
-        "thread_number": thread_config["thread_number"],
-        "thread_url": thread_config["thread_url"],
+        "thread_number": dynamic_config["thread_number"],
+        "thread_url": dynamic_config["thread_url"],
         }
     post_title = thread_config["post_title_template"].format(
         **template_variables)
-    source_page = session.mod.subreddit.wiki[thread_config["wiki_page_name"]]
+    source_page = session.mod.subreddit.wiki[thread_config["source_name"]]
     post_text = source_page.content_md.format(**template_variables)
     post_text = replace_patterns(post_text, thread_config["replace_patterns"])
     return {"title": post_title, "selftext": post_text}
 
 
-def update_current_thread(session, thread_config):
+def update_current_thread(session, thread_config, dynamic_config):
     """Update the text of the current thread."""
-    post_details = generate_post_details(session, thread_config)
+    post_details = generate_post_details(
+        session, thread_config, dynamic_config)
     current_thread = session.user.reddit.submission(
-        url=thread_config["thread_url"])
+        url=dynamic_config["thread_url"])
     current_thread.edit(post_details["selftext"])
 
 
-def create_new_thread(session, thread_config):
+def create_new_thread(session, thread_config, dynamic_config):
     """Create a new thread based on the title and post template."""
-    thread_config["thread_number"] += 1
-    post_details = generate_post_details(session, thread_config)
+    dynamic_config["thread_number"] += 1
+    post_details = generate_post_details(
+        session, thread_config, dynamic_config)
 
     # Submit and approve new thread
-    thread_url = thread_config["thread_url"]
-    current_thread = session.user.reddit.submission(
-        url=thread_config["thread_url"])
+    thread_url = dynamic_config["thread_url"]
+    if thread_url:
+        current_thread = session.user.reddit.submission(url=thread_url)
+    else:
+        current_thread = None
 
     new_thread = session.user.subreddit.submit(**post_details)
     new_thread.disable_inbox_replies()
@@ -260,12 +313,12 @@ def create_new_thread(session, thread_config):
     # Unpin old thread and pin new one
     if thread_config["pin_thread"]:
         bottom_sticky = thread_config["pin_thread"] != "top"
-        if thread_url:
+        if current_thread:
             current_thread.mod.sticky(state=False)
             time.sleep(10)
         try:
             sticky_to_keep = session.mod.subreddit.sticky(number=1)
-            if sticky_to_keep.id == current_thread.id:
+            if current_thread and sticky_to_keep.id == current_thread.id:
                 sticky_to_keep = session.mod.subreddit.sticky(number=2)
         except prawcore.exceptions.NotFound:
             sticky_to_keep = None
@@ -274,7 +327,7 @@ def create_new_thread(session, thread_config):
             sticky_to_keep.mod.sticky(state=True)
 
     # Update links to point to new thread
-    if thread_url:
+    if current_thread:
         links = [
             tuple([getattr(thread, link_type).strip("/")
                    for thread in [current_thread, new_thread]])
@@ -292,26 +345,25 @@ def create_new_thread(session, thread_config):
             page.edit(page_content, reason="Update megathread URLs")
 
     # Update config accordingly
-    thread_config["thread_url"] = new_thread.url
+    dynamic_config["thread_url"] = new_thread.url
 
 
-def manage_thread(session, thread_config):
+def manage_thread(session, thread_config, dynamic_config):
     """Manage the current thread, creating or updating it as necessary."""
     if not thread_config["enabled"]:
         return None
-    original_thread_config = thread_config
     thread_config = {**DEFAULT_MEGATHREAD_CONFIG, **thread_config}
     interval = thread_config["new_thread_interval"]
 
     source_timestamp = session.mod.subreddit.wiki[
-        thread_config["wiki_page_name"]].revision_date
-    wiki_updated = (source_timestamp > thread_config["wiki_page_timestamp"])
+        thread_config["source_name"]].revision_date
+    wiki_updated = (source_timestamp > dynamic_config["source_timestamp"])
 
     current_thread = None
     last_post_timestamp = 0
-    if thread_config["thread_url"]:
+    if dynamic_config["thread_url"]:
         current_thread = session.user.reddit.submission(
-            url=thread_config["thread_url"])
+            url=dynamic_config["thread_url"])
         last_post_timestamp = datetime.datetime.fromtimestamp(
             current_thread.created_utc, tz=datetime.timezone.utc)
     current_datetime = datetime.datetime.now(datetime.timezone.utc)
@@ -321,23 +373,28 @@ def manage_thread(session, thread_config):
 
     if wiki_updated or should_post_new_thread:
         if should_post_new_thread:
-            create_new_thread(session, thread_config)
+            create_new_thread(session, thread_config, dynamic_config)
         else:
-            update_current_thread(session, thread_config)
-        original_thread_config["wiki_page_timestamp"] = source_timestamp
+            update_current_thread(session, thread_config, dynamic_config)
+        dynamic_config["source_timestamp"] = source_timestamp
         return True
     return False
 
 
 def manage_threads(session):
     """Check and create/update all defined megathreads for a sub."""
-    for thread_config in session.config["megathreads"]:
-        manage_thread(session, thread_config)
+    for thread_id, thread_config in session.config["megathreads"].items():
+        dynamic_config = session.dynamic_config["megathreads"][thread_id]
+        manage_thread(
+            session=session,
+            thread_config=thread_config,
+            dynamic_config=dynamic_config,
+            )
 
 
 # ----------------- Sync functionality -----------------
 
-def sync_one(sync_pair, subreddit):
+def sync_one(sync_pair, dynamic_config, subreddit):
     """Sync one specific pair of sources and targets."""
     sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
     description = sync_pair.get("description", "Unnamed")
@@ -348,7 +405,6 @@ def sync_one(sync_pair, subreddit):
         raise ConfigError(
             f"No sync targets specified for sync_pair {description}")
 
-    original_source = sync_pair["source"]
     source = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["source"]}
     if not source["enabled"]:
         return None
@@ -358,10 +414,10 @@ def sync_one(sync_pair, subreddit):
         source["description"] if source["description"] else source["name"])
 
     source_updated = (
-        source_page.revision_date > source["timestamp"])
+        source_page.revision_date > dynamic_config["source_timestamp"])
     if not source_updated:
         return False
-    original_source["timestamp"] = source_page.revision_date
+    dynamic_config["source_timestamp"] = source_page.revision_date
 
     match_obj = search_startend(
         source_text, source["pattern"],
@@ -404,32 +460,54 @@ def sync_one(sync_pair, subreddit):
 
 def sync_all(session):
     """Sync all pairs of sources/targets (pages,threads, sections) on a sub."""
-    for sync_pair in session.config["sync_pairs"]:
-        sync_one(sync_pair, session.mod.subreddit)
+    for sync_pair_id, sync_pair in session.config["sync_pairs"].items():
+        dynamic_config = session.dynamic_config["sync_pairs"][sync_pair_id]
+        sync_one(
+            sync_pair=sync_pair,
+            dynamic_config=dynamic_config,
+            subreddit=session.mod.subreddit,
+            )
 
 
 # ----------------- Orchestration -----------------
 
-def run_manage(config_path=CONFIG_PATH):
+def run_manage(
+        config_path_static=CONFIG_PATH_STATIC,
+        config_path_dynamic=CONFIG_PATH_DYNAMIC,
+        ):
     """Load the config file and run the thread manager."""
-    config = load_config(config_path=config_path)
-    session = MegathreadSession(config=copy.deepcopy(config))
+    # Load config and set up session
+    config = load_static_config(config_path_static)
+    dynamic_config = load_dynamic_config(config_path_dynamic, config)
+    session = MegathreadSession(
+        static_config=config, dynamic_config=copy.deepcopy(dynamic_config))
+
+    # Run the core manager tasks
     if session.config["sync_enabled"]:
         sync_all(session)
-    if session.config["megathread_enabled"]:
+    if session.config["megathreads_enabled"]:
         manage_threads(session)
-    if session.config != config:
-        write_config(session.config, config_path=config_path)
+
+    # Write out the dynamic config if it changed
+    if session.dynamic_config != dynamic_config:
+        write_config(session.dynamic_config, config_path=config_path_dynamic)
 
 
-def run_manage_loop(config_path=CONFIG_PATH, repeat=True):
-    config = load_config(config_path=config_path)
+def run_manage_loop(
+        config_path_static=CONFIG_PATH_STATIC,
+        config_path_dynamic=CONFIG_PATH_DYNAMIC,
+        repeat=True,
+        ):
+    config = load_static_config(config_path=config_path_static)
     if repeat is True:
         repeat = config.get(
             "repeat_interval_s", DEFAULT_CONFIG["repeat_interval_s"])
     while True:
-        print(f"Running megathread manager for config at {config_path}")
-        run_manage(config_path=config_path)
+        print(f"Running megathread manager for config at {config_path_static}")
+        run_manage(
+            config_path_static=config_path_static,
+            config_path_dynamic=config_path_dynamic,
+            )
         print("Megathread manager run complete")
         if not repeat:
             break
@@ -457,8 +535,12 @@ def main(sys_argv=None):
         help="If passed, will print the version number and exit",
         )
     parser_main.add_argument(
-        "-c, --config-file",
-        help="The path to the config file to use, if not the default.",
+        "--config-path", dest="config_path_static",
+        help="The path to a custom static (user) config file to use.",
+        )
+    parser_main.add_argument(
+        "--dynamic-config-path", dest="config_path_dynamic",
+        help="The path to a custom dynamic (runtime) config file to use.",
         )
     parser_main.add_argument(
         "--repeat",
