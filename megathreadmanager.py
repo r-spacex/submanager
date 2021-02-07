@@ -42,7 +42,7 @@ DEFAULT_SYNC_PAIR = {
     "description": "",
     "enabled": True,
     "source": {},
-    "targets": [],
+    "targets": {},
     }
 
 DEFAULT_MEGATHREAD_CONFIG = {
@@ -79,7 +79,7 @@ DEFAULT_CONFIG = {
         },
     "megathreads_enabled": True,
     "megathreads": {
-        "primary": {
+        "example_primary": {
             "description": "Primary megathread",
             "enabled": False,
             "initial": {
@@ -102,7 +102,7 @@ DEFAULT_CONFIG = {
     "subreddit_name": "YOURSUBNAME",
     "sync_enabled": True,
     "sync_pairs": {
-        "sidebar": {
+        "example_sidebar": {
             "description": "Sync Sidebar Demo",
             "source": {
                 "description": "Thread source wiki page",
@@ -115,8 +115,8 @@ DEFAULT_CONFIG = {
                     "https://www.reddit.com": "https://old.reddit.com",
                     },
                 },
-            "targets": [
-                {
+            "targets": {
+                "sidebar": {
                     "description": "Sub Sidebar",
                     "enabled": True,
                     "name": "config/sidebar",
@@ -125,7 +125,7 @@ DEFAULT_CONFIG = {
                     "pattern_start": " End",
                     "replace_patterns": {},
                     },
-                ],
+                },
             },
         },
     }
@@ -447,7 +447,7 @@ def sync_one(sync_pair, dynamic_config, subreddit):
         source_text = match_obj.group()
     source_text = replace_patterns(source_text, source["replace_patterns"])
 
-    for target in sync_pair["targets"]:
+    for target in sync_pair["targets"].values():
         target = {**DEFAULT_SYNC_ENDPOINT, **source, **target}
         if not target["enabled"]:
             continue
