@@ -15,6 +15,7 @@ import time
 # Third party imports
 import praw
 import prawcore.exceptions
+import tomlkit
 
 
 # ----------------- Constants -----------------
@@ -23,7 +24,7 @@ __version__ = "0.3.0dev0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
-CONFIG_PATH_STATIC = CONFIG_DIRECTORY / "config.json"
+CONFIG_PATH_STATIC = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC = CONFIG_DIRECTORY / "config_dynamic.json"
 USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
@@ -209,13 +210,28 @@ def write_config(config, config_path=CONFIG_PATH_DYNAMIC):
     Path(config_path).parent.mkdir(parents=True, exist_ok=True)
     with open(config_path, mode="w",
               encoding="utf-8", newline="\n") as config_file:
-        json.dump(config, config_file, indent=4)
+        if config_path.suffix == ".json":
+            json.dump(config, config_file, indent=4)
+        elif config_path.suffix == ".toml":
+            config_raw = tomlkit.dumps(config)
+            config_file.write(config_raw)
+        else:
+            raise ConfigError(
+                f"Format of config file {config_path} not in {{JSON, TOML}}")
 
 
 def load_config(config_path):
     """Load the config file at the specified path."""
+    config_path = Path(config_path)
     with open(config_path, mode="r", encoding="utf-8") as config_file:
-        config = json.load(config_file)
+        if config_path.suffix == ".json":
+            config = json.load(config_file)
+        elif config_path.suffix == ".toml":
+            config_raw = config_file.read()
+            config = dict(tomlkit.loads(config_raw))
+        else:
+            raise ConfigError(
+                f"Format of config file {config_path} not in {{JSON, TOML}}")
     return config
 
 
@@ -226,7 +242,8 @@ def load_static_config(config_path=CONFIG_PATH_STATIC):
     static_config = load_config(config_path)
     static_config = {**DEFAULT_CONFIG, **static_config}
     if not static_config or static_config == DEFAULT_CONFIG:
-        raise ConfigError(f"Config file at {config_path} needs to be set up.")
+        raise ConfigNotFoundError(
+            f"Config file at {config_path} needs to be set up.")
     return static_config
 
 

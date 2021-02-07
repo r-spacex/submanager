@@ -24,7 +24,7 @@ python3 -m venv env
 source env/bin/activate
 ```
 
-Finally, install the necessary dependencies (currently only PRAW) using `pip` (or they can be installed with your systemwide package manager, if you use system Python or ``--system-site-packages`` when creating the venv):
+Finally, install the necessary dependencies (currently ``praw`` and ``tomlkit``) using `pip` (or they can be installed with your systemwide package manager, if you use system Python or ``--system-site-packages`` when creating the venv):
 
 ```bash
 pip install -r requirements.txt
