@@ -4,9 +4,11 @@ Generate, pin and update a regular megathread for a subreddit.
 """
 
 # Standard library imports
+import abc
 import argparse
 import copy
 import datetime
+import enum
 import json
 from pathlib import Path
 import re
@@ -28,10 +30,18 @@ CONFIG_PATH_STATIC = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC = CONFIG_DIRECTORY / "config_dynamic.json"
 USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
+
+# Enum values
+@enum.unique
+class EndpointType(enum.Enum):
+    WIKI_PAGE = enum.auto()
+
+
 # Config
 DEFAULT_SYNC_ENDPOINT = {
     "description": "",
     "enabled": True,
+    "endpoint_type": EndpointType.WIKI_PAGE.name,
     "pattern": "",
     "pattern_end": " End",
     "pattern_start": " Start",
@@ -107,7 +117,8 @@ DEFAULT_CONFIG = {
             "source": {
                 "description": "Thread source wiki page",
                 "enabled": False,
-                "name": "threads",
+                "endpoint_name": "threads",
+                "endpoint_type": EndpointType.WIKI_PAGE.name,
                 "pattern": "Sidebar",
                 "pattern_end": " End",
                 "pattern_start": " Start",
@@ -119,7 +130,8 @@ DEFAULT_CONFIG = {
                 "sidebar": {
                     "description": "Sub Sidebar",
                     "enabled": True,
-                    "name": "config/sidebar",
+                    "endpoint_name": "config/sidebar",
+                    "endpoint_type": EndpointType.WIKI_PAGE.name,
                     "pattern": "Sidebar",
                     "pattern_end": " Start",
                     "pattern_start": " End",
@@ -162,12 +174,6 @@ def search_startend(source_text, pattern="", start="", end=""):
     return match_obj
 
 
-def get_item(subreddit, item):
-    item_object = subreddit.wiki[item["name"]]
-    item_text = item_object.content_md
-    return item_object, item_text
-
-
 # ----------------- Helper classes -----------------
 
 class ConfigError(RuntimeError):
@@ -201,6 +207,66 @@ class MegathreadSession:
             config=self.config, credential_key="post")
         self.mod = MegathreadUserSession(
             config=self.config, credential_key="mod")
+
+
+class SyncEndpoint(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def __init__(self, endpoint_name, description=None):
+        self._endpoint_name = endpoint_name
+        self.description = endpoint_name if not description else description
+        self._object = None
+
+    @property
+    def name(self):
+        return self._endpoint_name
+
+    @property
+    @abc.abstractmethod
+    def content(self):
+        pass
+
+    def edit(self, new_content, reason=""):  # pylint: disable=unused-argument
+        self._object.edit(new_content)
+
+    @content.setter
+    def content(self, new_content):
+        self.edit(new_content)
+
+    @property
+    def revision_date(self):
+        return self._object.revision_date
+
+
+class WikiSyncEndpoint(SyncEndpoint):
+    def __init__(self, subreddit, **kwargs):
+        super().__init__(**kwargs)
+        self._object = subreddit.wiki[self.name]
+
+    @property
+    def content(self):
+        return self._object.content_md
+
+    def edit(self, new_content, reason=""):
+        self._object.edit(new_content, reason=reason)
+
+
+SYNC_ENDPOINT_TYPES = {
+    EndpointType.WIKI_PAGE: WikiSyncEndpoint,
+    }
+
+
+def create_sync_endpoint(
+        endpoint_type=EndpointType.WIKI_PAGE, **endpoint_kwargs):
+    if not isinstance(endpoint_type, EndpointType):
+        endpoint_type = EndpointType[endpoint_type]
+    sync_endpoint = SYNC_ENDPOINT_TYPES[endpoint_type](**endpoint_kwargs)
+    return sync_endpoint
+
+
+def create_sync_endpoint_from_config(config, subreddit):
+    config = {key: value for key, value in config.items()
+              if key in {"endpoint_name", "endpoint_type", "description"}}
+    return create_sync_endpoint(subreddit=subreddit, **config)
 
 
 # ----------------- Config functions -----------------
@@ -350,16 +416,19 @@ def create_new_thread(session, thread_config, dynamic_config):
                    for thread in [current_thread, new_thread]])
             for link_type in ["permalink", "shortlink"]]
         for page_name in thread_config["link_update_pages"]:
-            page, page_content = get_item(
-                session.mod.subreddit, {"name": page_name})
+            page = create_sync_endpoint(
+                endpoint_name=page_name,
+                endpoint_type=EndpointType.WIKI_PAGE,
+                subreddit=session.mod.subreddit,
+                )
             for old_link, new_link in links:
-                page_content = re.sub(
+                new_content = re.sub(
                     pattern=re.escape(old_link),
                     repl=new_link,
-                    string=page_content,
+                    string=page.content,
                     flags=re.IGNORECASE,
                     )
-            page.edit(page_content, reason="Update megathread URLs")
+            page.edit(new_content, reason="Update megathread URLs")
 
     # Update config accordingly
     dynamic_config["thread_url"] = new_thread.url
@@ -411,6 +480,54 @@ def manage_threads(session):
 
 # ----------------- Sync functionality -----------------
 
+def process_endpoint_text(content, config, replace_text=None):
+    match_obj = search_startend(
+        content, config["pattern"],
+        config["pattern_start"], config["pattern_end"])
+    if match_obj is not False:
+        if not match_obj:
+            return False
+        output_text = match_obj.group()
+        if replace_text is not None:
+            output_text = content.replace(output_text, replace_text)
+        return output_text
+
+    return content if replace_text is None else replace_text
+
+
+def process_source_endpoint(source_config, source_obj, dynamic_config):
+    source_timestamp = source_obj.revision_date
+    source_updated = (
+        source_timestamp > dynamic_config["source_timestamp"])
+    if not source_updated:
+        return False
+    dynamic_config["source_timestamp"] = source_timestamp
+
+    source_text = process_endpoint_text(source_obj.content, source_config)
+    if source_text is False:
+        print("Sync pattern not found in source "
+              f"{source_obj.description}; skipping")
+        return False
+
+    source_text = replace_patterns(
+        source_text, source_config["replace_patterns"])
+    return source_text
+
+
+def process_target_endpoint(target_config, target_obj, source_text):
+    source_text_target = replace_patterns(
+        source_text, target_config["replace_patterns"])
+
+    target_text = process_endpoint_text(
+        target_obj.content, target_config, replace_text=source_text_target)
+    if target_text is False:
+        print("Sync pattern not found in target "
+              f"{target_obj.description}; skipping")
+        return False
+
+    return target_text
+
+
 def sync_one(sync_pair, dynamic_config, subreddit):
     """Sync one specific pair of sources and targets."""
     sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
@@ -422,56 +539,34 @@ def sync_one(sync_pair, dynamic_config, subreddit):
         raise ConfigError(
             f"No sync targets specified for sync_pair {description}")
 
-    source = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["source"]}
-    if not source["enabled"]:
+    source_config = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["source"]}
+    if not source_config["enabled"]:
         return None
 
-    source_page, source_text = get_item(subreddit, source)
-    source_description = (
-        source["description"] if source["description"] else source["name"])
-
-    source_updated = (
-        source_page.revision_date > dynamic_config["source_timestamp"])
-    if not source_updated:
+    source_obj = create_sync_endpoint_from_config(
+        config=source_config, subreddit=subreddit)
+    source_text = process_source_endpoint(
+        source_config, source_obj, dynamic_config)
+    if source_text is False:
         return False
-    dynamic_config["source_timestamp"] = source_page.revision_date
 
-    match_obj = search_startend(
-        source_text, source["pattern"],
-        source["pattern_start"], source["pattern_end"])
-    if match_obj is not False:
-        if not match_obj:
-            print(f"Sync pair {description} pattern not found in "
-                  f"source {source_description}; skipping")
-            return False
-        source_text = match_obj.group()
-    source_text = replace_patterns(source_text, source["replace_patterns"])
-
-    for target in sync_pair["targets"].values():
-        target = {**DEFAULT_SYNC_ENDPOINT, **source, **target}
-        if not target["enabled"]:
+    for target_config in sync_pair["targets"].values():
+        target_config = {
+            **DEFAULT_SYNC_ENDPOINT, **source_config, **target_config}
+        if not target_config["enabled"]:
             continue
-        target_page, target_text = get_item(subreddit, target)
-        target_description = (
-            target["description"] if target["description"] else target["name"])
-        source_text_target = replace_patterns(
-            source_text, target["replace_patterns"])
-        match_obj = search_startend(
-            target_text, target["pattern"],
-            target["pattern_start"], target["pattern_end"])
-        if match_obj is not False:
-            if not match_obj:
-                print(f"Sync pair {description} pattern not found in "
-                      f"target {target_description}; skipping")
-                return False
 
-            target_text = re.sub(
-                match_obj.re.pattern, source_text_target, target_text)
-        else:
-            target_text = source_text_target
-        target_page.edit(
+        target_obj = create_sync_endpoint_from_config(
+            config=target_config, subreddit=subreddit)
+        target_text = process_target_endpoint(
+            target_config, target_obj, source_text)
+        if target_text is False:
+            continue
+
+        target_obj.edit(
             target_text,
-            reason=f"Auto-sync {description} from {source_page.name}")
+            reason=f"Auto-sync {description} from {target_obj.name}",
+            )
     return True
 
 
