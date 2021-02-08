@@ -1,7 +1,7 @@
 # Megathread Manager
 
 A Reddit bot to automatically generate, create, pin and update megathreads, as well as related tasks.
-Additionally, can be used alongside or as well as automatically sync and reformat content between wiki pages and sections of the same (including the sub's sidebar and other content).
+Additionally, can be used alongside or as well as automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
 Includes an installable systemd service unit for real-time operation on modern Linux distributions, which is used in production for the r/SpaceX subreddit, or can be run by any other means you choose on your system.
 
 

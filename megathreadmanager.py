@@ -34,6 +34,8 @@ USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 # Enum values
 @enum.unique
 class EndpointType(enum.Enum):
+    THREAD = enum.auto()
+    WIDGET = enum.auto()
     WIKI_PAGE = enum.auto()
 
 
@@ -165,7 +167,7 @@ def startend_to_pattern_md(start, end=None):
 
 
 def search_startend(source_text, pattern="", start="", end=""):
-    if not pattern or not (start and end):
+    if pattern is False or pattern is None or not (pattern or start or end):
         return False
     start = pattern + start
     end = pattern + end
@@ -211,7 +213,13 @@ class MegathreadSession:
 
 class SyncEndpoint(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def __init__(self, endpoint_name, description=None):
+    def __init__(
+            self,
+            endpoint_name,
+            reddit=None,
+            subreddit=None,
+            description=None,
+                ):
         self._endpoint_name = endpoint_name
         self.description = endpoint_name if not description else description
         self._object = None
@@ -233,8 +241,47 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         self.edit(new_content)
 
     @property
+    @abc.abstractmethod
     def revision_date(self):
-        return self._object.revision_date
+        pass
+
+
+class ThreadSyncEndpoint(SyncEndpoint):
+    def __init__(self, reddit, **kwargs):
+        super().__init__(**kwargs)
+        self._object = reddit.submission(id=self.name)
+
+    @property
+    def content(self):
+        return self._object.selftext
+
+    @property
+    def revision_date(self):
+        edited = self._object.edited
+        return edited if edited else self._object.created_utc
+
+
+class WidgetSyncEndpoint(SyncEndpoint):
+    def __init__(self, subreddit, **kwargs):
+        super().__init__(**kwargs)
+        for widget in subreddit.widgets.sidebar:
+            if widget.shortName == self.name:
+                self._object = widget
+                break
+        else:
+            raise ValueError(
+                f"Widget {self.name} missing for endpoint {self.description}")
+
+    @property
+    def content(self):
+        return self._object.text
+
+    def edit(self, new_content, reason=""):
+        self._object.mod.update(text=new_content)
+
+    @property
+    def revision_date(self):
+        raise NotImplementedError
 
 
 class WikiSyncEndpoint(SyncEndpoint):
@@ -249,8 +296,14 @@ class WikiSyncEndpoint(SyncEndpoint):
     def edit(self, new_content, reason=""):
         self._object.edit(new_content, reason=reason)
 
+    @property
+    def revision_date(self):
+        return self._object.revision_date
+
 
 SYNC_ENDPOINT_TYPES = {
+    EndpointType.THREAD: ThreadSyncEndpoint,
+    EndpointType.WIDGET: WidgetSyncEndpoint,
     EndpointType.WIKI_PAGE: WikiSyncEndpoint,
     }
 
@@ -263,10 +316,10 @@ def create_sync_endpoint(
     return sync_endpoint
 
 
-def create_sync_endpoint_from_config(config, subreddit):
+def create_sync_endpoint_from_config(config, reddit, subreddit):
     config = {key: value for key, value in config.items()
               if key in {"endpoint_name", "endpoint_type", "description"}}
-    return create_sync_endpoint(subreddit=subreddit, **config)
+    return create_sync_endpoint(reddit=reddit, subreddit=subreddit, **config)
 
 
 # ----------------- Config functions -----------------
@@ -496,12 +549,16 @@ def process_endpoint_text(content, config, replace_text=None):
 
 
 def process_source_endpoint(source_config, source_obj, dynamic_config):
-    source_timestamp = source_obj.revision_date
-    source_updated = (
-        source_timestamp > dynamic_config["source_timestamp"])
-    if not source_updated:
-        return False
-    dynamic_config["source_timestamp"] = source_timestamp
+    try:
+        source_timestamp = source_obj.revision_date
+    except NotImplementedError:  # Always update if source has no timestamp
+        pass
+    else:
+        source_updated = (
+            source_timestamp > dynamic_config["source_timestamp"])
+        if not source_updated:
+            return False
+        dynamic_config["source_timestamp"] = source_timestamp
 
     source_text = process_endpoint_text(source_obj.content, source_config)
     if source_text is False:
@@ -528,7 +585,7 @@ def process_target_endpoint(target_config, target_obj, source_text):
     return target_text
 
 
-def sync_one(sync_pair, dynamic_config, subreddit):
+def sync_one(sync_pair, dynamic_config, reddit, subreddit):
     """Sync one specific pair of sources and targets."""
     sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
     description = sync_pair.get("description", "Unnamed")
@@ -544,7 +601,7 @@ def sync_one(sync_pair, dynamic_config, subreddit):
         return None
 
     source_obj = create_sync_endpoint_from_config(
-        config=source_config, subreddit=subreddit)
+        config=source_config, reddit=reddit, subreddit=subreddit)
     source_text = process_source_endpoint(
         source_config, source_obj, dynamic_config)
     if source_text is False:
@@ -557,7 +614,7 @@ def sync_one(sync_pair, dynamic_config, subreddit):
             continue
 
         target_obj = create_sync_endpoint_from_config(
-            config=target_config, subreddit=subreddit)
+            config=target_config, reddit=reddit, subreddit=subreddit)
         target_text = process_target_endpoint(
             target_config, target_obj, source_text)
         if target_text is False:
@@ -577,6 +634,7 @@ def sync_all(session):
         sync_one(
             sync_pair=sync_pair,
             dynamic_config=dynamic_config,
+            reddit=session.mod.reddit,
             subreddit=session.mod.subreddit,
             )
 
