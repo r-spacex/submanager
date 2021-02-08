@@ -60,7 +60,7 @@ DEFAULT_MEGATHREAD_CONFIG = {
     "enabled": True,
     "initial": {
         "thread_number": 0,
-        "thread_url": "",
+        "thread_id": "",
         },
     "link_update_pages": [],
     "new_thread_interval": "month",
@@ -73,7 +73,7 @@ DEFAULT_MEGATHREAD_CONFIG = {
 DEFAULT_DYNAMIC_CONFIGS = {
     "megathreads": {
         "thread_number": 0,
-        "thread_url": "",
+        "thread_id": "",
         "source_timestamp": 0,
         },
     "sync_pairs": {
@@ -94,7 +94,7 @@ DEFAULT_CONFIG = {
             "enabled": False,
             "initial": {
                 "thread_number": 0,
-                "thread_url": "",
+                "thread_id": "",
                 },
             "link_update_pages": [],
             "new_thread_interval": "month",
@@ -356,7 +356,7 @@ def generate_post_details(session, thread_config, dynamic_config):
         "current_datetime_local": datetime.datetime.now(),
         "subreddit_name": session.config["subreddit_name"],
         "thread_number": dynamic_config["thread_number"],
-        "thread_url": dynamic_config["thread_url"],
+        "thread_id": dynamic_config["thread_id"],
         }
     post_title = thread_config["post_title_template"].format(
         **template_variables)
@@ -371,7 +371,7 @@ def update_current_thread(session, thread_config, dynamic_config):
     post_details = generate_post_details(
         session, thread_config, dynamic_config)
     current_thread = session.user.reddit.submission(
-        url=dynamic_config["thread_url"])
+        id=dynamic_config["thread_id"])
     current_thread.edit(post_details["selftext"])
 
 
@@ -382,15 +382,15 @@ def create_new_thread(session, thread_config, dynamic_config):
         session, thread_config, dynamic_config)
 
     # Submit and approve new thread
-    thread_url = dynamic_config["thread_url"]
-    if thread_url:
-        current_thread = session.user.reddit.submission(url=thread_url)
+    thread_id = dynamic_config["thread_id"]
+    if thread_id:
+        current_thread = session.user.reddit.submission(id=thread_id)
     else:
         current_thread = None
 
     new_thread = session.user.subreddit.submit(**post_details)
     new_thread.disable_inbox_replies()
-    new_thread_mod = session.mod.reddit.submission(url=new_thread.url)
+    new_thread_mod = session.mod.reddit.submission(id=new_thread.id)
     new_thread_mod.mod.approve()
 
     # Unpin old thread and pin new one
@@ -431,7 +431,7 @@ def create_new_thread(session, thread_config, dynamic_config):
             page.edit(new_content, reason="Update megathread URLs")
 
     # Update config accordingly
-    dynamic_config["thread_url"] = new_thread.url
+    dynamic_config["thread_id"] = new_thread.id
 
 
 def manage_thread(session, thread_config, dynamic_config):
@@ -447,9 +447,9 @@ def manage_thread(session, thread_config, dynamic_config):
 
     current_thread = None
     last_post_timestamp = 0
-    if dynamic_config["thread_url"]:
+    if dynamic_config["thread_id"]:
         current_thread = session.user.reddit.submission(
-            url=dynamic_config["thread_url"])
+            id=dynamic_config["thread_id"])
         last_post_timestamp = datetime.datetime.fromtimestamp(
             current_thread.created_utc, tz=datetime.timezone.utc)
     current_datetime = datetime.datetime.now(datetime.timezone.utc)
