@@ -34,6 +34,4 @@
     * Create wrappers for plugin(s) for session, wiki sync and megathread sync
     * Create preset(s) for plugins(s)
 * Create example Brokkr system config
-    - Metadata
-    - Pipeline
 * Add more detailed logging, optionally integrated with Brokkr
