@@ -1,37 +1,48 @@
 # Roadmap
 
-## v0.3.0 Early Feb
+
+## v0.3.0 (Early Feb)
+
+* Add support for syncing to/from New Reddit sidebar widgets, menus and thread OPs
+* Add support for multiple megathreads
+* Bring sync features/config options to megathreads using sync module as backend
+* Add both broader and more granular enable/disable options
+* Split static and dynamic config files and objects, make static TOML and reorganize
+* Majorly refactor code
+
+
+
+## v0.4.0 (Late Feb)
+
+* Add optional regex support for replace patterns
+* Refactor to modular Python package structure with ``setup.py`` and modular components
+* Use consistent API to run individual manager tasks
+* Improve error handling when one request/module fails
+* Use Python logging module and add many more specific logging messages
+* Add baseline pre-commit and CI checks
+* Publish to Github and PyPI
+
+
+
+## v0.5.0 (March)
 
 * Add automod-manager module to pre-process automod config
-* Add support for multiple megathreads and reorgnize config accordingly
-* Add support for syncing to/from New Reddit widgets
-
-* Refactor to modular Python package structure with ``setup.py`` and modular components
-* Improve error handling when one request/module fails
-* Split static and dynamic config, make static config TOML and reorganize
-* Recursively fill config from defaults
-* Use Python logging module and add many more specific logging messages
-* Make a proper changelog and version tagging, and publish to Github and PyPI
-
-
-
-## v0.4.0 Late Feb
-
-* Add ability to re/generate popup menu of threads in removal dialog
+* Add ability to re/generate popup menu of threads (e.g. in removal dialog)
 * Add serviceinstaller support for automatic service installation
 * Add support for updating refresh tokens after PRAW adds it upstream
-
-* Add basic pre-commit and CI support
-* Further improve logging and error handling as needed (proper logging? verbose mode?)
-* Further additional short-term features as needed
+* Add proper tests and CIs
+* Further improve logging and error handling as needed (better logging? verbose mode?)
 
 
 
-## v1.0 ???
+## v1.0.0 (???)
 
+* Add support for syncing between endpoints on multiple subreddits?
 * Add more desired features (sticky comments, moderation tools, more automod automation...)
 * Add support for running within the Brokkr framework
     * Create wrappers for plugin(s) for session, wiki sync and megathread sync
     * Create preset(s) for plugins(s)
 * Create example Brokkr system config
+* Further improve documentation
+* Add MyPy type annotations
 * Add more detailed logging, optionally integrated with Brokkr

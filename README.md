@@ -24,11 +24,13 @@ python3 -m venv env
 source env/bin/activate
 ```
 
-Finally, install the necessary dependencies (currently ``praw`` and ``tomlkit``) using `pip` (or they can be installed with your systemwide package manager, if you use system Python or ``--system-site-packages`` when creating the venv):
+Currently, to install the necessary dependencies (currently ``praw`` and ``tomlkit``) using `pip`, you must do so manually from the ``requirements.txt`` via the following:
 
 ```bash
 pip install -r requirements.txt
 ```
+
+Alternatively, they can be installed with your systemwide package manager or Python distribution, if you use system Python (not recommended) or ``--system-site-packages`` when creating the venv.
 
 
 
@@ -46,20 +48,21 @@ python megathreadmanager.py --help
 
 ## Configuration
 
-Megathread manager automatically generates its config file, currently formatted as JSON, on first run, and updates it with any new parameters added thereafter.
-Currently, both the static and dynamic/runtime configuration are stored in this file, though this will change in the future.
-By default, the file is located at ``~/.config/megathread_manager/config.json``, but you can specify an alternate config file with the ``--config-path`` command line argument, allowing you to run multiple bots (e.g. for different subs) with different configurations.
+Megathread manager automatically generates its primary user config file (formatted as TOML for humans) on first run.
+By default, the file is located at ``~/.config/megathread_manager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory.
+However, you can specify an alternate config file for one or both with the ``--config-path`` command line argument, allowing you to run multiple bots (e.g. for different subs) with different sets of accounts.
 
 All configuration, except for ``repeat_interval_s``, is read and updated for each run while ``megathread-manager`` is active, so settings can be changed on the fly without stopping and restarting it.
 
 It can be set to use separate accounts for actually posting the megathread and performing an moderation actions; only the latter is required to be a moderator.
 You'll need to configure and register the account(s) involved for Reddit app access with the Reddit API.
-Common parameters (that are passed to PRAW, e.g. username/password, client id/client secret, refresh token, etc) go in the ``praw_credentials`` dict, while any specific to one user or another go in the two more specifically named ones; if none of the latter are specified, the same account is used for both.
+We recommend you configure your credentials in ``praw.ini`` and simply refer to them by passing the ``site_name`` parameter to ``credentials_praw``, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
+Common parameters (that are passed to PRAW, e.g. username/password, client id/client secret, refresh token, etc) go in the ``DEFAULT`` dict, while any specific to one user or another go in the two more specifically named ones; if none of the latter are specified, the same account is used for both.
 
-To disable the megathread features entirely and only use the wiki sync feature, set ``megathread_enabled`` to ``false``.
-For simplicity, ``replace_patterns`` are currently plain text (no regex), though support for the latter may be added in the future.
+To disable the megathread features entirely and only use the wiki sync feature, set ``megathread_enabled`` to ``false``; the converse is equally possible with ``sync_enabled``.
+For simplicity, unlike most other patterns, ``replace_patterns`` are currently plain text (no regex), though support for the latter will be added in the future.
 
-The ``pattern``s of text specified in ``source`` and ``targets`` are searched for in pseudo Markdown "comments", i.e. empty links that don't appear in the rendered text, like so:
+The ``pattern``s of text specified in ``source`` and ``targets`` are searched for in pseudo-Markdown "comments", i.e. empty links that don't appear in the rendered text, like so:
 
 ```markdown
 [](#/ <PATTERN><PATTERN_START>)
@@ -69,7 +72,7 @@ Example section content
 [](#/ <PATTERN><PATTERN_END>)
 ```
 
-If any variable (``pattern``, ``pattern_start``, ``pattern_end``) is not specified for a ``target``, the value from ``source`` is used.
+If any variable (e.g. ``pattern``) is not specified for a ``target``, the value from ``source`` is used.
 Conversely, any ``replace_patterns`` for a specific target are applied after (and in addition) to those specified in ``source`` for all targets; note the ``source`` section is *not* actually modified unless it is specified as a ``target``.
 
 
