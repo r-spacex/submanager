@@ -22,7 +22,7 @@ import tomlkit
 
 # ----------------- Constants -----------------
 
-__version__ = "0.3.0dev0"
+__version__ = "0.3.0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()

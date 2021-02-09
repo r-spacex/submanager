@@ -1,17 +1,6 @@
 # Roadmap
 
 
-## v0.3.0 (Early Feb)
-
-* Add support for syncing to/from New Reddit sidebar widgets, menus and thread OPs
-* Add support for multiple megathreads
-* Bring sync features/config options to megathreads using sync module as backend
-* Add both broader and more granular enable/disable options
-* Split static and dynamic config files and objects, make static TOML and reorganize
-* Majorly refactor code
-
-
-
 ## v0.4.0 (Late Feb)
 
 * Add optional regex support for replace patterns

@@ -1,6 +1,28 @@
 # Sub Manager Changelog
 
 
+## Version 0.3.0 (2021-02-08)
+
+Major feature and refactoring release with many config/API changes.
+
+New features:
+* Support sync to/from New Reddit sidebar widgets
+* Support sync to/from thread OPs
+* Support sync to new Reddit menus
+* Add support for managing multiple independent megathreads
+* Enable full sync endpoint features for megathreads
+* Add broader and more granular enable/disable options
+
+Under the hood:
+* Use sync module as backend for megathread update
+* Split static and dynamic config files and objects
+* Make static config human-editable TOML
+* Reorganize and streamline config schema
+* Hugely refactor code
+* Add CHANGELOG tracking releases
+
+
+
 ## Version 0.2.2 (2021-02-01)
 
 Bugfix and enhancement release with the following changes:
