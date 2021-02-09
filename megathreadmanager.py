@@ -47,7 +47,7 @@ DEFAULT_SYNC_ENDPOINT = {
     "endpoint_name": "",
     "endpoint_type": EndpointType.WIKI_PAGE.name,
     "menu_config": {},
-    "pattern": "",
+    "pattern": False,
     "pattern_end": " End",
     "pattern_start": " Start",
     "replace_patterns": {},
@@ -72,7 +72,7 @@ DEFAULT_MEGATHREAD_CONFIG = {
     "pin_thread": "top",
     "post_title_template": ("{subreddit_name} Megathread "
                             "({current_datetime:%B %Y}, #{thread_number})"),
-    "replace_patterns": {},
+    "source": {},
     }
 
 DEFAULT_DYNAMIC_CONFIGS = {
@@ -107,10 +107,13 @@ DEFAULT_CONFIG = {
             "post_title_template": ("{subreddit_name} Megathread "
                                     "({current_datetime:%B %Y}, "
                                     "#{thread_number})"),
-            "replace_patterns": {
-                "https://old.reddit.com": "https://www.reddit.com",
+            "source": {
+                "description": "Megathreads wiki page",
+                "endpoint_name": "threads",
+                "replace_patterns": {
+                    "https://old.reddit.com": "https://www.reddit.com",
+                    },
                 },
-            "source_name": "threads",
             },
         },
     "repeat_interval_s": 60,
@@ -445,37 +448,36 @@ def load_dynamic_config(config_path=CONFIG_PATH_DYNAMIC, static_config=None):
 
 # ----------------- Core megathread logic -----------------
 
-def generate_post_details(session, thread_config, dynamic_config):
+def generate_thread_title(config, thread_config, dynamic_config):
     """Generate the title and post templates."""
     template_variables = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
-        "subreddit_name": session.config["subreddit_name"],
+        "subreddit_name": config["subreddit_name"],
         "thread_number": dynamic_config["thread_number"],
         "thread_id": dynamic_config["thread_id"],
         }
     post_title = thread_config["post_title_template"].format(
         **template_variables)
-    source_page = session.mod.subreddit.wiki[thread_config["source_name"]]
-    post_text = source_page.content_md.format(**template_variables)
-    post_text = replace_patterns(post_text, thread_config["replace_patterns"])
-    return {"title": post_title, "selftext": post_text}
-
-
-def update_current_thread(session, thread_config, dynamic_config):
-    """Update the text of the current thread."""
-    post_details = generate_post_details(
-        session, thread_config, dynamic_config)
-    current_thread = session.user.reddit.submission(
-        id=dynamic_config["thread_id"])
-    current_thread.edit(post_details["selftext"])
+    return post_title
 
 
 def create_new_thread(session, thread_config, dynamic_config):
     """Create a new thread based on the title and post template."""
+    # Generate thread title and contents
+    dynamic_config["source_timestamp"] = 0
     dynamic_config["thread_number"] += 1
-    post_details = generate_post_details(
-        session, thread_config, dynamic_config)
+
+    source_config = {**DEFAULT_SYNC_ENDPOINT, **thread_config["source"]}
+    source_obj = create_sync_endpoint_from_config(
+        config=source_config,
+        reddit=session.user.reddit,
+        subreddit=session.user.subreddit,
+        )
+    thread_text = process_source_endpoint(
+        source_config, source_obj, dynamic_config)
+    thread_title = generate_thread_title(
+        session.config, thread_config, dynamic_config)
 
     # Submit and approve new thread
     thread_id = dynamic_config["thread_id"]
@@ -484,7 +486,8 @@ def create_new_thread(session, thread_config, dynamic_config):
     else:
         current_thread = None
 
-    new_thread = session.user.subreddit.submit(**post_details)
+    new_thread = session.user.subreddit.submit(
+        title=thread_title, selftext=thread_text)
     new_thread.disable_inbox_replies()
     new_thread_mod = session.mod.reddit.submission(id=new_thread.id)
     new_thread_mod.mod.approve()
@@ -533,16 +536,12 @@ def create_new_thread(session, thread_config, dynamic_config):
 def manage_thread(session, thread_config, dynamic_config):
     """Manage the current thread, creating or updating it as necessary."""
     if not thread_config["enabled"]:
-        return None
+        return
     thread_config = {**DEFAULT_MEGATHREAD_CONFIG, **thread_config}
     interval = thread_config["new_thread_interval"]
 
-    source_timestamp = session.mod.subreddit.wiki[
-        thread_config["source_name"]].revision_date
-    wiki_updated = (source_timestamp > dynamic_config["source_timestamp"])
-
     current_thread = None
-    last_post_timestamp = 0
+    last_post_timestamp = None
     if dynamic_config["thread_id"]:
         current_thread = session.user.reddit.submission(
             id=dynamic_config["thread_id"])
@@ -553,14 +552,22 @@ def manage_thread(session, thread_config, dynamic_config):
         interval and (getattr(last_post_timestamp, interval)
                       != getattr(current_datetime, interval)))
 
-    if wiki_updated or should_post_new_thread:
-        if should_post_new_thread:
-            create_new_thread(session, thread_config, dynamic_config)
-        else:
-            update_current_thread(session, thread_config, dynamic_config)
-        dynamic_config["source_timestamp"] = source_timestamp
-        return True
-    return False
+    if should_post_new_thread:
+        create_new_thread(session, thread_config, dynamic_config)
+    else:
+        sync_pair = copy.deepcopy(thread_config)
+        target = {
+            "description": f"{thread_config['description']} Megathread",
+            "endpoint_name": dynamic_config["thread_id"],
+            "endpoint_type": EndpointType.THREAD,
+            }
+        sync_pair["targets"] = {"megathread": target}
+        sync_one(
+            sync_pair=sync_pair,
+            dynamic_config=dynamic_config,
+            reddit=session.user.reddit,
+            subreddit=session.user.subreddit,
+            )
 
 
 def manage_threads(session):
