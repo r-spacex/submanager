@@ -34,6 +34,7 @@ USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 # Enum values
 @enum.unique
 class EndpointType(enum.Enum):
+    MENU = enum.auto()
     THREAD = enum.auto()
     WIDGET = enum.auto()
     WIKI_PAGE = enum.auto()
@@ -43,7 +44,9 @@ class EndpointType(enum.Enum):
 DEFAULT_SYNC_ENDPOINT = {
     "description": "",
     "enabled": True,
+    "endpoint_name": "",
     "endpoint_type": EndpointType.WIKI_PAGE.name,
+    "menu_config": {},
     "pattern": "",
     "pattern_end": " End",
     "pattern_start": " Start",
@@ -176,6 +179,24 @@ def search_startend(source_text, pattern="", start="", end=""):
     return match_obj
 
 
+def split_and_clean_text(source_text, split):
+    source_text = source_text.strip()
+    if split:
+        sections = source_text.split(split)
+    else:
+        sections = [source_text]
+    sections = [section.strip() for section in sections if section.strip()]
+    return sections
+
+
+def extract_text(pattern, source_text):
+    match = re.search(pattern, source_text)
+    if not match:
+        return False
+    match_text = match.groups()[0] if match.groups() else match.group()
+    return match_text
+
+
 # ----------------- Helper classes -----------------
 
 class ConfigError(RuntimeError):
@@ -220,13 +241,9 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
             subreddit=None,
             description=None,
                 ):
-        self._endpoint_name = endpoint_name
+        self.name = endpoint_name
         self.description = endpoint_name if not description else description
         self._object = None
-
-    @property
-    def name(self):
-        return self._endpoint_name
 
     @property
     @abc.abstractmethod
@@ -244,6 +261,31 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def revision_date(self):
         pass
+
+
+class MenuSyncEndpoint(SyncEndpoint):
+    def __init__(self, subreddit, **kwargs):
+        super().__init__(**kwargs)
+        if not self.name:
+            self.name = "menu"
+        for widget in subreddit.widgets.topbar:
+            if widget.kind == self.name:
+                self._object = widget
+                break
+        else:
+            print("Menu widget not found; assuming its first in the topbar")
+            self._object = subreddit.widgets.topbar[0]
+
+    @property
+    def content(self):
+        return self._object.data
+
+    def edit(self, new_content, reason=""):
+        self._object.mod.update(data=new_content)
+
+    @property
+    def revision_date(self):
+        raise NotImplementedError
 
 
 class ThreadSyncEndpoint(SyncEndpoint):
@@ -302,6 +344,7 @@ class WikiSyncEndpoint(SyncEndpoint):
 
 
 SYNC_ENDPOINT_TYPES = {
+    EndpointType.MENU: MenuSyncEndpoint,
     EndpointType.THREAD: ThreadSyncEndpoint,
     EndpointType.WIDGET: WidgetSyncEndpoint,
     EndpointType.WIKI_PAGE: WikiSyncEndpoint,
@@ -533,6 +576,49 @@ def manage_threads(session):
 
 # ----------------- Sync functionality -----------------
 
+def parse_menu(
+        source_text,
+        split="\n\n",
+        subsplit="\n",
+        pattern_title=r"\[([^\n\]]*)\]\(",
+        pattern_url=r"\]\(([^\s\)]*)[\s\)]",
+        pattern_subtitle=r"\[([^\n\]]*)\]\(",
+        ):
+    menu_data = []
+    source_text = source_text.replace("\r\n", "\n")
+    menu_sections = split_and_clean_text(
+        source_text, split)
+    for menu_section in menu_sections:
+        menu_subsections = split_and_clean_text(
+            menu_section, subsplit)
+        if not menu_subsections:
+            continue
+        title_text = extract_text(
+            pattern_title, menu_subsections[0])
+        if title_text is False:
+            continue
+        section_data = {"text": title_text}
+        if len(menu_subsections) == 1:
+            url_text = extract_text(
+                pattern_url, menu_subsections[0])
+            if url_text is False:
+                continue
+            section_data["url"] = url_text
+        else:
+            children = []
+            for menu_child in menu_subsections[1:]:
+                title_text = extract_text(
+                    pattern_subtitle, menu_child)
+                url_text = extract_text(
+                    pattern_url, menu_child)
+                if title_text is not False and url_text is not False:
+                    children.append(
+                        {"text": title_text, "url": url_text})
+            section_data["children"] = children
+        menu_data.append(section_data)
+    return menu_data
+
+
 def process_endpoint_text(content, config, replace_text=None):
     match_obj = search_startend(
         content, config["pattern"],
@@ -560,29 +646,38 @@ def process_source_endpoint(source_config, source_obj, dynamic_config):
             return False
         dynamic_config["source_timestamp"] = source_timestamp
 
-    source_text = process_endpoint_text(source_obj.content, source_config)
-    if source_text is False:
-        print("Sync pattern not found in source "
-              f"{source_obj.description}; skipping")
-        return False
+    source_content = source_obj.content
+    if isinstance(source_content, str):
+        source_content = process_endpoint_text(source_content, source_config)
+        if source_content is False:
+            print("Sync pattern not found in source "
+                  f"{source_obj.description}; skipping")
+            return False
+        source_content = replace_patterns(
+            source_content, source_config["replace_patterns"])
 
-    source_text = replace_patterns(
-        source_text, source_config["replace_patterns"])
-    return source_text
+    return source_content
 
 
-def process_target_endpoint(target_config, target_obj, source_text):
-    source_text_target = replace_patterns(
-        source_text, target_config["replace_patterns"])
+def process_target_endpoint(target_config, target_obj, source_content):
+    if isinstance(source_content, str):
+        source_content = replace_patterns(
+            source_content, target_config["replace_patterns"])
 
-    target_text = process_endpoint_text(
-        target_obj.content, target_config, replace_text=source_text_target)
-    if target_text is False:
-        print("Sync pattern not found in target "
-              f"{target_obj.description}; skipping")
-        return False
+    target_content = target_obj.content
+    if (isinstance(target_obj, MenuSyncEndpoint)
+            and isinstance(source_content, str)):
+        target_content = parse_menu(
+            source_text=source_content, **target_config["menu_config"])
+    elif isinstance(target_content, str):
+        target_content = process_endpoint_text(
+            target_content, target_config, replace_text=source_content)
+        if target_content is False:
+            print("Sync pattern not found in target "
+                  f"{target_obj.description}; skipping")
+            return False
 
-    return target_text
+    return target_content
 
 
 def sync_one(sync_pair, dynamic_config, reddit, subreddit):
@@ -602,9 +697,9 @@ def sync_one(sync_pair, dynamic_config, reddit, subreddit):
 
     source_obj = create_sync_endpoint_from_config(
         config=source_config, reddit=reddit, subreddit=subreddit)
-    source_text = process_source_endpoint(
+    source_content = process_source_endpoint(
         source_config, source_obj, dynamic_config)
-    if source_text is False:
+    if source_content is False:
         return False
 
     for target_config in sync_pair["targets"].values():
@@ -615,13 +710,13 @@ def sync_one(sync_pair, dynamic_config, reddit, subreddit):
 
         target_obj = create_sync_endpoint_from_config(
             config=target_config, reddit=reddit, subreddit=subreddit)
-        target_text = process_target_endpoint(
-            target_config, target_obj, source_text)
-        if target_text is False:
+        target_content = process_target_endpoint(
+            target_config, target_obj, source_content)
+        if target_content is False:
             continue
 
         target_obj.edit(
-            target_text,
+            target_content,
             reason=f"Auto-sync {description} from {target_obj.name}",
             )
     return True
