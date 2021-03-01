@@ -17,7 +17,7 @@ import time
 # Third party imports
 import praw
 import prawcore.exceptions
-import tomlkit
+import toml
 
 
 # ----------------- Constants -----------------
@@ -378,8 +378,7 @@ def write_config(config, config_path=CONFIG_PATH_DYNAMIC):
         if config_path.suffix == ".json":
             json.dump(config, config_file, indent=4)
         elif config_path.suffix == ".toml":
-            config_raw = tomlkit.dumps(config)
-            config_file.write(config_raw)
+            toml.dump(config, config_file)
         else:
             raise ConfigError(
                 f"Format of config file {config_path} not in {{JSON, TOML}}")
@@ -392,8 +391,7 @@ def load_config(config_path):
         if config_path.suffix == ".json":
             config = json.load(config_file)
         elif config_path.suffix == ".toml":
-            config_raw = config_file.read()
-            config = dict(tomlkit.loads(config_raw))
+            config = toml.load(config_file)
         else:
             raise ConfigError(
                 f"Format of config file {config_path} not in {{JSON, TOML}}")
