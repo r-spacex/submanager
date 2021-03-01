@@ -1,6 +1,17 @@
 # Sub Manager Changelog
 
 
+## Version 0.3.1 (2021-03-01)
+
+Bugfix release with the following changes:
+* Replace ``tomlkit`` with ``toml`` to fix strange bugs with PRAW
+* Fix bug with unsticky of old megathread not having mod permissions
+* Fix bug with not updating megathread URLs correctly
+* Optimize link update to use generator
+* Fix formatting bug in README
+
+
+
 ## Version 0.3.0 (2021-02-08)
 
 Major feature and refactoring release with many config/API changes.
