@@ -79,7 +79,7 @@ Conversely, any ``replace_patterns`` for a specific target are applied after (an
 
 ## Running as a service
 
-The provided systemd unit file allows easily running it as a user service; just copy it to the ``~/.config/systemd/user` directory (creating it if it doesn't already exist).
+The provided systemd unit file allows easily running it as a user service; just copy it to the ``~/.config/systemd/user`` directory (creating it if it doesn't already exist).
 It currently assumes the `megathread-manager` directory lives at ``~/bots/megathread-manager`` and the virtual environment also lives at ``env`` in that directory; you can modify it to specify the names and paths on your system.
 It can be enabled and started in the typical way,
 

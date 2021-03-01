@@ -22,7 +22,7 @@ import tomlkit
 
 # ----------------- Constants -----------------
 
-__version__ = "0.3.0"
+__version__ = "0.3.1dev0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
@@ -483,8 +483,10 @@ def create_new_thread(session, thread_config, dynamic_config):
     thread_id = dynamic_config["thread_id"]
     if thread_id:
         current_thread = session.user.reddit.submission(id=thread_id)
+        current_thread_mod = session.mod.reddit.submission(id=thread_id)
     else:
         current_thread = None
+        current_thread_mod = None
 
     new_thread = session.user.subreddit.submit(
         title=thread_title, selftext=thread_text)
@@ -496,7 +498,7 @@ def create_new_thread(session, thread_config, dynamic_config):
     if thread_config["pin_thread"]:
         bottom_sticky = thread_config["pin_thread"] != "top"
         if current_thread:
-            current_thread.mod.sticky(state=False)
+            current_thread_mod.mod.sticky(state=False)
             time.sleep(10)
         try:
             sticky_to_keep = session.mod.subreddit.sticky(number=1)
@@ -510,21 +512,22 @@ def create_new_thread(session, thread_config, dynamic_config):
 
     # Update links to point to new thread
     if current_thread:
-        links = [
-            tuple([getattr(thread, link_type).strip("/")
-                   for thread in [current_thread, new_thread]])
-            for link_type in ["permalink", "shortlink"]]
+        links = (
+            tuple((getattr(thread, link_type).strip("/")
+                   for thread in [current_thread, new_thread]))
+            for link_type in ["permalink", "shortlink"])
         for page_name in thread_config["link_update_pages"]:
             page = create_sync_endpoint(
                 endpoint_name=page_name,
                 endpoint_type=EndpointType.WIKI_PAGE,
                 subreddit=session.mod.subreddit,
                 )
+            new_content = page.content
             for old_link, new_link in links:
                 new_content = re.sub(
                     pattern=re.escape(old_link),
                     repl=new_link,
-                    string=page.content,
+                    string=new_content,
                     flags=re.IGNORECASE,
                     )
             page.edit(new_content, reason="Update megathread URLs")
