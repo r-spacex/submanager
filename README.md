@@ -24,7 +24,7 @@ python3 -m venv env
 source env/bin/activate
 ```
 
-Currently, to install the necessary dependencies (currently ``praw`` and ``toml``) using `pip`, you must do so manually from the ``requirements.txt`` via the following:
+Currently, to install the necessary dependencies using `pip`, you must do so via the ``requirements.txt``:
 
 ```bash
 pip install -r requirements.txt

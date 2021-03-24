@@ -15,6 +15,7 @@ import re
 import time
 
 # Third party imports
+import dateutil.relativedelta
 import praw
 import prawcore.exceptions
 import toml
@@ -22,7 +23,7 @@ import toml
 
 # ----------------- Constants -----------------
 
-__version__ = "0.3.1"
+__version__ = "0.4.0dev0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
@@ -200,6 +201,21 @@ def extract_text(pattern, source_text):
     return match_text
 
 
+def process_raw_interval(raw_interval):
+    interval_split = raw_interval.split()
+    interval_unit = interval_split[-1]
+    if len(interval_split) == 1:
+        interval_n = None
+    else:
+        interval_n = int(interval_split[0])
+    interval_unit = interval_unit.rstrip("s")
+    if interval_unit[-2:] == "ly":
+        interval_unit = interval_unit[:-2]
+    if interval_unit == "week" and not interval_n:
+        interval_n = 1
+    return interval_unit, interval_n
+
+
 # ----------------- Helper classes -----------------
 
 class ConfigError(RuntimeError):
@@ -240,8 +256,8 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
     def __init__(
             self,
             endpoint_name,
-            reddit=None,
-            subreddit=None,
+            reddit=None,  # pylint: disable=unused-argument
+            subreddit=None,  # pylint: disable=unused-argument
             description=None,
                 ):
         self.name = endpoint_name
@@ -538,22 +554,37 @@ def manage_thread(session, thread_config, dynamic_config):
     """Manage the current thread, creating or updating it as necessary."""
     if not thread_config["enabled"]:
         return
+
     thread_config = {**DEFAULT_MEGATHREAD_CONFIG, **thread_config}
     interval = thread_config["new_thread_interval"]
 
-    current_thread = None
-    last_post_timestamp = None
-    if dynamic_config["thread_id"]:
-        current_thread = session.user.reddit.submission(
-            id=dynamic_config["thread_id"])
-        last_post_timestamp = datetime.datetime.fromtimestamp(
-            current_thread.created_utc, tz=datetime.timezone.utc)
-    current_datetime = datetime.datetime.now(datetime.timezone.utc)
-    should_post_new_thread = not last_post_timestamp or (
-        interval and (getattr(last_post_timestamp, interval)
-                      != getattr(current_datetime, interval)))
+    if interval:
+        interval_unit, interval_n = process_raw_interval(interval)
+
+        if dynamic_config["thread_id"]:
+            current_thread = session.user.reddit.submission(
+                id=dynamic_config["thread_id"])
+            last_post_timestamp = datetime.datetime.fromtimestamp(
+                current_thread.created_utc, tz=datetime.timezone.utc)
+            current_datetime = datetime.datetime.now(datetime.timezone.utc)
+            if interval_n is None:
+                should_post_new_thread = (
+                    getattr(last_post_timestamp, interval_unit)
+                    != getattr(current_datetime, interval_unit))
+            else:
+                delta_kwargs = {interval_unit + "s": interval_n}
+                should_post_new_thread = (
+                    current_datetime
+                    > (last_post_timestamp
+                       + dateutil.relativedelta.relativedelta(**delta_kwargs)))
+        else:
+            should_post_new_thread = True
+    else:
+        should_post_new_thread = False
 
     if should_post_new_thread:
+        print("Creating new thread for '{}'".format(
+            thread_config.get('description', dynamic_config["thread_id"])))
         create_new_thread(session, thread_config, dynamic_config)
     else:
         sync_pair = copy.deepcopy(thread_config)
