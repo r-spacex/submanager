@@ -1,6 +1,18 @@
 # Sub Manager Changelog
 
 
+## Version 0.4.0 (2021-03-24)
+
+Enhancement release with the following changes:
+* Support both fixed and floating time intervals for posting megathreads
+* Support arbitrary integer periods for floating post intervals
+* Add support for N weekly posting frequency
+* Refactor and implement much more sophisticated post interval parsing
+* Update documentation to describe configuration and post intervals in more detail
+* Update roadmap to reflect re-prioritization
+
+
+
 ## Version 0.3.1 (2021-03-01)
 
 Bugfix release with the following changes:

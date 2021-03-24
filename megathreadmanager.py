@@ -23,7 +23,7 @@ import toml
 
 # ----------------- Constants -----------------
 
-__version__ = "0.4.0dev0"
+__version__ = "0.4.0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()

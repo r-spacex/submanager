@@ -1,7 +1,7 @@
 # Roadmap
 
 
-## v0.4.0 (Late Feb)
+## v0.5.0 (Late March-Early April)
 
 * Add optional regex support for replace patterns
 * Refactor to modular Python package structure with ``setup.py`` and modular components
@@ -13,18 +13,24 @@
 
 
 
-## v0.5.0 (March)
+## v0.6.0 (April?)
 
 * Add automod-manager module to pre-process automod config
 * Add ability to re/generate popup menu of threads (e.g. in removal dialog)
 * Add serviceinstaller support for automatic service installation
 * Add support for updating refresh tokens after PRAW adds it upstream
+
+
+
+## v1.0.0 (May?)
+
 * Add proper tests and CIs
 * Further improve logging and error handling as needed (better logging? verbose mode?)
+* Further improve documentation
 
 
 
-## v1.0.0 (???)
+## v2.0.0 (???)
 
 * Add support for syncing between endpoints on multiple subreddits?
 * Add more desired features (sticky comments, moderation tools, more automod automation...)
@@ -32,6 +38,5 @@
     * Create wrappers for plugin(s) for session, wiki sync and megathread sync
     * Create preset(s) for plugins(s)
 * Create example Brokkr system config
-* Further improve documentation
 * Add MyPy type annotations
 * Add more detailed logging, optionally integrated with Brokkr
