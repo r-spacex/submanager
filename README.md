@@ -54,14 +54,14 @@ However, you can specify an alternate config file for one or both with the ``--c
 
 All configuration, except for ``repeat_interval_s``, is read and updated for each run while ``megathread-manager`` is active, so settings can be changed on the fly without stopping and restarting it.
 
-To disable the megathread features entirely and only use the wiki sync feature, set ``megathread_enabled`` to ``false``; the converse is equally possible with ``sync_enabled``.
+Individual modules, such as ``megathreads`` and ``sync``, can be enabled and disabled via the corresponding options (e.g. ``megathreads`` and ``sync``) under the top-level ``enable`` table.
 
 
 ### Configuring credentials
 
 Megathread manager can be set to use separate accounts for actually posting the megathread and performing an moderation actions; only the latter is required to be a moderator.
 You'll need to configure and register the account(s) involved for Reddit app access with the Reddit API.
-We recommend you configure your credentials in ``praw.ini`` and simply refer to them by passing the ``site_name`` parameter to ``credentials_praw``, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
+We recommend you configure your credentials in ``praw.ini`` and simply refer to them via the PRAW ``site_name`` argument of the respective account listed under the ``accounts`` table, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
 Common parameters (that are passed to PRAW, e.g. username/password, client id/client secret, refresh token, etc) go in the ``DEFAULT`` dict, while any specific to one user or another go in the two more specifically named ones; if none of the latter are specified, the same account is used for both.
 
 

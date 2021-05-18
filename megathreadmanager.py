@@ -23,7 +23,7 @@ import toml
 
 # ----------------- Constants -----------------
 
-__version__ = "0.4.0"
+__version__ = "0.5.0dev0"
 
 # General constants
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
@@ -71,7 +71,7 @@ DEFAULT_MEGATHREAD_CONFIG = {
     "link_update_pages": [],
     "new_thread_interval": "month",
     "pin_thread": "top",
-    "post_title_template": ("{subreddit_name} Megathread "
+    "post_title_template": ("{subreddit} Megathread "
                             "({current_datetime:%B %Y}, #{thread_number})"),
     "source": {},
     }
@@ -82,18 +82,24 @@ DEFAULT_DYNAMIC_CONFIGS = {
         "thread_id": "",
         "source_timestamp": 0,
         },
-    "sync_pairs": {
+    "sync": {
         "source_timestamp": 0,
         },
     }
 
 DEFAULT_CONFIG = {
-    "credentials_praw": {
+    "accounts": {
         "DEFAULT": {},
         "mod": {},
         "post": {},
         },
-    "megathreads_enabled": True,
+    "defaults": {
+        "subreddit": "YOURSUBNAMEHERE",
+        },
+    "enable": {
+        "megathreads": True,
+        "sync": True,
+        },
     "megathreads": {
         "example_primary": {
             "description": "Primary megathread",
@@ -105,7 +111,7 @@ DEFAULT_CONFIG = {
             "link_update_pages": [],
             "new_thread_interval": "month",
             "pin_thread": "top",
-            "post_title_template": ("{subreddit_name} Megathread "
+            "post_title_template": ("{subreddit} Megathread "
                                     "({current_datetime:%B %Y}, "
                                     "#{thread_number})"),
             "source": {
@@ -118,9 +124,7 @@ DEFAULT_CONFIG = {
             },
         },
     "repeat_interval_s": 60,
-    "subreddit_name": "YOURSUBNAME",
-    "sync_enabled": True,
-    "sync_pairs": {
+    "sync": {
         "example_sidebar": {
             "description": "Sync Sidebar Demo",
             "source": {
@@ -230,13 +234,14 @@ class MegathreadUserSession:
     """Cached state specific to a Reddit user."""
 
     def __init__(self, config, credential_key):
-        self.reddit = praw.Reddit(**{
-            **config["credentials_praw"].get("DEFAULT", {}),
-            **config["credentials_praw"].get(credential_key, {}),
+        credential_kwargs = {
+            **config["accounts"].get("DEFAULT", {}),
+            **config["accounts"].get(credential_key, {}),
             **{"user_agent": USER_AGENT},
-            })
+            }
+        self.reddit = praw.Reddit(**credential_kwargs)
         self.subreddit = self.reddit.subreddit(
-            config["subreddit_name"])
+            config["defaults"]["subreddit"])
 
 
 class MegathreadSession:
@@ -467,7 +472,7 @@ def generate_thread_title(config, thread_config, dynamic_config):
     template_variables = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
-        "subreddit_name": config["subreddit_name"],
+        "subreddit": config["defaults"]["subreddit"],
         "thread_number": dynamic_config["thread_number"],
         "thread_id": dynamic_config["thread_id"],
         }
@@ -763,8 +768,8 @@ def sync_one(sync_pair, dynamic_config, reddit, subreddit):
 
 def sync_all(session):
     """Sync all pairs of sources/targets (pages,threads, sections) on a sub."""
-    for sync_pair_id, sync_pair in session.config["sync_pairs"].items():
-        dynamic_config = session.dynamic_config["sync_pairs"][sync_pair_id]
+    for sync_pair_id, sync_pair in session.config["sync"].items():
+        dynamic_config = session.dynamic_config["sync"][sync_pair_id]
         sync_one(
             sync_pair=sync_pair,
             dynamic_config=dynamic_config,
@@ -787,9 +792,9 @@ def run_manage(
         static_config=config, dynamic_config=copy.deepcopy(dynamic_config))
 
     # Run the core manager tasks
-    if session.config["sync_enabled"]:
+    if session.config["enable"]["sync"]:
         sync_all(session)
-    if session.config["megathreads_enabled"]:
+    if session.config["enable"]["megathreads"]:
         manage_threads(session)
 
     # Write out the dynamic config if it changed
