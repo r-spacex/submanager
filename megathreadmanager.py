@@ -261,13 +261,18 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
     def __init__(
             self,
             endpoint_name,
-            reddit=None,  # pylint: disable=unused-argument
-            subreddit=None,  # pylint: disable=unused-argument
+            reddit,
+            subreddit,
             description=None,
                 ):
         self.name = endpoint_name
         self.description = endpoint_name if not description else description
         self._object = None
+        self._reddit = reddit
+        self._subreddit = subreddit
+
+        if not isinstance(self._subreddit, praw.models.Subreddit):
+            self._subreddit = self._reddit.subreddit(self._subreddit)
 
     @property
     @abc.abstractmethod
@@ -288,17 +293,17 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
 
 
 class MenuSyncEndpoint(SyncEndpoint):
-    def __init__(self, subreddit, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if not self.name:
             self.name = "menu"
-        for widget in subreddit.widgets.topbar:
+        for widget in self._subreddit.widgets.topbar:
             if widget.kind == self.name:
                 self._object = widget
                 break
         else:
             print("Menu widget not found; assuming its first in the topbar")
-            self._object = subreddit.widgets.topbar[0]
+            self._object = self._subreddit.widgets.topbar[0]
 
     @property
     def content(self):
@@ -313,9 +318,9 @@ class MenuSyncEndpoint(SyncEndpoint):
 
 
 class ThreadSyncEndpoint(SyncEndpoint):
-    def __init__(self, reddit, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._object = reddit.submission(id=self.name)
+        self._object = self._reddit.submission(id=self.name)
 
     @property
     def content(self):
@@ -328,9 +333,9 @@ class ThreadSyncEndpoint(SyncEndpoint):
 
 
 class WidgetSyncEndpoint(SyncEndpoint):
-    def __init__(self, subreddit, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        for widget in subreddit.widgets.sidebar:
+        for widget in self._subreddit.widgets.sidebar:
             if widget.shortName == self.name:
                 self._object = widget
                 break
@@ -351,9 +356,9 @@ class WidgetSyncEndpoint(SyncEndpoint):
 
 
 class WikiSyncEndpoint(SyncEndpoint):
-    def __init__(self, subreddit, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._object = subreddit.wiki[self.name]
+        self._object = self._subreddit.wiki[self.name]
 
     @property
     def content(self):
@@ -384,9 +389,10 @@ def create_sync_endpoint(
 
 
 def create_sync_endpoint_from_config(config, reddit, subreddit):
-    config = {key: value for key, value in config.items()
-              if key in {"endpoint_name", "endpoint_type", "description"}}
-    return create_sync_endpoint(reddit=reddit, subreddit=subreddit, **config)
+    default_config = {"reddit": reddit, "subreddit": subreddit}
+    config = {key: value for key, value in config.items() if key in {
+        "endpoint_name", "endpoint_type", "description", "subreddit"}}
+    return create_sync_endpoint(**{**default_config, **config})
 
 
 # ----------------- Config functions -----------------
@@ -469,10 +475,15 @@ def load_dynamic_config(config_path=CONFIG_PATH_DYNAMIC, static_config=None):
 
 def generate_thread_title(config, thread_config, dynamic_config):
     """Generate the title and post templates."""
+    if thread_config.get("subreddit", None):
+        subreddit_name = thread_config["subreddit"]
+    else:
+        subreddit_name = config["defaults"]["subreddit"]
+
     template_variables = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
-        "subreddit": config["defaults"]["subreddit"],
+        "subreddit": subreddit_name,
         "thread_number": dynamic_config["thread_number"],
         "thread_id": dynamic_config["thread_id"],
         }
@@ -487,11 +498,21 @@ def create_new_thread(session, thread_config, dynamic_config):
     dynamic_config["source_timestamp"] = 0
     dynamic_config["thread_number"] += 1
 
+    # Get subreddit objects for thread
+    accounts = (getattr(session, account) for account in ("user", "mod"))
+    subreddit_name = thread_config.get("subreddit", None)
+    if subreddit_name:
+        subreddit_user, subreddit_mod = tuple((
+            account.reddit.subreddit(subreddit_name) for account in accounts))
+    else:
+        subreddit_user, subreddit_mod = tuple((
+            account.subreddit for account in accounts))
+
     source_config = {**DEFAULT_SYNC_ENDPOINT, **thread_config["source"]}
     source_obj = create_sync_endpoint_from_config(
         config=source_config,
         reddit=session.user.reddit,
-        subreddit=session.user.subreddit,
+        subreddit=subreddit_user,
         )
     thread_text = process_source_endpoint(
         source_config, source_obj, dynamic_config)
@@ -507,7 +528,7 @@ def create_new_thread(session, thread_config, dynamic_config):
         current_thread = None
         current_thread_mod = None
 
-    new_thread = session.user.subreddit.submit(
+    new_thread = subreddit_user.submit(
         title=thread_title, selftext=thread_text)
     new_thread.disable_inbox_replies()
     new_thread_mod = session.mod.reddit.submission(id=new_thread.id)
@@ -520,9 +541,9 @@ def create_new_thread(session, thread_config, dynamic_config):
             current_thread_mod.mod.sticky(state=False)
             time.sleep(10)
         try:
-            sticky_to_keep = session.mod.subreddit.sticky(number=1)
+            sticky_to_keep = subreddit_mod.sticky(number=1)
             if current_thread and sticky_to_keep.id == current_thread.id:
-                sticky_to_keep = session.mod.subreddit.sticky(number=2)
+                sticky_to_keep = subreddit_mod.sticky(number=2)
         except prawcore.exceptions.NotFound:
             sticky_to_keep = None
         new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
@@ -539,7 +560,8 @@ def create_new_thread(session, thread_config, dynamic_config):
             page = create_sync_endpoint(
                 endpoint_name=page_name,
                 endpoint_type=EndpointType.WIKI_PAGE,
-                subreddit=session.mod.subreddit,
+                reddit=session.mod.reddit,
+                subreddit=subreddit_mod,
                 )
             new_content = page.content
             for old_link, new_link in links:
@@ -728,6 +750,10 @@ def sync_one(sync_pair, dynamic_config, reddit, subreddit):
     """Sync one specific pair of sources and targets."""
     sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
     description = sync_pair.get("description", "Unnamed")
+    if sync_pair.get("subreddit", None):
+        subreddit = reddit.subreddit(sync_pair["subreddit"])
+    common_config = {key: value for key, value in sync_pair.items()
+                     if key in DEFAULT_SYNC_ENDPOINT}
 
     if not sync_pair["enabled"]:
         return None
@@ -735,7 +761,8 @@ def sync_one(sync_pair, dynamic_config, reddit, subreddit):
         raise ConfigError(
             f"No sync targets specified for sync_pair {description}")
 
-    source_config = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["source"]}
+    source_config = {
+        **DEFAULT_SYNC_ENDPOINT, **common_config, **sync_pair["source"]}
     if not source_config["enabled"]:
         return None
 
@@ -748,7 +775,7 @@ def sync_one(sync_pair, dynamic_config, reddit, subreddit):
 
     for target_config in sync_pair["targets"].values():
         target_config = {
-            **DEFAULT_SYNC_ENDPOINT, **source_config, **target_config}
+            **DEFAULT_SYNC_ENDPOINT, **common_config, **target_config}
         if not target_config["enabled"]:
             continue
 
