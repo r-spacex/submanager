@@ -17,6 +17,7 @@ import time
 # Third party imports
 import dateutil.relativedelta
 import praw
+import praw.util.token_manager
 import prawcore.exceptions
 import toml
 
@@ -29,6 +30,7 @@ __version__ = "0.5.0dev0"
 CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
 CONFIG_PATH_STATIC = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC = CONFIG_DIRECTORY / "config_dynamic.json"
+CONFIG_PATH_REFRESH = CONFIG_DIRECTORY / "refresh_token_{account_key}.txt"
 USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 
@@ -97,7 +99,6 @@ DEFAULT_DYNAMIC_CONFIGS = {
 
 DEFAULT_CONFIG = {
     "accounts": {
-        "DEFAULT": {},
         "mod": {},
         "post": {},
         },
@@ -242,13 +243,13 @@ class ConfigNotFoundError(ConfigError):
 class MegathreadUserSession:
     """Cached state specific to a Reddit user."""
 
-    def __init__(self, config, credential_key):
-        credential_kwargs = {
-            **config["accounts"].get("DEFAULT", {}),
-            **config["accounts"].get(credential_key, {}),
+    def __init__(self, config, account_key):
+        account_kwargs = {
+            **config["accounts"][account_key],
             **{"user_agent": USER_AGENT},
             }
-        self.reddit = praw.Reddit(**credential_kwargs)
+        self.reddit = praw.Reddit(**account_kwargs)
+        self.reddit.validate_on_submit = True
         self.subreddit = self.reddit.subreddit(
             config["defaults"]["subreddit"])
 
@@ -260,9 +261,9 @@ class MegathreadSession:
         self.config = static_config
         self.dynamic_config = dynamic_config
         self.user = MegathreadUserSession(
-            config=self.config, credential_key="post")
+            config=self.config, account_key="post")
         self.mod = MegathreadUserSession(
-            config=self.config, credential_key="mod")
+            config=self.config, account_key="mod")
 
 
 class SyncEndpoint(metaclass=abc.ABCMeta):
@@ -406,6 +407,27 @@ def create_sync_endpoint_from_config(config, reddit, subreddit):
 
 # ----------------- Config functions -----------------
 
+def handle_refresh_tokens(accounts, config_path_refresh=CONFIG_PATH_REFRESH):
+    """Setup each account with the appropriate refresh tokens."""
+    for account_key, account_kwargs in accounts.items():
+        refresh_token = account_kwargs.pop("refresh_token", None)
+        if refresh_token:
+            # Initialize refresh token file
+            token_path = config_path_refresh.with_name(
+                config_path_refresh.name.format(account_key=account_key))
+            if not token_path.exists():
+                with open(token_path, "w",
+                          encoding="utf-8", newline="\n") as token_file:
+                    token_file.write(refresh_token)
+
+            # Set up refresh token manager
+            token_manager = praw.util.token_manager.FileTokenManager(
+                token_path)
+            account_kwargs["token_manager"] = token_manager
+
+    return accounts
+
+
 def write_config(config, config_path=CONFIG_PATH_DYNAMIC):
     """Write the passed config to the specified config path."""
     Path(config_path).parent.mkdir(parents=True, exist_ok=True)
@@ -434,7 +456,9 @@ def load_config(config_path):
     return config
 
 
-def load_static_config(config_path=CONFIG_PATH_STATIC):
+def load_static_config(
+        config_path=CONFIG_PATH_STATIC,
+        config_path_refresh=CONFIG_PATH_REFRESH):
     """Load manager's static (user) config file, creating it if needed."""
     if not Path(config_path).exists():
         write_config(DEFAULT_CONFIG, config_path=config_path)
@@ -443,6 +467,9 @@ def load_static_config(config_path=CONFIG_PATH_STATIC):
     if not static_config or static_config == DEFAULT_CONFIG:
         raise ConfigNotFoundError(
             f"Config file at {config_path} needs to be set up.")
+    static_config["accounts"] = handle_refresh_tokens(
+        static_config["accounts"], config_path_refresh=config_path_refresh)
+
     return static_config
 
 
@@ -839,10 +866,11 @@ def sync_all(session):
 def run_manage(
         config_path_static=CONFIG_PATH_STATIC,
         config_path_dynamic=CONFIG_PATH_DYNAMIC,
+        config_path_refresh=CONFIG_PATH_REFRESH,
         ):
     """Load the config file and run the thread manager."""
     # Load config and set up session
-    config = load_static_config(config_path_static)
+    config = load_static_config(config_path_static, config_path_refresh)
     dynamic_config = load_dynamic_config(config_path_dynamic, config)
     session = MegathreadSession(
         static_config=config, dynamic_config=copy.deepcopy(dynamic_config))
@@ -861,6 +889,7 @@ def run_manage(
 def run_manage_loop(
         config_path_static=CONFIG_PATH_STATIC,
         config_path_dynamic=CONFIG_PATH_DYNAMIC,
+        config_path_refresh=CONFIG_PATH_REFRESH,
         repeat=True,
         ):
     config = load_static_config(config_path=config_path_static)
@@ -872,6 +901,7 @@ def run_manage_loop(
         run_manage(
             config_path_static=config_path_static,
             config_path_dynamic=config_path_dynamic,
+            config_path_refresh=config_path_refresh,
             )
         print("Megathread manager run complete")
         if not repeat:
@@ -906,6 +936,10 @@ def main(sys_argv=None):
     parser_main.add_argument(
         "--dynamic-config-path", dest="config_path_dynamic",
         help="The path to a custom dynamic (runtime) config file to use.",
+        )
+    parser_main.add_argument(
+        "--refresh-config-path", dest="config_path_refresh",
+        help="The path to a custom (set of) refresh token files to use.",
         )
     parser_main.add_argument(
         "--repeat",

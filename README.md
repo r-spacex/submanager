@@ -62,7 +62,7 @@ Individual modules, such as ``megathreads`` and ``sync``, can be enabled and dis
 Megathread manager can be set to use separate accounts for actually posting the megathread and performing an moderation actions; only the latter is required to be a moderator.
 You'll need to configure and register the account(s) involved for Reddit app access with the Reddit API.
 We recommend you configure your credentials in ``praw.ini`` and simply refer to them via the PRAW ``site_name`` argument of the respective account listed under the ``accounts`` table, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
-Common parameters (that are passed to PRAW, e.g. username/password, client id/client secret, refresh token, etc) go in the ``DEFAULT`` dict, while any specific to one user or another go in the two more specifically named ones; if none of the latter are specified, the same account is used for both.
+The various parameters that ``praw.Reddit()`` can accept, e.g. username/password, client id/client secret, refresh token, etc) go in the ``mod`` and ``post`` subkeys of the ``acounts`` table for the respective mod account and public posting account.
 
 
 ### Posting intervals
