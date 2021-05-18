@@ -42,6 +42,12 @@ class EndpointType(enum.Enum):
 
 
 # Config
+DEFAULT_REDIRECT_TEMPLATE = """
+This thread is no longer being updated, and has been replaced by:
+
+# [{post_title}]({thread_url})
+"""
+
 DEFAULT_SYNC_ENDPOINT = {
     "description": "",
     "enabled": True,
@@ -73,6 +79,8 @@ DEFAULT_MEGATHREAD_CONFIG = {
     "pin_thread": "top",
     "post_title_template": ("{subreddit} Megathread "
                             "({current_datetime:%B %Y}, #{thread_number})"),
+    "new_thread_redirect_op": False,
+    "new_thread_redirect_sticky": False,
     "source": {},
     }
 
@@ -94,6 +102,7 @@ DEFAULT_CONFIG = {
         "post": {},
         },
     "defaults": {
+        "new_thread_redirect_template": DEFAULT_REDIRECT_TEMPLATE,
         "subreddit": "YOURSUBNAMEHERE",
         },
     "enable": {
@@ -473,23 +482,24 @@ def load_dynamic_config(config_path=CONFIG_PATH_DYNAMIC, static_config=None):
 
 # ----------------- Core megathread logic -----------------
 
-def generate_thread_title(config, thread_config, dynamic_config):
+def generate_template_vars(config, thread_config, dynamic_config):
     """Generate the title and post templates."""
     if thread_config.get("subreddit", None):
         subreddit_name = thread_config["subreddit"]
     else:
         subreddit_name = config["defaults"]["subreddit"]
 
-    template_variables = {
+    template_vars = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
         "subreddit": subreddit_name,
         "thread_number": dynamic_config["thread_number"],
-        "thread_id": dynamic_config["thread_id"],
+        "thread_number_previous": dynamic_config["thread_number"] - 1,
+        "thread_id_previous": dynamic_config["thread_id"],
         }
-    post_title = thread_config["post_title_template"].format(
-        **template_variables)
-    return post_title
+    template_vars["post_title"] = (
+        thread_config["post_title_template"].strip().format(**template_vars))
+    return template_vars
 
 
 def create_new_thread(session, thread_config, dynamic_config):
@@ -514,10 +524,12 @@ def create_new_thread(session, thread_config, dynamic_config):
         reddit=session.user.reddit,
         subreddit=subreddit_user,
         )
-    thread_text = process_source_endpoint(
-        source_config, source_obj, dynamic_config)
-    thread_title = generate_thread_title(
+
+    template_vars = generate_template_vars(
         session.config, thread_config, dynamic_config)
+    post_text = process_source_endpoint(
+        source_config, source_obj, dynamic_config)
+    post_title = template_vars["post_title"]
 
     # Submit and approve new thread
     thread_id = dynamic_config["thread_id"]
@@ -529,10 +541,12 @@ def create_new_thread(session, thread_config, dynamic_config):
         current_thread_mod = None
 
     new_thread = subreddit_user.submit(
-        title=thread_title, selftext=thread_text)
+        title=post_title, selftext=post_text)
     new_thread.disable_inbox_replies()
     new_thread_mod = session.mod.reddit.submission(id=new_thread.id)
     new_thread_mod.mod.approve()
+    for attribute in ["id", "url", "permalink", "shortlink"]:
+        template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
 
     # Unpin old thread and pin new one
     if thread_config["pin_thread"]:
@@ -572,6 +586,21 @@ def create_new_thread(session, thread_config, dynamic_config):
                     flags=re.IGNORECASE,
                     )
             page.edit(new_content, reason="Update megathread URLs")
+
+        # Add messages to new thread on old thread if enabled
+        redirect_template = thread_config.get(
+            "new_thread_redirect_template", None)
+        if not redirect_template:
+            redirect_template = (
+                session.config["defaults"]["new_thread_redirect_template"])
+        redirect_message = redirect_template.strip().format(**template_vars)
+
+        if thread_config["new_thread_redirect_op"]:
+            current_thread.edit(
+                redirect_message + "\n\n" + current_thread.selftext)
+        if thread_config["new_thread_redirect_sticky"]:
+            redirect_comment = current_thread_mod.reply(redirect_message)
+            redirect_comment.mod.distinguish(sticky=True)
 
     # Update config accordingly
     dynamic_config["thread_id"] = new_thread.id
