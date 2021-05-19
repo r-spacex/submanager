@@ -1,7 +1,7 @@
 # Megathread Manager
 
-A Reddit bot to automatically generate, create, pin and update megathreads, as well as related tasks.
-Additionally, can be used alongside or as well as automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
+Megathread-Manager is a Reddit bot to automatically generate, create, pin and update megathreads, as well as related tasks.
+Additionally, it can be used alongside or as well as automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
 Includes an installable systemd service unit for real-time operation on modern Linux distributions, which is used in production for the r/SpaceX subreddit, or can be run by any other means you choose on your system.
 
 
@@ -49,20 +49,22 @@ python megathreadmanager.py --help
 ## Configuration
 
 Megathread manager automatically generates its primary user config file (formatted as TOML for humans) on first run.
-By default, the file is located at ``~/.config/megathread_manager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory.
-However, you can specify an alternate config file for one or both with the ``--config-path`` command line argument, allowing you to run multiple bots (e.g. for different subs) with different sets of accounts.
+By default, the file is located at ``~/.config/megathread_manager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory, as are refresh tokens (if used).
+However, you can specify an alternate config file for one or both with the various ``--config-path`` command line arguments, allowing you to run multiple instances of the bot simultaneously on the same machine (for example, to avoid cramming everything into one big configuration file).
 
 All configuration, except for ``repeat_interval_s``, is read and updated for each run while ``megathread-manager`` is active, so settings can be changed on the fly without stopping and restarting it.
 
-Individual modules, such as ``megathreads`` and ``sync``, can be enabled and disabled via the corresponding options (e.g. ``megathreads`` and ``sync``) under the top-level ``enable`` table.
+Individual modules, such as ``megathread`` and ``sync``, can be enabled and disabled via their corresponding ``enabled`` options, and can be further configured as described below.
+On first run ``megathread-manager`` will generate a suitible configurable file for you, which you can then edit to tell it what you want it to do.
 
 
 ### Configuring credentials
 
-Megathread manager can be set to use separate accounts for actually posting the megathread and performing an moderation actions; only the latter is required to be a moderator.
+With Megathread Manager v0.5.0, the Reddit account to use for a given action can be specified per module (megathread, sync), per task (megathread, sync pair) and even per source and target, as well as globally.
 You'll need to configure and register the account(s) involved for Reddit app access with the Reddit API.
 We recommend you configure your credentials in ``praw.ini`` and simply refer to them via the PRAW ``site_name`` argument of the respective account listed under the ``accounts`` table, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
-The various parameters that ``praw.Reddit()`` can accept, e.g. username/password, client id/client secret, refresh token, etc) go in the ``mod`` and ``post`` subkeys of the ``acounts`` table for the respective mod account and public posting account.
+The various parameters that ``praw.Reddit()`` can accept, e.g. username/password, client id/client secret, refresh token, etc) go in the ``mod`` and ``post`` subkeys of the ``accounts`` table for the respective mod account and public posting account.
+Megathread Manager fully supports the new Reddit refresh token handling; just enter your initial refresh token under the `refresh_token` key for the account in the ``accounts`` table, and it will automatically set up a handler to store it and keep it updated going forward.
 
 
 ### Posting intervals
@@ -94,7 +96,7 @@ Example section content
 
 This allows easily syncing just specific sections between sources and targets.
 
-If any variable (e.g. ``pattern``) is not specified for a ``target``, the value from ``source`` is used.
+If any variable (e.g. ``pattern``) is not specified for a ``target``, the value from ``defaults`` is used.
 Conversely, any ``replace_patterns`` for a specific target are applied after (and in addition) to those specified in ``source`` for all targets; note the ``source`` section is *not* actually modified unless it is specified as a ``target``.
 
 
