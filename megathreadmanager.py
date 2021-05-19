@@ -63,6 +63,7 @@ DEFAULT_SYNC_ENDPOINT = {
     }
 
 DEFAULT_SYNC_PAIR = {
+    "defaults": {},
     "description": "",
     "enabled": True,
     "source": {},
@@ -70,6 +71,7 @@ DEFAULT_SYNC_PAIR = {
     }
 
 DEFAULT_MEGATHREAD_CONFIG = {
+    "defaults": {},
     "description": "",
     "enabled": True,
     "initial": {
@@ -78,87 +80,99 @@ DEFAULT_MEGATHREAD_CONFIG = {
         },
     "link_update_pages": [],
     "new_thread_interval": "month",
-    "pin_thread": "top",
-    "post_title_template": ("{subreddit} Megathread "
-                            "({current_datetime:%B %Y}, #{thread_number})"),
     "new_thread_redirect_op": False,
     "new_thread_redirect_sticky": False,
+    "new_thread_redirect_template": DEFAULT_REDIRECT_TEMPLATE,
+    "pin_thread": "top",
+    "post_title_template": ("{subreddit} Megathread (#{thread_number})"),
     "source": {},
     }
 
-DEFAULT_DYNAMIC_CONFIGS = {
-    "megathreads": {
-        "thread_number": 0,
-        "thread_id": "",
-        "source_timestamp": 0,
+DYNAMIC_CONFIGS = {
+    "megathread": {
+        "static_config_path": ("megathread", "megathreads"),
+        "defaults": {
+            "thread_number": 0,
+            "thread_id": "",
+            "source_timestamp": 0,
+            },
         },
     "sync": {
-        "source_timestamp": 0,
+        "static_config_path": ("sync", "pairs"),
+        "defaults": {
+            "source_timestamp": 0,
+            },
         },
     }
 
 DEFAULT_CONFIG = {
+    "repeat_interval_s": 60,
     "accounts": {
-        "mod": {},
-        "post": {},
+        "example": {
+            "site_name": "EXAMPLE",
+            },
         },
     "defaults": {
-        "new_thread_redirect_template": DEFAULT_REDIRECT_TEMPLATE,
+        "account": "example",
         "subreddit": "YOURSUBNAMEHERE",
         },
-    "enable": {
-        "megathreads": True,
-        "sync": True,
-        },
-    "megathreads": {
-        "example_primary": {
-            "description": "Primary megathread",
-            "enabled": False,
-            "initial": {
-                "thread_number": 0,
-                "thread_id": "",
-                },
-            "link_update_pages": [],
-            "new_thread_interval": "month",
-            "pin_thread": "top",
-            "post_title_template": ("{subreddit} Megathread "
-                                    "({current_datetime:%B %Y}, "
-                                    "#{thread_number})"),
-            "source": {
-                "description": "Megathreads wiki page",
-                "endpoint_name": "threads",
-                "replace_patterns": {
-                    "https://old.reddit.com": "https://www.reddit.com",
+    "megathread": {
+        "enabled": True,
+        "defaults": {
+            "new_thread_redirect_template": DEFAULT_REDIRECT_TEMPLATE,
+            },
+        "megathreads": {
+            "example_primary": {
+                "description": "Primary megathread",
+                "enabled": False,
+                "initial": {
+                    "thread_number": 0,
+                    "thread_id": "",
+                    },
+                "link_update_pages": [],
+                "new_thread_interval": "month",
+                "pin_thread": "top",
+                "post_title_template": ("{subreddit} Megathread "
+                                        "({current_datetime:%B %Y}, "
+                                        "#{thread_number})"),
+                "source": {
+                    "description": "Megathreads wiki page",
+                    "endpoint_name": "threads",
+                    "replace_patterns": {
+                        "https://old.reddit.com": "https://www.reddit.com",
+                        },
                     },
                 },
             },
         },
-    "repeat_interval_s": 60,
     "sync": {
-        "example_sidebar": {
-            "description": "Sync Sidebar Demo",
-            "source": {
-                "description": "Thread source wiki page",
+        "enabled": True,
+        "defaults": {
+            "pattern_end": " End",
+            "pattern_start": " Start",
+            },
+        "pairs": {
+            "example_sidebar": {
+                "description": "Sync Sidebar Demo",
                 "enabled": False,
-                "endpoint_name": "threads",
-                "endpoint_type": EndpointType.WIKI_PAGE.name,
-                "pattern": "Sidebar",
-                "pattern_end": " End",
-                "pattern_start": " Start",
-                "replace_patterns": {
-                    "https://www.reddit.com": "https://old.reddit.com",
-                    },
-                },
-            "targets": {
-                "sidebar": {
-                    "description": "Sub Sidebar",
-                    "enabled": True,
-                    "endpoint_name": "config/sidebar",
+                "source": {
+                    "description": "Thread source wiki page",
+                    "endpoint_name": "threads",
                     "endpoint_type": EndpointType.WIKI_PAGE.name,
                     "pattern": "Sidebar",
-                    "pattern_end": " Start",
-                    "pattern_start": " End",
-                    "replace_patterns": {},
+                    "replace_patterns": {
+                        "https://www.reddit.com": "https://old.reddit.com",
+                        },
+                    },
+                "targets": {
+                    "sidebar": {
+                        "description": "Sub Sidebar",
+                        "enabled": True,
+                        "endpoint_name": "config/sidebar",
+                        "endpoint_type": EndpointType.WIKI_PAGE.name,
+                        "pattern": "Sidebar",
+                        "replace_patterns": {},
+                        },
                     },
                 },
             },
@@ -240,49 +254,14 @@ class ConfigNotFoundError(ConfigError):
     pass
 
 
-class MegathreadUserSession:
-    """Cached state specific to a Reddit user."""
-
-    def __init__(self, config, account_key):
-        account_kwargs = {
-            **config["accounts"][account_key],
-            **{"user_agent": USER_AGENT},
-            }
-        self.reddit = praw.Reddit(**account_kwargs)
-        self.reddit.validate_on_submit = True
-        self.subreddit = self.reddit.subreddit(
-            config["defaults"]["subreddit"])
-
-
-class MegathreadSession:
-    """Common cached state for managing megathreads."""
-
-    def __init__(self, static_config, dynamic_config):
-        self.config = static_config
-        self.dynamic_config = dynamic_config
-        self.user = MegathreadUserSession(
-            config=self.config, account_key="post")
-        self.mod = MegathreadUserSession(
-            config=self.config, account_key="mod")
-
-
 class SyncEndpoint(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def __init__(
-            self,
-            endpoint_name,
-            reddit,
-            subreddit,
-            description=None,
-                ):
+    def __init__(self, endpoint_name, reddit, subreddit, description=None):
         self.name = endpoint_name
         self.description = endpoint_name if not description else description
         self._object = None
         self._reddit = reddit
-        self._subreddit = subreddit
-
-        if not isinstance(self._subreddit, praw.models.Subreddit):
-            self._subreddit = self._reddit.subreddit(self._subreddit)
+        self._subreddit = self._reddit.subreddit(subreddit)
 
     @property
     @abc.abstractmethod
@@ -389,6 +368,9 @@ SYNC_ENDPOINT_TYPES = {
     EndpointType.WIKI_PAGE: WikiSyncEndpoint,
     }
 
+SYNC_ENDPOINT_PARAMETERS = {
+    "description", "endpoint_name", "endpoint_type", "reddit", "subreddit"}
+
 
 def create_sync_endpoint(
         endpoint_type=EndpointType.WIKI_PAGE, **endpoint_kwargs):
@@ -398,11 +380,10 @@ def create_sync_endpoint(
     return sync_endpoint
 
 
-def create_sync_endpoint_from_config(config, reddit, subreddit):
-    default_config = {"reddit": reddit, "subreddit": subreddit}
-    config = {key: value for key, value in config.items() if key in {
-        "endpoint_name", "endpoint_type", "description", "subreddit"}}
-    return create_sync_endpoint(**{**default_config, **config})
+def create_sync_endpoint_from_config(config, reddit):
+    filtered_kwargs = {key: value for key, value in config.items()
+                       if key in SYNC_ENDPOINT_PARAMETERS}
+    return create_sync_endpoint(reddit=reddit, **filtered_kwargs)
 
 
 # ----------------- Config functions -----------------
@@ -482,13 +463,21 @@ def render_dynamic_config(static_config=None, dynamic_config=None):
         dynamic_config = {}
 
     # Fill defaults in dynamic config
-    for config_key, defaults in DEFAULT_DYNAMIC_CONFIGS.items():
-        config_section = dynamic_config.get(config_key, {})
-        for config_id, static_config_item in static_config[config_key].items():
-            initial = static_config_item.get("initial", {})
-            config_section[config_id] = {
-                **defaults, **initial, **config_section.get(config_id, {})}
-        dynamic_config[config_key] = config_section
+    for dynamic_config_key, config_params in DYNAMIC_CONFIGS.items():
+        dynamic_config_section = dynamic_config.get(dynamic_config_key, {})
+
+        static_config_items = static_config
+        for path_element in config_params["static_config_path"]:
+            static_config_items = static_config_items.get(path_element, {})
+
+        for config_id, static_config_item in static_config_items.items():
+            initial_dynamic_config = static_config_item.get("initial", {})
+            dynamic_config_section[config_id] = {
+                **config_params["defaults"],
+                **initial_dynamic_config,
+                **dynamic_config_section.get(config_id, {}),
+                }
+        dynamic_config[dynamic_config_key] = dynamic_config_section
 
     return dynamic_config
 
@@ -509,17 +498,12 @@ def load_dynamic_config(config_path=CONFIG_PATH_DYNAMIC, static_config=None):
 
 # ----------------- Core megathread logic -----------------
 
-def generate_template_vars(config, thread_config, dynamic_config):
+def generate_template_vars(thread_config, dynamic_config):
     """Generate the title and post templates."""
-    if thread_config.get("subreddit", None):
-        subreddit_name = thread_config["subreddit"]
-    else:
-        subreddit_name = config["defaults"]["subreddit"]
-
     template_vars = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
-        "subreddit": subreddit_name,
+        "subreddit": thread_config["subreddit"],
         "thread_number": dynamic_config["thread_number"],
         "thread_number_previous": dynamic_config["thread_number"] - 1,
         "thread_id_previous": dynamic_config["thread_id"],
@@ -529,31 +513,29 @@ def generate_template_vars(config, thread_config, dynamic_config):
     return template_vars
 
 
-def create_new_thread(session, thread_config, dynamic_config):
+def create_new_thread(thread_config, dynamic_config, accounts):
     """Create a new thread based on the title and post template."""
     # Generate thread title and contents
     dynamic_config["source_timestamp"] = 0
     dynamic_config["thread_number"] += 1
+    description = thread_config["description"]
 
     # Get subreddit objects for thread
-    accounts = (getattr(session, account) for account in ("user", "mod"))
-    subreddit_name = thread_config.get("subreddit", None)
-    if subreddit_name:
-        subreddit_user, subreddit_mod = tuple((
-            account.reddit.subreddit(subreddit_name) for account in accounts))
-    else:
-        subreddit_user, subreddit_mod = tuple((
-            account.subreddit for account in accounts))
+    reddit_mod = accounts[thread_config["account"]]
+    subreddit_mod = reddit_mod.subreddit(thread_config["subreddit"])
+    target_config = {**thread_config["defaults"], **thread_config["target"]}
+    reddit_post = accounts[target_config["account"]]
+    subreddit_post = reddit_post.subreddit(target_config["subreddit"])
 
-    source_config = {**DEFAULT_SYNC_ENDPOINT, **thread_config["source"]}
+    source_config = {
+        **DEFAULT_SYNC_ENDPOINT,
+        **thread_config["defaults"],
+        **thread_config["source"],
+        }
     source_obj = create_sync_endpoint_from_config(
-        config=source_config,
-        reddit=session.user.reddit,
-        subreddit=subreddit_user,
-        )
+        config=source_config, reddit=accounts[source_config["account"]])
 
-    template_vars = generate_template_vars(
-        session.config, thread_config, dynamic_config)
+    template_vars = generate_template_vars(thread_config, dynamic_config)
     post_text = process_source_endpoint(
         source_config, source_obj, dynamic_config)
     post_title = template_vars["post_title"]
@@ -561,16 +543,15 @@ def create_new_thread(session, thread_config, dynamic_config):
     # Submit and approve new thread
     thread_id = dynamic_config["thread_id"]
     if thread_id:
-        current_thread = session.user.reddit.submission(id=thread_id)
-        current_thread_mod = session.mod.reddit.submission(id=thread_id)
+        current_thread = reddit_post.submission(id=thread_id)
+        current_thread_mod = reddit_mod.submission(id=thread_id)
     else:
         current_thread = None
         current_thread_mod = None
 
-    new_thread = subreddit_user.submit(
-        title=post_title, selftext=post_text)
+    new_thread = subreddit_post.submit(title=post_title, selftext=post_text)
     new_thread.disable_inbox_replies()
-    new_thread_mod = session.mod.reddit.submission(id=new_thread.id)
+    new_thread_mod = reddit_mod.submission(id=new_thread.id)
     new_thread_mod.mod.approve()
     for attribute in ["id", "url", "permalink", "shortlink"]:
         template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
@@ -597,12 +578,13 @@ def create_new_thread(session, thread_config, dynamic_config):
             tuple((getattr(thread, link_type).strip("/")
                    for thread in [current_thread, new_thread]))
             for link_type in ["permalink", "shortlink"])
-        for page_name in thread_config["link_update_pages"]:
+        for idx, page_name in enumerate(thread_config["link_update_pages"]):
             page = create_sync_endpoint(
+                description=f"Megathread link page {idx + 1}",
                 endpoint_name=page_name,
                 endpoint_type=EndpointType.WIKI_PAGE,
-                reddit=session.mod.reddit,
-                subreddit=subreddit_mod,
+                reddit=reddit_mod,
+                subreddit=thread_config["subreddit"],
                 )
             new_content = page.content
             for old_link, new_link in links:
@@ -612,14 +594,11 @@ def create_new_thread(session, thread_config, dynamic_config):
                     string=new_content,
                     flags=re.IGNORECASE,
                     )
-            page.edit(new_content, reason="Update megathread URLs")
+            page.edit(
+                new_content, reason=f"Update {description} megathread URLs")
 
         # Add messages to new thread on old thread if enabled
-        redirect_template = thread_config.get(
-            "new_thread_redirect_template", None)
-        if not redirect_template:
-            redirect_template = (
-                session.config["defaults"]["new_thread_redirect_template"])
+        redirect_template = thread_config["new_thread_redirect_template"]
         redirect_message = redirect_template.strip().format(**template_vars)
 
         if thread_config["new_thread_redirect_op"]:
@@ -633,20 +612,18 @@ def create_new_thread(session, thread_config, dynamic_config):
     dynamic_config["thread_id"] = new_thread.id
 
 
-def manage_thread(session, thread_config, dynamic_config):
+def manage_thread(thread_config, dynamic_config, accounts):
     """Manage the current thread, creating or updating it as necessary."""
     if not thread_config["enabled"]:
         return
 
-    thread_config = {**DEFAULT_MEGATHREAD_CONFIG, **thread_config}
+    reddit = accounts[thread_config["account"]]
     interval = thread_config["new_thread_interval"]
-
     if interval:
         interval_unit, interval_n = process_raw_interval(interval)
 
         if dynamic_config["thread_id"]:
-            current_thread = session.user.reddit.submission(
-                id=dynamic_config["thread_id"])
+            current_thread = reddit.submission(id=dynamic_config["thread_id"])
             last_post_timestamp = datetime.datetime.fromtimestamp(
                 current_thread.created_utc, tz=datetime.timezone.utc)
             current_datetime = datetime.datetime.now(datetime.timezone.utc)
@@ -668,31 +645,43 @@ def manage_thread(session, thread_config, dynamic_config):
     if should_post_new_thread:
         print("Creating new thread for '{}'".format(
             thread_config.get('description', dynamic_config["thread_id"])))
-        create_new_thread(session, thread_config, dynamic_config)
+        create_new_thread(thread_config, dynamic_config, accounts)
     else:
-        sync_pair = copy.deepcopy(thread_config)
+        sync_pair = {key: value for key, value in thread_config.items()
+                     if key in {"defaults", "source"}}
+        sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
         target = {
             "description": f"{thread_config['description']} Megathread",
             "endpoint_name": dynamic_config["thread_id"],
             "endpoint_type": EndpointType.THREAD,
             }
-        sync_pair["targets"] = {"megathread": target}
+        sync_pair["targets"] = {
+            "megathread": {**target, **thread_config["target"]}}
         sync_one(
             sync_pair=sync_pair,
             dynamic_config=dynamic_config,
-            reddit=session.user.reddit,
-            subreddit=session.user.subreddit,
+            accounts=accounts,
             )
 
 
-def manage_threads(session):
+def manage_threads(static_config, dynamic_config, accounts):
     """Check and create/update all defined megathreads for a sub."""
-    for thread_id, thread_config in session.config["megathreads"].items():
-        dynamic_config = session.dynamic_config["megathreads"][thread_id]
+    defaults = {
+        **static_config["defaults"],
+        **static_config["megathread"]["defaults"],
+        }
+    for thread_id, thread_config in (
+            static_config["megathread"]["megathreads"].items()):
+        thread_config = {**DEFAULT_MEGATHREAD_CONFIG, **thread_config}
+        thread_config["defaults"] = {**defaults, **thread_config["defaults"]}
+        thread_config = {
+            **thread_config["defaults"], **thread_config}
+        dynamic_config_thread = dynamic_config["megathread"][thread_id]
+
         manage_thread(
-            session=session,
             thread_config=thread_config,
-            dynamic_config=dynamic_config,
+            dynamic_config=dynamic_config_thread,
+            accounts=accounts,
             )
 
 
@@ -758,6 +747,8 @@ def process_endpoint_text(content, config, replace_text=None):
 
 def process_source_endpoint(source_config, source_obj, dynamic_config):
     try:
+        # print("Source obj name:", source_obj.name,
+        #       "Description:", source_obj.description)
         source_timestamp = source_obj.revision_date
     except NotImplementedError:  # Always update if source has no timestamp
         pass
@@ -802,41 +793,32 @@ def process_target_endpoint(target_config, target_obj, source_content):
     return target_content
 
 
-def sync_one(sync_pair, dynamic_config, reddit, subreddit):
+def sync_one(sync_pair, dynamic_config, accounts):
     """Sync one specific pair of sources and targets."""
-    sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
     description = sync_pair.get("description", "Unnamed")
-    if sync_pair.get("subreddit", None):
-        subreddit = reddit.subreddit(sync_pair["subreddit"])
-    common_config = {key: value for key, value in sync_pair.items()
-                     if key in DEFAULT_SYNC_ENDPOINT}
+    defaults = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["defaults"]}
+    source_config = {**defaults, **sync_pair["source"]}
 
-    if not sync_pair["enabled"]:
+    if not (sync_pair["enabled"] or source_config["enabled"]):
         return None
     if not sync_pair["targets"]:
         raise ConfigError(
             f"No sync targets specified for sync_pair {description}")
 
-    source_config = {
-        **DEFAULT_SYNC_ENDPOINT, **common_config, **sync_pair["source"]}
-    if not source_config["enabled"]:
-        return None
-
     source_obj = create_sync_endpoint_from_config(
-        config=source_config, reddit=reddit, subreddit=subreddit)
+        config=source_config, reddit=accounts[source_config["account"]])
     source_content = process_source_endpoint(
         source_config, source_obj, dynamic_config)
     if source_content is False:
         return False
 
     for target_config in sync_pair["targets"].values():
-        target_config = {
-            **DEFAULT_SYNC_ENDPOINT, **common_config, **target_config}
+        target_config = {**defaults, **target_config}
         if not target_config["enabled"]:
             continue
 
         target_obj = create_sync_endpoint_from_config(
-            config=target_config, reddit=reddit, subreddit=subreddit)
+            config=target_config, reddit=accounts[target_config["account"]])
         target_content = process_target_endpoint(
             target_config, target_obj, source_content)
         if target_content is False:
@@ -849,19 +831,34 @@ def sync_one(sync_pair, dynamic_config, reddit, subreddit):
     return True
 
 
-def sync_all(session):
+def sync_all(static_config, dynamic_config, accounts):
     """Sync all pairs of sources/targets (pages,threads, sections) on a sub."""
-    for sync_pair_id, sync_pair in session.config["sync"].items():
-        dynamic_config = session.dynamic_config["sync"][sync_pair_id]
+    defaults = {
+        **static_config["defaults"],
+        **static_config["sync"]["defaults"],
+        }
+    for sync_pair_id, sync_pair in static_config["sync"]["pairs"].items():
+        sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
+        sync_pair["defaults"] = {**defaults, **sync_pair["defaults"]}
+        dynamic_config_sync = dynamic_config["sync"][sync_pair_id]
+
         sync_one(
             sync_pair=sync_pair,
-            dynamic_config=dynamic_config,
-            reddit=session.mod.reddit,
-            subreddit=session.mod.subreddit,
+            dynamic_config=dynamic_config_sync,
+            accounts=accounts,
             )
 
 
 # ----------------- Orchestration -----------------
+
+def setup_accounts(accounts_config):
+    accounts = {}
+    for account_key, account_kwargs in accounts_config.items():
+        reddit = praw.Reddit(user_agent=USER_AGENT, **account_kwargs)
+        reddit.validate_on_submit = True
+        accounts[account_key] = reddit
+    return accounts
+
 
 def run_manage(
         config_path_static=CONFIG_PATH_STATIC,
@@ -870,20 +867,20 @@ def run_manage(
         ):
     """Load the config file and run the thread manager."""
     # Load config and set up session
-    config = load_static_config(config_path_static, config_path_refresh)
-    dynamic_config = load_dynamic_config(config_path_dynamic, config)
-    session = MegathreadSession(
-        static_config=config, dynamic_config=copy.deepcopy(dynamic_config))
+    static_config = load_static_config(config_path_static, config_path_refresh)
+    dynamic_config = load_dynamic_config(config_path_dynamic, static_config)
+    dynamic_config_active = copy.deepcopy(dynamic_config)
+    accounts = setup_accounts(static_config["accounts"])
 
     # Run the core manager tasks
-    if session.config["enable"]["sync"]:
-        sync_all(session)
-    if session.config["enable"]["megathreads"]:
-        manage_threads(session)
+    if static_config["sync"]["enabled"]:
+        sync_all(static_config, dynamic_config_active, accounts)
+    if static_config["megathread"]["enabled"]:
+        manage_threads(static_config, dynamic_config_active, accounts)
 
     # Write out the dynamic config if it changed
-    if session.dynamic_config != dynamic_config:
-        write_config(session.dynamic_config, config_path=config_path_dynamic)
+    if dynamic_config_active != dynamic_config:
+        write_config(dynamic_config_active, config_path=config_path_dynamic)
 
 
 def run_manage_loop(
@@ -892,9 +889,9 @@ def run_manage_loop(
         config_path_refresh=CONFIG_PATH_REFRESH,
         repeat=True,
         ):
-    config = load_static_config(config_path=config_path_static)
+    static_config = load_static_config(config_path=config_path_static)
     if repeat is True:
-        repeat = config.get(
+        repeat = static_config.get(
             "repeat_interval_s", DEFAULT_CONFIG["repeat_interval_s"])
     while True:
         print(f"Running megathread manager for config at {config_path_static}")
