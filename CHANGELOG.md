@@ -1,6 +1,24 @@
 # Sub Manager Changelog
 
 
+## Version 0.5.0 (2021-05-18)
+
+Major feature release with many config-breaking changes.
+
+New features:
+* Add multi-account support, per-source, target and sync/thread
+* Add multi-subreddit support with similar granularity, to allow sync between subs
+* Add ability to leave a customizable OP message and/or sticky when replacing a thread
+* Enable flexible config inheritance (source/target <- task <- module <- global)
+
+Under the hood:
+* Add full refresh token handling to support new Reddit OAUTH changes
+* Fully reorganize config to be much cleaner and more flexible
+* Majorly refactor code for much greater extendability going forward
+* Further update README, ROADMAP, documentation and metafiles
+
+
+
 ## Version 0.4.0 (2021-03-24)
 
 Enhancement release with the following changes:
