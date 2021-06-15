@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-Generate, pin and update a regular megathread for a subreddit.
-"""
+"""Generate, pin and update a regular megathread for a subreddit."""
 
 # Standard library imports
 import abc
@@ -37,6 +35,8 @@ USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 # Enum values
 @enum.unique
 class EndpointType(enum.Enum):
+    """Reprisent the type of sync endpoint on Reddit."""
+
     MENU = enum.auto()
     THREAD = enum.auto()
     WIDGET = enum.auto()
@@ -695,6 +695,7 @@ def parse_menu(
         pattern_url=r"\]\(([^\s\)]*)[\s\)]",
         pattern_subtitle=r"\[([^\n\]]*)\]\(",
         ):
+    """Parse source Markdown text and render it into a strucured format."""
     menu_data = []
     source_text = source_text.replace("\r\n", "\n")
     menu_sections = split_and_clean_text(
@@ -731,6 +732,7 @@ def parse_menu(
 
 
 def process_endpoint_text(content, config, replace_text=None):
+    """Perform the desired find-replace for a specific sync endpoint."""
     match_obj = search_startend(
         content, config["pattern"],
         config["pattern_start"], config["pattern_end"])
@@ -746,6 +748,7 @@ def process_endpoint_text(content, config, replace_text=None):
 
 
 def process_source_endpoint(source_config, source_obj, dynamic_config):
+    """Get and preprocess the text from a source if its out of date."""
     try:
         # print("Source obj name:", source_obj.name,
         #       "Description:", source_obj.description)
@@ -773,6 +776,7 @@ def process_source_endpoint(source_config, source_obj, dynamic_config):
 
 
 def process_target_endpoint(target_config, target_obj, source_content):
+    """Handle text conversions and deployment onto a sync target."""
     if isinstance(source_content, str):
         source_content = replace_patterns(
             source_content, target_config["replace_patterns"])
@@ -852,6 +856,7 @@ def sync_all(static_config, dynamic_config, accounts):
 # ----------------- Orchestration -----------------
 
 def setup_accounts(accounts_config):
+    """Set up the praw.reddit objects for each account in the config."""
     accounts = {}
     for account_key, account_kwargs in accounts_config.items():
         reddit = praw.Reddit(user_agent=USER_AGENT, **account_kwargs)
@@ -889,6 +894,7 @@ def run_manage_loop(
         config_path_refresh=CONFIG_PATH_REFRESH,
         repeat=True,
         ):
+    """Run the mainloop of sub-manager, performing each task in sequance."""
     static_config = load_static_config(config_path=config_path_static)
     if repeat is True:
         repeat = static_config.get(
@@ -917,7 +923,7 @@ def run_manage_loop(
 
 
 def main(sys_argv=None):
-    """Main function for the Megathread Manager CLI and dispatch."""
+    """Run the main function for the Megathread Manager CLI and dispatch."""
     parser_main = argparse.ArgumentParser(
         description="Generate, post, update and pin a Reddit megathread.",
         argument_default=argparse.SUPPRESS)
