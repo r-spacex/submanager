@@ -803,7 +803,7 @@ def sync_one(sync_pair, dynamic_config, accounts):
     defaults = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["defaults"]}
     source_config = {**defaults, **sync_pair["source"]}
 
-    if not (sync_pair["enabled"] or source_config["enabled"]):
+    if not (sync_pair["enabled"] and source_config["enabled"]):
         return None
     if not sync_pair["targets"]:
         raise ConfigError(
