@@ -1,6 +1,15 @@
 # Sub Manager Changelog
 
 
+## Version 0.5.1 (2021-06-15)
+
+Bufix release with the following changes:
+
+* Fix a bug with disabling top-level sync pair items
+* Add docstrings to more functions and fix existing
+
+
+
 ## Version 0.5.0 (2021-05-18)
 
 Major feature release with many config-breaking changes.
