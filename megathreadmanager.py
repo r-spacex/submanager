@@ -186,12 +186,14 @@ DEFAULT_CONFIG = {
 # ----------------- Helper functions -----------------
 
 def replace_patterns(text, patterns):
+    """Replace each pattern in the text with its mapped replacement."""
     for old, new in patterns.items():
         text = text.replace(old, new)
     return text
 
 
 def startend_to_pattern(start, end=None):
+    """Convert a start and end string to capture everything between."""
     end = start if end is None else end
     pattern = r"(?<={start})(\s|\S)*(?={end})".format(
         start=re.escape(start), end=re.escape(end))
@@ -199,12 +201,14 @@ def startend_to_pattern(start, end=None):
 
 
 def startend_to_pattern_md(start, end=None):
+    """Convert start/end strings to a Markdown-"comment" capture pattern."""
     end = start if end is None else end
     start, end = [f"[](/# {pattern})" for pattern in (start, end)]
     return startend_to_pattern(start, end)
 
 
 def search_startend(source_text, pattern="", start="", end=""):
+    """Match the text between the given Markdown pattern w/suffices."""
     if pattern is False or pattern is None or not (pattern or start or end):
         return False
     start = pattern + start
@@ -215,6 +219,7 @@ def search_startend(source_text, pattern="", start="", end=""):
 
 
 def split_and_clean_text(source_text, split):
+    """Split the text into sections and strip each individually."""
     source_text = source_text.strip()
     if split:
         sections = source_text.split(split)
@@ -225,6 +230,7 @@ def split_and_clean_text(source_text, split):
 
 
 def extract_text(pattern, source_text):
+    """Match the given pattern and extract the matched text as a string."""
     match = re.search(pattern, source_text)
     if not match:
         return False
@@ -233,6 +239,7 @@ def extract_text(pattern, source_text):
 
 
 def process_raw_interval(raw_interval):
+    """Convert a time interval expressed as a string into a standard form."""
     interval_split = raw_interval.split()
     interval_unit = interval_split[-1]
     if len(interval_split) == 1:
@@ -250,14 +257,16 @@ def process_raw_interval(raw_interval):
 # ----------------- Helper classes -----------------
 
 class ConfigError(RuntimeError):
-    pass
+    """Raised when there is a problem with the Sub Manager configuration."""
 
 
 class ConfigNotFoundError(ConfigError):
-    pass
+    """Raised when the Sub Manager configuration file is not found."""
 
 
 class SyncEndpoint(metaclass=abc.ABCMeta):
+    """Abstraction of a source or target for a Reddit sync action."""
+
     @abc.abstractmethod
     def __init__(self, endpoint_name, reddit, subreddit, description=None):
         self.name = endpoint_name
@@ -266,21 +275,24 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         self._reddit = reddit
         self._subreddit = self._reddit.subreddit(subreddit)
 
+    @property
+    @abc.abstractmethod
+    def content(self):
+        """Get the current content of the sync endpoint."""
+
     def edit(self, new_content, reason=""):  # pylint: disable=unused-argument
+        """Update the sync endpoint with the given content."""
         self._object.edit(new_content)
 
     @property
     @abc.abstractmethod
-    def content(self):
-        pass
-
-    @property
-    @abc.abstractmethod
     def revision_date(self):
-        pass
+        """Get the date the sync endpoint was last updated, if supported."""
 
 
 class MenuSyncEndpoint(SyncEndpoint):
+    """Sync endpoint reprisenting a New Reddit top bar menu widget."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if not self.name:
@@ -295,32 +307,41 @@ class MenuSyncEndpoint(SyncEndpoint):
 
     @property
     def content(self):
+        """Get the current structured data in the menu widget."""
         return self._object.data
 
     def edit(self, new_content, reason=""):
+        """Update the menu with the given structured data."""
         self._object.mod.update(data=new_content)
 
     @property
     def revision_date(self):
+        """Get the date the endpoint was updated; not supported for menus."""
         raise NotImplementedError
 
 
 class ThreadSyncEndpoint(SyncEndpoint):
+    """Sync endpoint reprisenting a Reddit thread (selfpost submission)."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._object = self._reddit.submission(id=self.name)
 
     @property
     def content(self):
+        """Get the current submission's selftext."""
         return self._object.selftext
 
     @property
     def revision_date(self):
+        """Get the date the thread was last edited."""
         edited = self._object.edited
         return edited if edited else self._object.created_utc
 
 
 class WidgetSyncEndpoint(SyncEndpoint):
+    """Sync endpoint reprisenting a New Reddit sidebar text content widget."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         for widget in self._subreddit.widgets.sidebar:
@@ -333,30 +354,38 @@ class WidgetSyncEndpoint(SyncEndpoint):
 
     @property
     def content(self):
+        """Get the current text content of the sidebar widget."""
         return self._object.text
 
     def edit(self, new_content, reason=""):
+        """Update the sidebar widget with the given text content."""
         self._object.mod.update(text=new_content)
 
     @property
     def revision_date(self):
+        """Get the date the endpoint was updated; not supported for widgets."""
         raise NotImplementedError
 
 
 class WikiSyncEndpoint(SyncEndpoint):
+    """Sync endpoint reprisenting a Reddit wiki page."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._object = self._subreddit.wiki[self.name]
 
     @property
     def content(self):
+        """Get the current text content of the wiki page."""
         return self._object.content_md
 
     def edit(self, new_content, reason=""):
+        """Update the wiki page with the given text."""
         self._object.edit(new_content, reason=reason)
 
     @property
     def revision_date(self):
+        """Get the date the wiki page was last updated."""
         return self._object.revision_date
 
 
@@ -373,6 +402,7 @@ SYNC_ENDPOINT_PARAMETERS = {
 
 def create_sync_endpoint(
         endpoint_type=EndpointType.WIKI_PAGE, **endpoint_kwargs):
+    """Create a new sync endpoint with a specific type and arguments."""
     if not isinstance(endpoint_type, EndpointType):
         endpoint_type = EndpointType[endpoint_type]
     sync_endpoint = SYNC_ENDPOINT_TYPES[endpoint_type](**endpoint_kwargs)
@@ -380,6 +410,7 @@ def create_sync_endpoint(
 
 
 def create_sync_endpoint_from_config(config, reddit):
+    """Create a new sync endpoint given a particular config and Reddit obj."""
     filtered_kwargs = {key: value for key, value in config.items()
                        if key in SYNC_ENDPOINT_PARAMETERS}
     return create_sync_endpoint(reddit=reddit, **filtered_kwargs)
