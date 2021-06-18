@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Generate, pin and update a regular megathread for a subreddit."""
 
+# Future imports
+from __future__ import annotations
+
 # Standard library imports
 import abc
 import argparse
@@ -263,17 +266,13 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         self._reddit = reddit
         self._subreddit = self._reddit.subreddit(subreddit)
 
+    def edit(self, new_content, reason=""):  # pylint: disable=unused-argument
+        self._object.edit(new_content)
+
     @property
     @abc.abstractmethod
     def content(self):
         pass
-
-    def edit(self, new_content, reason=""):  # pylint: disable=unused-argument
-        self._object.edit(new_content)
-
-    @content.setter
-    def content(self, new_content):
-        self.edit(new_content)
 
     @property
     @abc.abstractmethod
@@ -389,7 +388,7 @@ def create_sync_endpoint_from_config(config, reddit):
 # ----------------- Config functions -----------------
 
 def handle_refresh_tokens(accounts, config_path_refresh=CONFIG_PATH_REFRESH):
-    """Setup each account with the appropriate refresh tokens."""
+    """Set up each account with the appropriate refresh tokens."""
     for account_key, account_kwargs in accounts.items():
         refresh_token = account_kwargs.pop("refresh_token", None)
         if refresh_token:
