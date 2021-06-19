@@ -21,6 +21,7 @@ import time
 from typing import (
     Any,
     Callable,  # Added to collections.abc in Python 3.9
+    Dict,  # Not needed in Python 3.9
     Generic,
     NoReturn,
     TypeVar,
@@ -63,6 +64,14 @@ class EndpointType(enum.Enum):
 
 # Type aliases
 PathLikeStr = Union[os.PathLike, str]
+
+ConfigDict = Dict[str, Any]
+
+AccountsConfig = Dict[str, Dict[str, str]]
+DynamicConfig = ConfigDict
+DynamicConfigs = Dict[str, Dict[str, Any]]
+EndpointConfig = ConfigDict
+StaticConfig = ConfigDict
 
 
 # Config
@@ -110,7 +119,7 @@ DEFAULT_MEGATHREAD_CONFIG = {
     "source": {},
     }
 
-DYNAMIC_CONFIGS: dict[str, dict[str, Any]] = {
+DYNAMIC_CONFIGS: DynamicConfigs = {
     "megathread": {
         "static_config_path": ("megathread", "megathreads"),
         "defaults": {
@@ -127,7 +136,7 @@ DYNAMIC_CONFIGS: dict[str, dict[str, Any]] = {
         },
     }
 
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: StaticConfig = {
     "repeat_interval_s": 60,
     "accounts": {
         "example": {
@@ -451,7 +460,7 @@ SYNC_ENDPOINT_PARAMETERS = {
 
 
 def create_sync_endpoint(
-        endpoint_type:  EndpointType | str = EndpointType.WIKI_PAGE,
+        endpoint_type: EndpointType | str = EndpointType.WIKI_PAGE,
         **endpoint_kwargs: Any) -> SyncEndpoint:
     """Create a new sync endpoint with a specific type and arguments."""
     if not isinstance(endpoint_type, EndpointType):
@@ -461,7 +470,7 @@ def create_sync_endpoint(
 
 
 def create_sync_endpoint_from_config(
-        config: dict[str, Any], reddit: praw.Reddit) -> SyncEndpoint:
+        config: EndpointConfig, reddit: praw.Reddit) -> SyncEndpoint:
     """Create a new sync endpoint given a particular config and Reddit obj."""
     filtered_kwargs = {key: value for key, value in config.items()
                        if key in SYNC_ENDPOINT_PARAMETERS}
@@ -471,9 +480,9 @@ def create_sync_endpoint_from_config(
 # ----------------- Config functions -----------------
 
 def handle_refresh_tokens(
-        accounts: dict[str, dict[str, str]],
+        accounts: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        ) -> dict[str, dict[str, str]]:
+        ) -> AccountsConfig:
     """Set up each account with the appropriate refresh tokens."""
     config_path_refresh = Path(config_path_refresh)
     for account_key, account_kwargs in accounts.items():
@@ -496,7 +505,7 @@ def handle_refresh_tokens(
 
 
 def write_config(
-        config: dict[str, Any],
+        config: ConfigDict,
         config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
         ) -> None:
     """Write the passed config to the specified config path."""
@@ -513,7 +522,7 @@ def write_config(
                 f"Format of config file {config_path} not in {{JSON, TOML}}")
 
 
-def load_config(config_path: PathLikeStr) -> dict[str, Any]:
+def load_config(config_path: PathLikeStr) -> ConfigDict:
     """Load the config file at the specified path."""
     config_path = Path(config_path)
     with open(config_path, mode="r", encoding="utf-8") as config_file:
@@ -530,7 +539,7 @@ def load_config(config_path: PathLikeStr) -> dict[str, Any]:
 def load_static_config(
         config_path: PathLikeStr = CONFIG_PATH_STATIC,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        ) -> dict[str, Any]:
+        ) -> StaticConfig:
     """Load manager's static (user) config file, creating it if needed."""
     config_path = Path(config_path)
     if not config_path.exists():
@@ -547,9 +556,9 @@ def load_static_config(
 
 
 def render_dynamic_config(
-        static_config: dict[str, Any] | None = None,
-        dynamic_config: dict[str, dict[str, Any]] | None = None,
-        ) -> dict[str, dict[str, Any]]:
+        static_config: StaticConfig | None = None,
+        dynamic_config: DynamicConfigs | None = None,
+        ) -> DynamicConfigs:
     """Generate the dynamic config, filling defaults as needed."""
     # Set up existing config
     if static_config is None:
@@ -579,8 +588,8 @@ def render_dynamic_config(
 
 def load_dynamic_config(
         config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
-        static_config: dict[str, Any] | None = None,
-        ) -> dict[str, dict[str, Any]]:
+        static_config: StaticConfig | None = None,
+        ) -> DynamicConfigs:
     """Load manager's dynamic runtime config file, creating it if needed."""
     config_path = Path(config_path)
     if not config_path.exists():
