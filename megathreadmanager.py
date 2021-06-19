@@ -14,6 +14,7 @@ import copy
 import datetime
 import enum
 import json
+import os
 from pathlib import Path
 import re
 import time
@@ -23,6 +24,7 @@ from typing import (
     Generic,
     NoReturn,
     TypeVar,
+    Union,  # Not needed in Python 3.9
     )
 from typing_extensions import (
     Literal,  # Added to typing in Python 3.8
@@ -57,6 +59,10 @@ class EndpointType(enum.Enum):
     THREAD = enum.auto()
     WIDGET = enum.auto()
     WIKI_PAGE = enum.auto()
+
+
+# Type aliases
+PathLikeStr = Union[os.PathLike, str]
 
 
 # Config
@@ -104,7 +110,7 @@ DEFAULT_MEGATHREAD_CONFIG = {
     "source": {},
     }
 
-DYNAMIC_CONFIGS = {
+DYNAMIC_CONFIGS: dict[str, dict[str, Any]] = {
     "megathread": {
         "static_config_path": ("megathread", "megathreads"),
         "defaults": {
@@ -464,8 +470,12 @@ def create_sync_endpoint_from_config(
 
 # ----------------- Config functions -----------------
 
-def handle_refresh_tokens(accounts, config_path_refresh=CONFIG_PATH_REFRESH):
+def handle_refresh_tokens(
+        accounts: dict[str, dict[str, str]],
+        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        ) -> dict[str, dict[str, str]]:
     """Set up each account with the appropriate refresh tokens."""
+    config_path_refresh = Path(config_path_refresh)
     for account_key, account_kwargs in accounts.items():
         refresh_token = account_kwargs.pop("refresh_token", None)
         if refresh_token:
@@ -485,9 +495,13 @@ def handle_refresh_tokens(accounts, config_path_refresh=CONFIG_PATH_REFRESH):
     return accounts
 
 
-def write_config(config, config_path=CONFIG_PATH_DYNAMIC):
+def write_config(
+        config: dict[str, Any],
+        config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
+        ) -> None:
     """Write the passed config to the specified config path."""
-    Path(config_path).parent.mkdir(parents=True, exist_ok=True)
+    config_path = Path(config_path)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     with open(config_path, mode="w",
               encoding="utf-8", newline="\n") as config_file:
         if config_path.suffix == ".json":
@@ -499,7 +513,7 @@ def write_config(config, config_path=CONFIG_PATH_DYNAMIC):
                 f"Format of config file {config_path} not in {{JSON, TOML}}")
 
 
-def load_config(config_path):
+def load_config(config_path: PathLikeStr) -> dict[str, Any]:
     """Load the config file at the specified path."""
     config_path = Path(config_path)
     with open(config_path, mode="r", encoding="utf-8") as config_file:
@@ -514,23 +528,28 @@ def load_config(config_path):
 
 
 def load_static_config(
-        config_path=CONFIG_PATH_STATIC,
-        config_path_refresh=CONFIG_PATH_REFRESH):
+        config_path: PathLikeStr = CONFIG_PATH_STATIC,
+        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        ) -> dict[str, Any]:
     """Load manager's static (user) config file, creating it if needed."""
-    if not Path(config_path).exists():
+    config_path = Path(config_path)
+    if not config_path.exists():
         write_config(DEFAULT_CONFIG, config_path=config_path)
     static_config = load_config(config_path)
     static_config = {**DEFAULT_CONFIG, **static_config}
     if not static_config or static_config == DEFAULT_CONFIG:
         raise ConfigNotFoundError(
-            f"Config file at {config_path} needs to be set up.")
+            f"Config file at {config_path.as_posix()} needs to be set up.")
     static_config["accounts"] = handle_refresh_tokens(
         static_config["accounts"], config_path_refresh=config_path_refresh)
 
     return static_config
 
 
-def render_dynamic_config(static_config=None, dynamic_config=None):
+def render_dynamic_config(
+        static_config: dict[str, Any] | None = None,
+        dynamic_config: dict[str, dict[str, Any]] | None = None,
+        ) -> dict[str, dict[str, Any]]:
     """Generate the dynamic config, filling defaults as needed."""
     # Set up existing config
     if static_config is None:
@@ -558,9 +577,13 @@ def render_dynamic_config(static_config=None, dynamic_config=None):
     return dynamic_config
 
 
-def load_dynamic_config(config_path=CONFIG_PATH_DYNAMIC, static_config=None):
+def load_dynamic_config(
+        config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
+        static_config: dict[str, Any] | None = None,
+        ) -> dict[str, dict[str, Any]]:
     """Load manager's dynamic runtime config file, creating it if needed."""
-    if not Path(config_path).exists():
+    config_path = Path(config_path)
+    if not config_path.exists():
         dynamic_config = render_dynamic_config(
             static_config=static_config, dynamic_config={})
         write_config(dynamic_config, config_path=config_path)
