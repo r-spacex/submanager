@@ -7,6 +7,9 @@ from __future__ import annotations
 # Standard library imports
 import abc
 import argparse
+from collections.abc import (
+    Mapping,
+    )
 import copy
 import datetime
 import enum
@@ -14,6 +17,9 @@ import json
 from pathlib import Path
 import re
 import time
+from typing_extensions import (
+    Literal,  # Added to typing in Python 3.8
+    )
 
 # Third party imports
 import dateutil.relativedelta
@@ -185,14 +191,14 @@ DEFAULT_CONFIG = {
 
 # ----------------- Helper functions -----------------
 
-def replace_patterns(text, patterns):
+def replace_patterns(text: str, patterns: Mapping[str, str]) -> str:
     """Replace each pattern in the text with its mapped replacement."""
     for old, new in patterns.items():
         text = text.replace(old, new)
     return text
 
 
-def startend_to_pattern(start, end=None):
+def startend_to_pattern(start: str, end: str | None = None) -> str:
     """Convert a start and end string to capture everything between."""
     end = start if end is None else end
     pattern = r"(?<={start})(\s|\S)*(?={end})".format(
@@ -200,14 +206,19 @@ def startend_to_pattern(start, end=None):
     return pattern
 
 
-def startend_to_pattern_md(start, end=None):
+def startend_to_pattern_md(start: str, end: str | None = None) -> str:
     """Convert start/end strings to a Markdown-"comment" capture pattern."""
     end = start if end is None else end
     start, end = [f"[](/# {pattern})" for pattern in (start, end)]
     return startend_to_pattern(start, end)
 
 
-def search_startend(source_text, pattern="", start="", end=""):
+def search_startend(
+        source_text: str,
+        pattern: str = "",
+        start: str = "",
+        end: str = "",
+        ) -> re.Match[str] | Literal[False] | None:
     """Match the text between the given Markdown pattern w/suffices."""
     if pattern is False or pattern is None or not (pattern or start or end):
         return False
@@ -218,7 +229,7 @@ def search_startend(source_text, pattern="", start="", end=""):
     return match_obj
 
 
-def split_and_clean_text(source_text, split):
+def split_and_clean_text(source_text: str, split: str) -> list[str]:
     """Split the text into sections and strip each individually."""
     source_text = source_text.strip()
     if split:
@@ -229,7 +240,7 @@ def split_and_clean_text(source_text, split):
     return sections
 
 
-def extract_text(pattern, source_text):
+def extract_text(pattern: str, source_text: str) -> str | Literal[False]:
     """Match the given pattern and extract the matched text as a string."""
     match = re.search(pattern, source_text)
     if not match:
@@ -238,7 +249,7 @@ def extract_text(pattern, source_text):
     return match_text
 
 
-def process_raw_interval(raw_interval):
+def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
     """Convert a time interval expressed as a string into a standard form."""
     interval_split = raw_interval.split()
     interval_unit = interval_split[-1]
