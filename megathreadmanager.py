@@ -17,6 +17,13 @@ import json
 from pathlib import Path
 import re
 import time
+from typing import (
+    Any,
+    Callable,  # Added to collections.abc in Python 3.9
+    Generic,
+    NoReturn,
+    TypeVar,
+    )
 from typing_extensions import (
     Literal,  # Added to typing in Python 3.8
     )
@@ -275,35 +282,54 @@ class ConfigNotFoundError(ConfigError):
     """Raised when the Sub Manager configuration file is not found."""
 
 
+F = TypeVar('F', bound=Callable[..., Any])  # pylint: disable=invalid-name
+
+
+class copy_signature(Generic[F]):  # pylint: disable=invalid-name
+    """Decorator to copy the signature from another function."""
+
+    def __init__(self, target: F) -> None:  # pylint: disable=unused-argument
+        ...
+
+    def __call__(self, wrapped: Callable[..., Any]) -> F:
+        """Call method."""
+
+
 class SyncEndpoint(metaclass=abc.ABCMeta):
     """Abstraction of a source or target for a Reddit sync action."""
 
     @abc.abstractmethod
-    def __init__(self, endpoint_name, reddit, subreddit, description=None):
+    def __init__(
+            self,
+            endpoint_name: str,
+            reddit: praw.Reddit,
+            subreddit: praw.models.Subreddit,
+            description: str | None = None,
+            ) -> None:
         self.name = endpoint_name
-        self.description = endpoint_name if not description else description
-        self._object = None
         self._reddit = reddit
         self._subreddit = self._reddit.subreddit(subreddit)
+        self.description = endpoint_name if not description else description
 
     @property
     @abc.abstractmethod
-    def content(self):
+    def content(self) -> object:
         """Get the current content of the sync endpoint."""
 
-    def edit(self, new_content, reason=""):  # pylint: disable=unused-argument
+    @abc.abstractmethod
+    def edit(self, new_content: object, reason: str = "") -> None:
         """Update the sync endpoint with the given content."""
-        self._object.edit(new_content)
 
     @property
     @abc.abstractmethod
-    def revision_date(self):
+    def revision_date(self) -> int | NoReturn:
         """Get the date the sync endpoint was last updated, if supported."""
 
 
 class MenuSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit top bar menu widget."""
 
+    @copy_signature(SyncEndpoint.__init__)
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if not self.name:
@@ -317,16 +343,16 @@ class MenuSyncEndpoint(SyncEndpoint):
             self._object = self._subreddit.widgets.topbar[0]
 
     @property
-    def content(self):
+    def content(self) -> dict:
         """Get the current structured data in the menu widget."""
         return self._object.data
 
-    def edit(self, new_content, reason=""):
+    def edit(self, new_content: object, reason: str = "") -> None:
         """Update the menu with the given structured data."""
         self._object.mod.update(data=new_content)
 
     @property
-    def revision_date(self):
+    def revision_date(self) -> NoReturn:
         """Get the date the endpoint was updated; not supported for menus."""
         raise NotImplementedError
 
@@ -334,17 +360,22 @@ class MenuSyncEndpoint(SyncEndpoint):
 class ThreadSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit thread (selfpost submission)."""
 
+    @copy_signature(SyncEndpoint.__init__)
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._object = self._reddit.submission(id=self.name)
 
     @property
-    def content(self):
+    def content(self) -> str:
         """Get the current submission's selftext."""
         return self._object.selftext
 
+    def edit(self, new_content: object, reason: str = "") -> None:
+        """Update the thread's text to be that passed."""
+        self._object.edit(new_content)
+
     @property
-    def revision_date(self):
+    def revision_date(self) -> int:
         """Get the date the thread was last edited."""
         edited = self._object.edited
         return edited if edited else self._object.created_utc
@@ -353,6 +384,7 @@ class ThreadSyncEndpoint(SyncEndpoint):
 class WidgetSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit sidebar text content widget."""
 
+    @copy_signature(SyncEndpoint.__init__)
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         for widget in self._subreddit.widgets.sidebar:
@@ -364,16 +396,16 @@ class WidgetSyncEndpoint(SyncEndpoint):
                 f"Widget {self.name} missing for endpoint {self.description}")
 
     @property
-    def content(self):
+    def content(self) -> str:
         """Get the current text content of the sidebar widget."""
         return self._object.text
 
-    def edit(self, new_content, reason=""):
+    def edit(self, new_content: object, reason: str = "") -> None:
         """Update the sidebar widget with the given text content."""
         self._object.mod.update(text=new_content)
 
     @property
-    def revision_date(self):
+    def revision_date(self) -> NoReturn:
         """Get the date the endpoint was updated; not supported for widgets."""
         raise NotImplementedError
 
@@ -381,26 +413,27 @@ class WidgetSyncEndpoint(SyncEndpoint):
 class WikiSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit wiki page."""
 
+    @copy_signature(SyncEndpoint.__init__)
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._object = self._subreddit.wiki[self.name]
 
     @property
-    def content(self):
+    def content(self) -> str:
         """Get the current text content of the wiki page."""
         return self._object.content_md
 
-    def edit(self, new_content, reason=""):
+    def edit(self, new_content: object, reason: str = "") -> None:
         """Update the wiki page with the given text."""
         self._object.edit(new_content, reason=reason)
 
     @property
-    def revision_date(self):
+    def revision_date(self) -> int:
         """Get the date the wiki page was last updated."""
         return self._object.revision_date
 
 
-SYNC_ENDPOINT_TYPES = {
+SYNC_ENDPOINT_TYPES: dict[EndpointType, type[SyncEndpoint]] = {
     EndpointType.MENU: MenuSyncEndpoint,
     EndpointType.THREAD: ThreadSyncEndpoint,
     EndpointType.WIDGET: WidgetSyncEndpoint,
@@ -412,7 +445,8 @@ SYNC_ENDPOINT_PARAMETERS = {
 
 
 def create_sync_endpoint(
-        endpoint_type=EndpointType.WIKI_PAGE, **endpoint_kwargs):
+        endpoint_type:  EndpointType | str = EndpointType.WIKI_PAGE,
+        **endpoint_kwargs: Any) -> SyncEndpoint:
     """Create a new sync endpoint with a specific type and arguments."""
     if not isinstance(endpoint_type, EndpointType):
         endpoint_type = EndpointType[endpoint_type]
@@ -420,7 +454,8 @@ def create_sync_endpoint(
     return sync_endpoint
 
 
-def create_sync_endpoint_from_config(config, reddit):
+def create_sync_endpoint_from_config(
+        config: dict[str, Any], reddit: praw.Reddit) -> SyncEndpoint:
     """Create a new sync endpoint given a particular config and Reddit obj."""
     filtered_kwargs = {key: value for key, value in config.items()
                        if key in SYNC_ENDPOINT_PARAMETERS}
