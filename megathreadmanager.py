@@ -23,6 +23,7 @@ from typing import (
     Callable,  # Added to collections.abc in Python 3.9
     Dict,  # Not needed in Python 3.9
     Generic,
+    List,  # Not needed in Python 3.9
     NoReturn,
     TypeVar,
     Union,  # Not needed in Python 3.9
@@ -66,12 +67,15 @@ class EndpointType(enum.Enum):
 PathLikeStr = Union[os.PathLike, str]
 
 ConfigDict = Dict[str, Any]
+MenuData = List[Dict[str, Union[str, List[Dict[str, str]]]]]
 
 AccountsConfig = Dict[str, Dict[str, str]]
+AccountsMap = Dict[str, praw.Reddit]
 DynamicConfig = ConfigDict
 DynamicConfigs = Dict[str, Dict[str, Any]]
 EndpointConfig = ConfigDict
 StaticConfig = ConfigDict
+ThreadConfig = ConfigDict
 
 
 # Config
@@ -81,7 +85,7 @@ This thread is no longer being updated, and has been replaced by:
 # [{post_title}]({thread_url})
 """
 
-DEFAULT_SYNC_ENDPOINT = {
+DEFAULT_SYNC_ENDPOINT: EndpointConfig = {
     "description": "",
     "enabled": True,
     "endpoint_name": "",
@@ -93,7 +97,7 @@ DEFAULT_SYNC_ENDPOINT = {
     "replace_patterns": {},
     }
 
-DEFAULT_SYNC_PAIR = {
+DEFAULT_SYNC_PAIR: ConfigDict = {
     "defaults": {},
     "description": "",
     "enabled": True,
@@ -101,7 +105,7 @@ DEFAULT_SYNC_PAIR = {
     "targets": {},
     }
 
-DEFAULT_MEGATHREAD_CONFIG = {
+DEFAULT_MEGATHREAD_CONFIG: ThreadConfig = {
     "defaults": {},
     "description": "",
     "enabled": True,
@@ -328,7 +332,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def content(self) -> object:
+    def content(self) -> str | MenuData:
         """Get the current content of the sync endpoint."""
 
     @abc.abstractmethod
@@ -358,7 +362,7 @@ class MenuSyncEndpoint(SyncEndpoint):
             self._object = self._subreddit.widgets.topbar[0]
 
     @property
-    def content(self) -> dict:
+    def content(self) -> MenuData:
         """Get the current structured data in the menu widget."""
         return self._object.data
 
@@ -606,7 +610,10 @@ def load_dynamic_config(
 
 # ----------------- Core megathread logic -----------------
 
-def generate_template_vars(thread_config, dynamic_config):
+def generate_template_vars(
+        thread_config: ThreadConfig,
+        dynamic_config: DynamicConfig,
+        ) -> dict[str, str | float | datetime.datetime]:
     """Generate the title and post templates."""
     template_vars = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
@@ -621,7 +628,11 @@ def generate_template_vars(thread_config, dynamic_config):
     return template_vars
 
 
-def create_new_thread(thread_config, dynamic_config, accounts):
+def create_new_thread(
+        thread_config: ThreadConfig,
+        dynamic_config: DynamicConfig,
+        accounts: AccountsMap,
+        ) -> None:
     """Create a new thread based on the title and post template."""
     # Generate thread title and contents
     dynamic_config["source_timestamp"] = 0
@@ -720,7 +731,11 @@ def create_new_thread(thread_config, dynamic_config, accounts):
     dynamic_config["thread_id"] = new_thread.id
 
 
-def manage_thread(thread_config, dynamic_config, accounts):
+def manage_thread(
+        thread_config: ThreadConfig,
+        dynamic_config: DynamicConfig,
+        accounts: AccountsMap,
+        ) -> None:
     """Manage the current thread, creating or updating it as necessary."""
     if not thread_config["enabled"]:
         return
@@ -740,11 +755,13 @@ def manage_thread(thread_config, dynamic_config, accounts):
                     getattr(last_post_timestamp, interval_unit)
                     != getattr(current_datetime, interval_unit))
             else:
-                delta_kwargs = {interval_unit + "s": interval_n}
+                delta_kwargs: dict[str, int] = {
+                    f"{interval_unit}s": interval_n}
+                relative_timedelta = dateutil.relativedelta.relativedelta(
+                    **delta_kwargs)  # type: ignore[arg-type]
                 should_post_new_thread = (
-                    current_datetime
-                    > (last_post_timestamp
-                       + dateutil.relativedelta.relativedelta(**delta_kwargs)))
+                    current_datetime > (
+                        last_post_timestamp + relative_timedelta))
         else:
             should_post_new_thread = True
     else:
@@ -772,7 +789,11 @@ def manage_thread(thread_config, dynamic_config, accounts):
             )
 
 
-def manage_threads(static_config, dynamic_config, accounts):
+def manage_threads(
+        static_config: StaticConfig,
+        dynamic_config: DynamicConfigs,
+        accounts: AccountsMap,
+        ) -> None:
     """Check and create/update all defined megathreads for a sub."""
     defaults = {
         **static_config["defaults"],
