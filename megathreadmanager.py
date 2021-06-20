@@ -29,6 +29,7 @@ from typing import (
     Union,  # Not needed in Python 3.9
     )
 from typing_extensions import (
+    Final,  # Added to typing in Python 3.8
     Literal,  # Added to typing in Python 3.8
     )
 
@@ -42,14 +43,14 @@ import toml
 
 # ----------------- Constants -----------------
 
-__version__ = "0.6.0dev0"
+__version__: Final = "0.6.0dev0"
 
 # General constants
-CONFIG_DIRECTORY = Path("~/.config/megathread-manager").expanduser()
-CONFIG_PATH_STATIC = CONFIG_DIRECTORY / "config.toml"
-CONFIG_PATH_DYNAMIC = CONFIG_DIRECTORY / "config_dynamic.json"
-CONFIG_PATH_REFRESH = CONFIG_DIRECTORY / "refresh_token_{account_key}.txt"
-USER_AGENT = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
+CONFIG_DIRECTORY: Final = Path("~/.config/megathread-manager").expanduser()
+CONFIG_PATH_STATIC: Final = CONFIG_DIRECTORY / "config.toml"
+CONFIG_PATH_DYNAMIC: Final = CONFIG_DIRECTORY / "config_dynamic.json"
+CONFIG_PATH_REFRESH: Final = CONFIG_DIRECTORY / "refresh_token_{key}.txt"
+USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 
 # Enum values
@@ -81,13 +82,13 @@ ThreadConfig = ConfigDict
 
 
 # Config
-DEFAULT_REDIRECT_TEMPLATE = """
+DEFAULT_REDIRECT_TEMPLATE: Final = """
 This thread is no longer being updated, and has been replaced by:
 
 # [{post_title}]({thread_url})
 """
 
-DEFAULT_SYNC_ENDPOINT: EndpointConfig = {
+DEFAULT_SYNC_ENDPOINT: Final[EndpointConfig] = {
     "description": "",
     "enabled": True,
     "endpoint_name": "",
@@ -99,7 +100,7 @@ DEFAULT_SYNC_ENDPOINT: EndpointConfig = {
     "replace_patterns": {},
     }
 
-DEFAULT_SYNC_PAIR: ConfigDict = {
+DEFAULT_SYNC_PAIR: Final[ConfigDict] = {
     "defaults": {},
     "description": "",
     "enabled": True,
@@ -107,7 +108,7 @@ DEFAULT_SYNC_PAIR: ConfigDict = {
     "targets": {},
     }
 
-DEFAULT_MEGATHREAD_CONFIG: ThreadConfig = {
+DEFAULT_MEGATHREAD_CONFIG: Final[ThreadConfig] = {
     "defaults": {},
     "description": "",
     "enabled": True,
@@ -125,7 +126,7 @@ DEFAULT_MEGATHREAD_CONFIG: ThreadConfig = {
     "source": {},
     }
 
-DYNAMIC_CONFIGS: DynamicConfigs = {
+DYNAMIC_CONFIGS: Final[DynamicConfigs] = {
     "megathread": {
         "static_config_path": ("megathread", "megathreads"),
         "defaults": {
@@ -142,7 +143,7 @@ DYNAMIC_CONFIGS: DynamicConfigs = {
         },
     }
 
-DEFAULT_CONFIG: StaticConfig = {
+DEFAULT_CONFIG: Final[StaticConfig] = {
     "repeat_interval_s": 60,
     "accounts": {
         "example": {
@@ -454,15 +455,15 @@ class WikiSyncEndpoint(SyncEndpoint):
         return self._object.revision_date
 
 
-SYNC_ENDPOINT_TYPES: dict[EndpointType, type[SyncEndpoint]] = {
+SYNC_ENDPOINT_TYPES: Final[dict[EndpointType, type[SyncEndpoint]]] = {
     EndpointType.MENU: MenuSyncEndpoint,
     EndpointType.THREAD: ThreadSyncEndpoint,
     EndpointType.WIDGET: WidgetSyncEndpoint,
     EndpointType.WIKI_PAGE: WikiSyncEndpoint,
     }
 
-SYNC_ENDPOINT_PARAMETERS = {
-    "description", "endpoint_name", "endpoint_type", "reddit", "subreddit"}
+SYNC_ENDPOINT_PARAMETERS: Final = frozenset({
+    "description", "endpoint_name", "endpoint_type", "reddit", "subreddit"})
 
 
 def create_sync_endpoint(
@@ -496,7 +497,7 @@ def handle_refresh_tokens(
         if refresh_token:
             # Initialize refresh token file
             token_path = config_path_refresh.with_name(
-                config_path_refresh.name.format(account_key=account_key))
+                config_path_refresh.name.format(key=account_key))
             if not token_path.exists():
                 with open(token_path, "w",
                           encoding="utf-8", newline="\n") as token_file:
