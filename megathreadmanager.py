@@ -67,7 +67,9 @@ class EndpointType(enum.Enum):
 PathLikeStr = Union[os.PathLike, str]
 
 ConfigDict = Dict[str, Any]
-MenuData = List[Dict[str, Union[str, List[Dict[str, str]]]]]
+ChildrenData = List[Dict[str, str]]
+SectionData = Dict[str, Union[str, ChildrenData]]
+MenuData = List[SectionData]
 
 AccountsConfig = Dict[str, Dict[str, str]]
 AccountsMap = Dict[str, praw.Reddit]
@@ -817,19 +819,20 @@ def manage_threads(
 # ----------------- Sync functionality -----------------
 
 def parse_menu(
-        source_text,
-        split="\n\n",
-        subsplit="\n",
-        pattern_title=r"\[([^\n\]]*)\]\(",
-        pattern_url=r"\]\(([^\s\)]*)[\s\)]",
-        pattern_subtitle=r"\[([^\n\]]*)\]\(",
-        ):
+        source_text: str,
+        split: str = "\n\n",
+        subsplit: str = "\n",
+        pattern_title: str = r"\[([^\n\]]*)\]\(",
+        pattern_url: str = r"\]\(([^\s\)]*)[\s\)]",
+        pattern_subtitle: str = r"\[([^\n\]]*)\]\(",
+        ) -> MenuData:
     """Parse source Markdown text and render it into a strucured format."""
-    menu_data = []
+    menu_data: MenuData = []
     source_text = source_text.replace("\r\n", "\n")
     menu_sections = split_and_clean_text(
         source_text, split)
     for menu_section in menu_sections:
+        section_data: SectionData
         menu_subsections = split_and_clean_text(
             menu_section, subsplit)
         if not menu_subsections:
@@ -846,7 +849,7 @@ def parse_menu(
                 continue
             section_data["url"] = url_text
         else:
-            children = []
+            children: ChildrenData = []
             for menu_child in menu_subsections[1:]:
                 title_text = extract_text(
                     pattern_subtitle, menu_child)
@@ -860,11 +863,18 @@ def parse_menu(
     return menu_data
 
 
-def process_endpoint_text(content, config, replace_text=None):
+def process_endpoint_text(
+        content: str,
+        config: EndpointConfig,
+        replace_text: str | None = None,
+        ) -> str | Literal[False]:
     """Perform the desired find-replace for a specific sync endpoint."""
     match_obj = search_startend(
-        content, config["pattern"],
-        config["pattern_start"], config["pattern_end"])
+        content,
+        config["pattern"],
+        config["pattern_start"],
+        config["pattern_end"],
+        )
     if match_obj is not False:
         if not match_obj:
             return False
@@ -876,7 +886,11 @@ def process_endpoint_text(content, config, replace_text=None):
     return content if replace_text is None else replace_text
 
 
-def process_source_endpoint(source_config, source_obj, dynamic_config):
+def process_source_endpoint(
+        source_config: ConfigDict,
+        source_obj: SyncEndpoint,
+        dynamic_config: DynamicConfig,
+        ) -> str | MenuData | Literal[False]:
     """Get and preprocess the text from a source if its out of date."""
     try:
         # print("Source obj name:", source_obj.name,
@@ -893,18 +907,24 @@ def process_source_endpoint(source_config, source_obj, dynamic_config):
 
     source_content = source_obj.content
     if isinstance(source_content, str):
-        source_content = process_endpoint_text(source_content, source_config)
-        if source_content is False:
+        source_content_processed = process_endpoint_text(
+            source_content, source_config)
+        if source_content_processed is False:
             print("Sync pattern not found in source "
                   f"{source_obj.description}; skipping")
             return False
-        source_content = replace_patterns(
-            source_content, source_config["replace_patterns"])
+        source_content_processed = replace_patterns(
+            source_content_processed, source_config["replace_patterns"])
+        return source_content_processed
 
     return source_content
 
 
-def process_target_endpoint(target_config, target_obj, source_content):
+def process_target_endpoint(
+        target_config: ConfigDict,
+        target_obj: SyncEndpoint,
+        source_content: str | MenuData,
+        ) -> str | MenuData | Literal[False]:
     """Handle text conversions and deployment onto a sync target."""
     if isinstance(source_content, str):
         source_content = replace_patterns(
@@ -915,18 +935,23 @@ def process_target_endpoint(target_config, target_obj, source_content):
             and isinstance(source_content, str)):
         target_content = parse_menu(
             source_text=source_content, **target_config["menu_config"])
-    elif isinstance(target_content, str):
-        target_content = process_endpoint_text(
+    elif isinstance(source_content, str) and isinstance(target_content, str):
+        target_content_processed = process_endpoint_text(
             target_content, target_config, replace_text=source_content)
-        if target_content is False:
+        if target_content_processed is False:
             print("Sync pattern not found in target "
                   f"{target_obj.description}; skipping")
             return False
+        return target_content_processed
 
     return target_content
 
 
-def sync_one(sync_pair, dynamic_config, accounts):
+def sync_one(
+        sync_pair: ConfigDict,
+        dynamic_config: DynamicConfig,
+        accounts: AccountsMap,
+        ) -> bool | None:
     """Sync one specific pair of sources and targets."""
     description = sync_pair.get("description", "Unnamed")
     defaults = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["defaults"]}
@@ -964,7 +989,10 @@ def sync_one(sync_pair, dynamic_config, accounts):
     return True
 
 
-def sync_all(static_config, dynamic_config, accounts):
+def sync_all(static_config: StaticConfig,
+             dynamic_config: DynamicConfigs,
+             accounts: AccountsMap,
+             ) -> None:
     """Sync all pairs of sources/targets (pages,threads, sections) on a sub."""
     defaults = {
         **static_config["defaults"],
