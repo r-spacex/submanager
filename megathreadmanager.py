@@ -1012,7 +1012,7 @@ def sync_all(static_config: StaticConfig,
 
 # ----------------- Orchestration -----------------
 
-def setup_accounts(accounts_config):
+def setup_accounts(accounts_config: AccountsConfig) -> AccountsMap:
     """Set up the praw.reddit objects for each account in the config."""
     accounts = {}
     for account_key, account_kwargs in accounts_config.items():
@@ -1023,10 +1023,10 @@ def setup_accounts(accounts_config):
 
 
 def run_manage(
-        config_path_static=CONFIG_PATH_STATIC,
-        config_path_dynamic=CONFIG_PATH_DYNAMIC,
-        config_path_refresh=CONFIG_PATH_REFRESH,
-        ):
+        config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
+        config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
+        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        ) -> None:
     """Load the config file and run the thread manager."""
     # Load config and set up session
     static_config = load_static_config(config_path_static, config_path_refresh)
@@ -1046,11 +1046,11 @@ def run_manage(
 
 
 def run_manage_loop(
-        config_path_static=CONFIG_PATH_STATIC,
-        config_path_dynamic=CONFIG_PATH_DYNAMIC,
-        config_path_refresh=CONFIG_PATH_REFRESH,
-        repeat=True,
-        ):
+        config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
+        config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
+        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        repeat: bool = True,
+        ) -> None:
     """Run the mainloop of sub-manager, performing each task in sequance."""
     static_config = load_static_config(config_path=config_path_static)
     if repeat is True:
@@ -1079,7 +1079,7 @@ def run_manage_loop(
             break
 
 
-def main(sys_argv=None):
+def main(sys_argv: list[str] | None = None) -> None:
     """Run the main function for the Megathread Manager CLI and dispatch."""
     parser_main = argparse.ArgumentParser(
         description="Generate, post, update and pin a Reddit megathread.",
