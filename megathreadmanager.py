@@ -244,7 +244,7 @@ def startend_to_pattern_md(start: str, end: str | None = None) -> str:
 
 def search_startend(
         source_text: str,
-        pattern: str = "",
+        pattern: str | Literal[False] | None = "",
         start: str = "",
         end: str = "",
         ) -> re.Match[str] | Literal[False] | None:
@@ -314,7 +314,7 @@ class copy_signature(Generic[F]):  # pylint: disable=invalid-name
         ...
 
     def __call__(self, wrapped: Callable[..., Any]) -> F:
-        """Call method."""
+        """Call the function/method."""
 
 
 class SyncEndpoint(metaclass=abc.ABCMeta):
@@ -325,7 +325,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
             self,
             endpoint_name: str,
             reddit: praw.Reddit,
-            subreddit: praw.models.Subreddit,
+            subreddit: str,
             description: str | None = None,
             ) -> None:
         self.name = endpoint_name
@@ -352,7 +352,7 @@ class MenuSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit top bar menu widget."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         if not self.name:
             self.name = "menu"
@@ -367,7 +367,8 @@ class MenuSyncEndpoint(SyncEndpoint):
     @property
     def content(self) -> MenuData:
         """Get the current structured data in the menu widget."""
-        return self._object.data
+        menu_data: MenuData = self._object.data
+        return menu_data
 
     def edit(self, new_content: object, reason: str = "") -> None:
         """Update the menu with the given structured data."""
@@ -383,14 +384,16 @@ class ThreadSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit thread (selfpost submission)."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._object = self._reddit.submission(id=self.name)
 
     @property
     def content(self) -> str:
         """Get the current submission's selftext."""
-        return self._object.selftext
+        submission_text: str = self._object.selftext
+        assert isinstance(submission_text, str)
+        return submission_text
 
     def edit(self, new_content: object, reason: str = "") -> None:
         """Update the thread's text to be that passed."""
@@ -399,15 +402,18 @@ class ThreadSyncEndpoint(SyncEndpoint):
     @property
     def revision_date(self) -> int:
         """Get the date the thread was last edited."""
-        edited = self._object.edited
-        return edited if edited else self._object.created_utc
+        edited_date: int | Literal[False] = self._object.edited
+        if not edited_date:
+            edited_date = self._object.created_utc
+        assert isinstance(edited_date, int)
+        return edited_date
 
 
 class WidgetSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit sidebar text content widget."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         for widget in self._subreddit.widgets.sidebar:
             if widget.shortName == self.name:
@@ -420,7 +426,9 @@ class WidgetSyncEndpoint(SyncEndpoint):
     @property
     def content(self) -> str:
         """Get the current text content of the sidebar widget."""
-        return self._object.text
+        widget_text: str = self._object.text
+        assert isinstance(widget_text, str)
+        return widget_text
 
     def edit(self, new_content: object, reason: str = "") -> None:
         """Update the sidebar widget with the given text content."""
@@ -436,14 +444,16 @@ class WikiSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit wiki page."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._object = self._subreddit.wiki[self.name]
 
     @property
     def content(self) -> str:
         """Get the current text content of the wiki page."""
-        return self._object.content_md
+        wiki_text: str = self._object.content_md
+        assert isinstance(wiki_text, str)
+        return wiki_text
 
     def edit(self, new_content: object, reason: str = "") -> None:
         """Update the wiki page with the given text."""
@@ -452,7 +462,9 @@ class WikiSyncEndpoint(SyncEndpoint):
     @property
     def revision_date(self) -> int:
         """Get the date the wiki page was last updated."""
-        return self._object.revision_date
+        revision_timestamp: int = self._object.revision_date
+        assert isinstance(revision_timestamp, int)
+        return revision_timestamp
 
 
 SYNC_ENDPOINT_TYPES: Final[dict[EndpointType, type[SyncEndpoint]]] = {
@@ -533,10 +545,11 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
     """Load the config file at the specified path."""
     config_path = Path(config_path)
     with open(config_path, mode="r", encoding="utf-8") as config_file:
+        config: ConfigDict
         if config_path.suffix == ".json":
-            config = json.load(config_file)
+            config = dict(json.load(config_file))
         elif config_path.suffix == ".toml":
-            config = toml.load(config_file)
+            config = dict(toml.load(config_file))
         else:
             raise ConfigError(
                 f"Format of config file {config_path} not in {{JSON, TOML}}")
