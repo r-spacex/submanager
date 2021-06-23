@@ -7,9 +7,6 @@ from __future__ import annotations
 # Standard library imports
 import abc
 import argparse
-from collections.abc import (
-    Mapping,
-    )
 import copy
 import datetime
 import enum
@@ -24,7 +21,9 @@ from typing import (
     Dict,  # Not needed in Python 3.9
     Generic,
     List,  # Not needed in Python 3.9
+    Mapping,  # Added to collections.abc in Python 3.9
     NoReturn,
+    TYPE_CHECKING,
     TypeVar,
     Union,  # Not needed in Python 3.9
     )
@@ -65,16 +64,19 @@ class EndpointType(enum.Enum):
 
 
 # Type aliases
-PathLikeStr = Union[os.PathLike, str]
+if TYPE_CHECKING:
+    PathLikeStr = Union['os.PathLike[str]', str]
+else:
+    PathLikeStr = Union[os.PathLike, str]
 
-ConfigDict = Dict[str, Any]
+ConfigDict = Mapping[str, Any]
 ChildrenData = List[Dict[str, str]]
 SectionData = Dict[str, Union[str, ChildrenData]]
 MenuData = List[SectionData]
 
-AccountsConfig = Dict[str, Dict[str, str]]
-AccountsMap = Dict[str, praw.Reddit]
-DynamicConfig = ConfigDict
+AccountsConfig = Mapping[str, Mapping[str, str]]
+AccountsMap = Mapping[str, praw.Reddit]
+DynamicConfig = Dict[str, Any]
 DynamicConfigs = Dict[str, Dict[str, Any]]
 EndpointConfig = ConfigDict
 StaticConfig = ConfigDict
@@ -467,7 +469,7 @@ class WikiSyncEndpoint(SyncEndpoint):
         return revision_timestamp
 
 
-SYNC_ENDPOINT_TYPES: Final[dict[EndpointType, type[SyncEndpoint]]] = {
+SYNC_ENDPOINT_TYPES: Final[Mapping[EndpointType, type[SyncEndpoint]]] = {
     EndpointType.MENU: MenuSyncEndpoint,
     EndpointType.THREAD: ThreadSyncEndpoint,
     EndpointType.WIDGET: WidgetSyncEndpoint,
@@ -497,31 +499,6 @@ def create_sync_endpoint_from_config(
 
 
 # ----------------- Config functions -----------------
-
-def handle_refresh_tokens(
-        accounts: AccountsConfig,
-        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        ) -> AccountsConfig:
-    """Set up each account with the appropriate refresh tokens."""
-    config_path_refresh = Path(config_path_refresh)
-    for account_key, account_kwargs in accounts.items():
-        refresh_token = account_kwargs.pop("refresh_token", None)
-        if refresh_token:
-            # Initialize refresh token file
-            token_path = config_path_refresh.with_name(
-                config_path_refresh.name.format(key=account_key))
-            if not token_path.exists():
-                with open(token_path, "w",
-                          encoding="utf-8", newline="\n") as token_file:
-                    token_file.write(refresh_token)
-
-            # Set up refresh token manager
-            token_manager = praw.util.token_manager.FileTokenManager(
-                token_path)
-            account_kwargs["token_manager"] = token_manager
-
-    return accounts
-
 
 def write_config(
         config: ConfigDict,
@@ -557,9 +534,7 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
 
 
 def load_static_config(
-        config_path: PathLikeStr = CONFIG_PATH_STATIC,
-        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        ) -> StaticConfig:
+        config_path: PathLikeStr = CONFIG_PATH_STATIC) -> StaticConfig:
     """Load manager's static (user) config file, creating it if needed."""
     config_path = Path(config_path)
     if not config_path.exists():
@@ -569,8 +544,6 @@ def load_static_config(
     if not static_config or static_config == DEFAULT_CONFIG:
         raise ConfigNotFoundError(
             f"Config file at {config_path.as_posix()} needs to be set up.")
-    static_config["accounts"] = handle_refresh_tokens(
-        static_config["accounts"], config_path_refresh=config_path_refresh)
 
     return static_config
 
@@ -617,7 +590,7 @@ def load_dynamic_config(
             static_config=static_config, dynamic_config={})
         write_config(dynamic_config, config_path=config_path)
     else:
-        dynamic_config = load_config(config_path)
+        dynamic_config = dict(load_config(config_path))
         dynamic_config = render_dynamic_config(
             static_config=static_config, dynamic_config=dynamic_config)
 
@@ -1024,12 +997,44 @@ def sync_all(static_config: StaticConfig,
             )
 
 
-# ----------------- Orchestration -----------------
+# ----------------- Setup and orchestration -----------------
 
-def setup_accounts(accounts_config: AccountsConfig) -> AccountsMap:
+def handle_refresh_tokens(
+        accounts_config: AccountsConfig,
+        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        ) -> Mapping[str, Mapping[str, Any]]:
+    """Set up each account with the appropriate refresh tokens."""
+    config_path_refresh = Path(config_path_refresh)
+    accounts_config_processed = dict(copy.deepcopy(accounts_config))
+    for account_key, account_kwargs in accounts_config_processed.items():
+        account_kwargs = dict(account_kwargs)
+        refresh_token = account_kwargs.pop("refresh_token", None)
+        if refresh_token:
+            # Initialize refresh token file
+            token_path = config_path_refresh.with_name(
+                config_path_refresh.name.format(key=account_key))
+            if not token_path.exists():
+                with open(token_path, "w",
+                          encoding="utf-8", newline="\n") as token_file:
+                    token_file.write(refresh_token)
+
+            # Set up refresh token manager
+            token_manager = praw.util.token_manager.FileTokenManager(
+                token_path)
+            account_kwargs["token_manager"] = token_manager
+
+    return accounts_config_processed
+
+
+def setup_accounts(
+        accounts_config: AccountsConfig,
+        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        ) -> AccountsMap:
     """Set up the praw.reddit objects for each account in the config."""
+    accounts_config_processed = handle_refresh_tokens(
+        accounts_config, config_path_refresh=config_path_refresh)
     accounts = {}
-    for account_key, account_kwargs in accounts_config.items():
+    for account_key, account_kwargs in accounts_config_processed.items():
         reddit = praw.Reddit(user_agent=USER_AGENT, **account_kwargs)
         reddit.validate_on_submit = True
         accounts[account_key] = reddit
@@ -1043,10 +1048,11 @@ def run_manage(
         ) -> None:
     """Load the config file and run the thread manager."""
     # Load config and set up session
-    static_config = load_static_config(config_path_static, config_path_refresh)
+    static_config = load_static_config(config_path_static)
     dynamic_config = load_dynamic_config(config_path_dynamic, static_config)
     dynamic_config_active = copy.deepcopy(dynamic_config)
-    accounts = setup_accounts(static_config["accounts"])
+    accounts = setup_accounts(
+        static_config["accounts"], config_path_refresh=config_path_refresh)
 
     # Run the core manager tasks
     if static_config["sync"]["enabled"]:
