@@ -18,6 +18,7 @@ import time
 from typing import (
     Any,
     Callable,  # Added to collections.abc in Python 3.9
+    cast,
     Dict,  # Not needed in Python 3.9
     Generic,
     List,  # Not needed in Python 3.9
@@ -30,6 +31,7 @@ from typing import (
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
     Literal,  # Added to typing in Python 3.8
+    TypedDict,  # Added to typing in Python 3.
     )
 
 # Third party imports
@@ -78,29 +80,86 @@ AccountsConfig = Mapping[str, Mapping[str, str]]
 AccountsMap = Mapping[str, praw.Reddit]
 DynamicConfig = Dict[str, Any]
 DynamicConfigs = Dict[str, Dict[str, Any]]
-EndpointConfig = ConfigDict
 StaticConfig = ConfigDict
 ThreadConfig = ConfigDict
 
 
-# Config
+# Config classes and setup
 DEFAULT_REDIRECT_TEMPLATE: Final = """
 This thread is no longer being updated, and has been replaced by:
 
 # [{post_title}]({thread_url})
 """
 
-DEFAULT_SYNC_ENDPOINT: Final[EndpointConfig] = {
-    "description": "",
-    "enabled": True,
-    "endpoint_name": "",
-    "endpoint_type": EndpointType.WIKI_PAGE.name,
-    "menu_config": {},
-    "pattern": False,
-    "pattern_end": " End",
-    "pattern_start": " Start",
-    "replace_patterns": {},
-    }
+
+class MenuConfig(TypedDict):
+    """Configuration to parse the menu data from Markdown text."""
+
+    split: str
+    subsplit: str
+    pattern_title: str
+    pattern_url: str
+    pattern_subtitle: str
+
+
+class PatternConfig(TypedDict):
+    """Configuration for the section pattern-matching."""
+
+    pattern: str | Literal[False]
+    pattern_end: str
+    pattern_start: str
+
+
+class EndpointConfigBase(TypedDict):
+    """Default config params specific to sync endpoint setup."""
+
+    description: str
+    endpoint_name: str
+    endpoint_type: (
+        Literal["MENU", "THREAD", "WIDGET", "WIKI_PAGE"] | EndpointType)
+
+
+class EndpointConfig(EndpointConfigBase):
+    """Inherited config params specific to sync endpoint setup."""
+
+    subreddit: str
+
+
+class FullEndpointConfigBase(EndpointConfigBase, PatternConfig):
+    """Default config params for a sync source/target endpoint."""
+
+    enabled: bool
+    menu_config: dict[str, str]
+    replace_patterns: Mapping[str, str]
+
+
+class FullEndpointConfig(FullEndpointConfigBase):
+    """Inherited config params for a sync source/target endpoint."""
+
+    account: str
+    subreddit: str
+
+
+DEFAULT_MENU_CONFIG = MenuConfig(
+    split="\n\n",
+    subsplit="\n",
+    pattern_title=r"\[([^\n\]]*)\]\(",
+    pattern_url=r"\]\(([^\s\)]*)[\s\)]",
+    pattern_subtitle=r"\[([^\n\]]*)\]\(",
+    )
+
+
+DEFAULT_SYNC_ENDPOINT: Final[EndpointConfigBase] = FullEndpointConfigBase(
+    description="",
+    enabled=True,
+    endpoint_name="",
+    endpoint_type=EndpointType.WIKI_PAGE.name,
+    menu_config={},
+    pattern=False,
+    pattern_end=" End",
+    pattern_start=" Start",
+    replace_patterns={},
+    )
 
 DEFAULT_SYNC_PAIR: Final[ConfigDict] = {
     "defaults": {},
@@ -476,26 +535,20 @@ SYNC_ENDPOINT_TYPES: Final[Mapping[EndpointType, type[SyncEndpoint]]] = {
     EndpointType.WIKI_PAGE: WikiSyncEndpoint,
     }
 
-SYNC_ENDPOINT_PARAMETERS: Final = frozenset({
-    "description", "endpoint_name", "endpoint_type", "reddit", "subreddit"})
-
-
-def create_sync_endpoint(
-        endpoint_type: EndpointType | str = EndpointType.WIKI_PAGE,
-        **endpoint_kwargs: Any) -> SyncEndpoint:
-    """Create a new sync endpoint with a specific type and arguments."""
-    if not isinstance(endpoint_type, EndpointType):
-        endpoint_type = EndpointType[endpoint_type]
-    sync_endpoint = SYNC_ENDPOINT_TYPES[endpoint_type](**endpoint_kwargs)
-    return sync_endpoint
-
 
 def create_sync_endpoint_from_config(
         config: EndpointConfig, reddit: praw.Reddit) -> SyncEndpoint:
     """Create a new sync endpoint given a particular config and Reddit obj."""
-    filtered_kwargs = {key: value for key, value in config.items()
-                       if key in SYNC_ENDPOINT_PARAMETERS}
-    return create_sync_endpoint(reddit=reddit, **filtered_kwargs)
+    endpoint_type = config["endpoint_type"]
+    if not isinstance(endpoint_type, EndpointType):
+        endpoint_type = EndpointType[endpoint_type]
+    sync_endpoint = SYNC_ENDPOINT_TYPES[endpoint_type](
+        endpoint_name=config["endpoint_name"],
+        reddit=reddit,
+        subreddit=config["subreddit"],
+        description=config["description"],
+        )
+    return sync_endpoint
 
 
 # ----------------- Config functions -----------------
@@ -635,11 +688,12 @@ def create_new_thread(
     reddit_post = accounts[target_config["account"]]
     subreddit_post = reddit_post.subreddit(target_config["subreddit"])
 
-    source_config = {
+    source_config: ConfigDict = {
         **DEFAULT_SYNC_ENDPOINT,
         **thread_config["defaults"],
         **thread_config["source"],
         }
+    source_config = cast(FullEndpointConfig, source_config)
     source_obj = create_sync_endpoint_from_config(
         config=source_config, reddit=accounts[source_config["account"]])
 
@@ -687,12 +741,11 @@ def create_new_thread(
                    for thread in [current_thread, new_thread]))
             for link_type in ["permalink", "shortlink"])
         for idx, page_name in enumerate(thread_config["link_update_pages"]):
-            page = create_sync_endpoint(
-                description=f"Megathread link page {idx + 1}",
+            page = WikiSyncEndpoint(
                 endpoint_name=page_name,
-                endpoint_type=EndpointType.WIKI_PAGE,
                 reddit=reddit_mod,
                 subreddit=thread_config["subreddit"],
+                description=f"Megathread link page {idx + 1}",
                 )
             new_content = page.content
             for old_link, new_link in links:
@@ -807,31 +860,30 @@ def manage_threads(
 
 def parse_menu(
         source_text: str,
-        split: str = "\n\n",
-        subsplit: str = "\n",
-        pattern_title: str = r"\[([^\n\]]*)\]\(",
-        pattern_url: str = r"\]\(([^\s\)]*)[\s\)]",
-        pattern_subtitle: str = r"\[([^\n\]]*)\]\(",
+        menu_config: MenuConfig | None = None,
         ) -> MenuData:
     """Parse source Markdown text and render it into a strucured format."""
+    if menu_config is None:
+        menu_config = DEFAULT_MENU_CONFIG
+
     menu_data: MenuData = []
     source_text = source_text.replace("\r\n", "\n")
     menu_sections = split_and_clean_text(
-        source_text, split)
+        source_text, menu_config["split"])
     for menu_section in menu_sections:
         section_data: SectionData
         menu_subsections = split_and_clean_text(
-            menu_section, subsplit)
+            menu_section, menu_config["subsplit"])
         if not menu_subsections:
             continue
         title_text = extract_text(
-            pattern_title, menu_subsections[0])
+            menu_config["pattern_title"], menu_subsections[0])
         if title_text is False:
             continue
         section_data = {"text": title_text}
         if len(menu_subsections) == 1:
             url_text = extract_text(
-                pattern_url, menu_subsections[0])
+                menu_config["pattern_url"], menu_subsections[0])
             if url_text is False:
                 continue
             section_data["url"] = url_text
@@ -839,9 +891,9 @@ def parse_menu(
             children: ChildrenData = []
             for menu_child in menu_subsections[1:]:
                 title_text = extract_text(
-                    pattern_subtitle, menu_child)
+                    menu_config["pattern_subtitle"], menu_child)
                 url_text = extract_text(
-                    pattern_url, menu_child)
+                    menu_config["pattern_url"], menu_child)
                 if title_text is not False and url_text is not False:
                     children.append(
                         {"text": title_text, "url": url_text})
@@ -852,7 +904,7 @@ def parse_menu(
 
 def process_endpoint_text(
         content: str,
-        config: EndpointConfig,
+        config: PatternConfig,
         replace_text: str | None = None,
         ) -> str | Literal[False]:
     """Perform the desired find-replace for a specific sync endpoint."""
@@ -874,7 +926,7 @@ def process_endpoint_text(
 
 
 def process_source_endpoint(
-        source_config: ConfigDict,
+        source_config: FullEndpointConfigBase,
         source_obj: SyncEndpoint,
         dynamic_config: DynamicConfig,
         ) -> str | MenuData | Literal[False]:
@@ -908,9 +960,10 @@ def process_source_endpoint(
 
 
 def process_target_endpoint(
-        target_config: ConfigDict,
+        target_config: FullEndpointConfigBase,
         target_obj: SyncEndpoint,
         source_content: str | MenuData,
+        menu_config: MenuConfig | None = None,
         ) -> str | MenuData | Literal[False]:
     """Handle text conversions and deployment onto a sync target."""
     if isinstance(source_content, str):
@@ -921,7 +974,9 @@ def process_target_endpoint(
     if (isinstance(target_obj, MenuSyncEndpoint)
             and isinstance(source_content, str)):
         target_content = parse_menu(
-            source_text=source_content, **target_config["menu_config"])
+            source_text=source_content,
+            menu_config=menu_config,
+            )
     elif isinstance(source_content, str) and isinstance(target_content, str):
         target_content_processed = process_endpoint_text(
             target_content, target_config, replace_text=source_content)
@@ -942,7 +997,8 @@ def sync_one(
     """Sync one specific pair of sources and targets."""
     description = sync_pair.get("description", "Unnamed")
     defaults = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["defaults"]}
-    source_config = {**defaults, **sync_pair["source"]}
+    source_config: ConfigDict = {**defaults, **sync_pair["source"]}
+    source_config = cast(FullEndpointConfig, source_config)
 
     if not (sync_pair["enabled"] and source_config["enabled"]):
         return None
@@ -957,15 +1013,19 @@ def sync_one(
     if source_content is False:
         return False
 
-    for target_config in sync_pair["targets"].values():
-        target_config = {**defaults, **target_config}
+    for target_config_raw in sync_pair["targets"].values():
+        target_config: ConfigDict = {**defaults, **target_config_raw}
+        target_config = cast(FullEndpointConfig, target_config)
         if not target_config["enabled"]:
             continue
 
         target_obj = create_sync_endpoint_from_config(
             config=target_config, reddit=accounts[target_config["account"]])
+        menu_config: ConfigDict = {
+            **DEFAULT_MENU_CONFIG, **source_config["menu_config"]}
+        menu_config = cast(MenuConfig, menu_config)
         target_content = process_target_endpoint(
-            target_config, target_obj, source_content)
+            target_config, target_obj, source_content, menu_config)
         if target_content is False:
             continue
 
