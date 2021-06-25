@@ -109,7 +109,21 @@ class ThreadIDStr(pydantic.ConstrainedStr):
     min_length = 6
 
 
-class MenuConfig(pydantic.BaseModel):
+class CustomBaseModel(
+        pydantic.BaseModel,
+        validate_all=True,
+        extra=pydantic.Extra.forbid,
+        allow_mutation=False,
+        validate_assignment=True,
+        ):
+    """Local customized Pydantic BaseModel."""
+
+
+class CustomMutableBaseModel(CustomBaseModel, allow_mutation=True):
+    """Custom BaseModel that allows mutation."""
+
+
+class MenuConfig(CustomBaseModel):
     """Configuration to parse the menu data from Markdown text."""
 
     split: str = "\n\n"
@@ -119,7 +133,7 @@ class MenuConfig(pydantic.BaseModel):
     pattern_subtitle: str = r"\[([^\n\]]*)\]\("
 
 
-class PatternConfig(pydantic.BaseModel):
+class PatternConfig(CustomBaseModel):
     """Configuration for the section pattern-matching."""
 
     pattern: Union[str, Literal[False]] = False
@@ -127,14 +141,14 @@ class PatternConfig(pydantic.BaseModel):
     pattern_start: str = " Start"
 
 
-class ContextConfig(pydantic.BaseModel):
+class ContextConfig(CustomBaseModel):
     """Local context configuration for the bot."""
 
     account: str
     subreddit: str
 
 
-class EndpointConfig(pydantic.BaseModel):
+class EndpointConfig(CustomBaseModel):
     """Config params specific to sync endpoint setup."""
 
     context: ContextConfig
@@ -160,7 +174,7 @@ class FullEndpointConfig(EndpointConfig, PatternConfig):
     replace_patterns: Mapping[str, str] = {}
 
 
-class SyncPairConfig(pydantic.BaseModel):
+class SyncPairConfig(CustomBaseModel):
     """Configuration object for a sync pair of a source and target(s)."""
 
     description: str = ""
@@ -169,21 +183,21 @@ class SyncPairConfig(pydantic.BaseModel):
     targets: Mapping[str, FullEndpointConfig]
 
 
-class SyncConfig(pydantic.BaseModel):
+class SyncConfig(CustomBaseModel):
     """Top-level configuration for the thread management module."""
 
     enabled: bool = True
     pairs: Mapping[str, SyncPairConfig] = {}
 
 
-class InitialThreadConfig(pydantic.BaseModel):
+class InitialThreadConfig(CustomBaseModel):
     """Initial configuration of a managed thread."""
 
     thread_id: Union[Literal[False], ThreadIDStr] = False
     thread_number: pydantic.NonNegativeInt = 0
 
 
-class ThreadConfig(pydantic.BaseModel):
+class ThreadConfig(CustomBaseModel):
     """Configuration for a managed thread item."""
 
     context: ContextConfig
@@ -201,14 +215,14 @@ class ThreadConfig(pydantic.BaseModel):
     target_context: ContextConfig
 
 
-class ThreadsConfig(pydantic.BaseModel):
+class ThreadsConfig(CustomBaseModel):
     """Top-level configuration for the thread management module."""
 
     enabled: bool = True
     megathreads: Mapping[str, ThreadConfig] = {}
 
 
-class StaticConfig(pydantic.BaseModel):
+class StaticConfig(CustomBaseModel):
     """Model reprisenting the bot's static configuration."""
 
     repeat_interval_s: float = 60
@@ -218,17 +232,18 @@ class StaticConfig(pydantic.BaseModel):
     sync: SyncConfig = SyncConfig()
 
 
-class DynamicSyncConfig(pydantic.BaseModel):
+class DynamicSyncConfig(CustomMutableBaseModel):
     """Dynamically-updated configuration for sync pairs."""
 
     source_timestamp: pydantic.NonNegativeFloat = 0
 
 
-class DynamicThreadConfig(DynamicSyncConfig, InitialThreadConfig):
+class DynamicThreadConfig(
+        DynamicSyncConfig, InitialThreadConfig, allow_mutation=True):
     """Dynamically-updated configuration for managed threads."""
 
 
-class DynamicConfig(pydantic.BaseModel):
+class DynamicConfig(CustomMutableBaseModel):
     """Model reprisenting the current dynamic configuration."""
 
     megathread: Dict[str, DynamicThreadConfig] = {}
@@ -656,11 +671,11 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
 
     sync_defaults = update_dict_recursive(
         {"context": context_default},
-        raw_config.get("sync", {}).get("defaults", {}))
+        raw_config.get("sync", {}).pop("defaults", {}))
     for sync_pair in (
             raw_config.get("sync", {}).get("pairs", {}).values()):
         sync_defaults_item = update_dict_recursive(
-            sync_defaults, sync_pair.get("defaults", {}))
+            sync_defaults, sync_pair.pop("defaults", {}))
         sync_pair["source"] = update_dict_recursive(
             sync_defaults_item, sync_pair.get("source", {}))
         for target_config in sync_pair.get("targets", {}).values():
@@ -669,7 +684,7 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
 
     thread_defaults = update_dict_recursive(
         {"context": context_default},
-        raw_config.get("megathread", {}).get("defaults", {}))
+        raw_config.get("megathread", {}).pop("defaults", {}))
     for thread in (
             raw_config.get("megathread", {}).get("megathreads", {}).values()):
         thread.update(
