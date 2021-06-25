@@ -18,11 +18,11 @@ import time
 from typing import (
     Any,
     Callable,  # Added to collections.abc in Python 3.9
-    cast,
     Dict,  # Not needed in Python 3.9
     Generic,
     List,  # Not needed in Python 3.9
     Mapping,  # Added to collections.abc in Python 3.9
+    MutableMapping,  # Added to collections.abc in Python 3.9
     NoReturn,
     TYPE_CHECKING,
     TypeVar,
@@ -31,7 +31,6 @@ from typing import (
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
     Literal,  # Added to typing in Python 3.8
-    TypedDict,  # Added to typing in Python 3.
     )
 
 # Third party imports
@@ -39,6 +38,7 @@ import dateutil.relativedelta
 import praw
 import praw.util.token_manager
 import prawcore.exceptions
+import pydantic
 import toml
 
 
@@ -59,10 +59,18 @@ USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 class EndpointType(enum.Enum):
     """Reprisent the type of sync endpoint on Reddit."""
 
-    MENU = enum.auto()
-    THREAD = enum.auto()
-    WIDGET = enum.auto()
-    WIKI_PAGE = enum.auto()
+    def __repr__(self) -> str:
+        """Convert enum value to repr."""
+        return str(self.value)
+
+    def __str__(self) -> str:
+        """Convert enum value to string."""
+        return str(self.value)
+
+    MENU = "MENU"
+    THREAD = "THREAD"
+    WIDGET = "WIDGET"
+    WIKI_PAGE = "WIKI_PAGE"
 
 
 # Type aliases
@@ -71,20 +79,20 @@ if TYPE_CHECKING:
 else:
     PathLikeStr = Union[os.PathLike, str]
 
-ConfigDict = Mapping[str, Any]
-ChildrenData = List[Dict[str, str]]
-SectionData = Dict[str, Union[str, ChildrenData]]
+EndpointTypesStr = Literal["MENU", "THREAD", "WIDGET", "WIKI_PAGE"]
+
+ChildrenData = List[MutableMapping[str, str]]
+SectionData = MutableMapping[str, Union[str, ChildrenData]]
 MenuData = List[SectionData]
 
-AccountsConfig = Mapping[str, Mapping[str, str]]
+AccountConfig = Mapping[str, str]
+AccountsConfig = Mapping[str, AccountConfig]
 AccountsMap = Mapping[str, praw.Reddit]
-DynamicConfig = Dict[str, Any]
-DynamicConfigs = Dict[str, Dict[str, Any]]
-StaticConfig = ConfigDict
-ThreadConfig = ConfigDict
+ConfigDict = Mapping[str, Any]
+ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
 
 
-# Config classes and setup
+# Config constants
 DEFAULT_REDIRECT_TEMPLATE: Final = """
 This thread is no longer being updated, and has been replaced by:
 
@@ -92,187 +100,209 @@ This thread is no longer being updated, and has been replaced by:
 """
 
 
-class MenuConfig(TypedDict):
+# ----------------- Config classes -----------------
+
+class ThreadIDStr(pydantic.ConstrainedStr):
+    """Pydantic type class for a thread ID of exactly 6 characters."""
+
+    max_length = 6
+    min_length = 6
+
+
+class MenuConfig(pydantic.BaseModel):
     """Configuration to parse the menu data from Markdown text."""
 
-    split: str
-    subsplit: str
-    pattern_title: str
-    pattern_url: str
-    pattern_subtitle: str
+    split: str = "\n\n"
+    subsplit: str = "\n"
+    pattern_title: str = r"\[([^\n\]]*)\]\("
+    pattern_url: str = r"\]\(([^\s\)]*)[\s\)]"
+    pattern_subtitle: str = r"\[([^\n\]]*)\]\("
 
 
-class PatternConfig(TypedDict):
+class PatternConfig(pydantic.BaseModel):
     """Configuration for the section pattern-matching."""
 
-    pattern: str | Literal[False]
-    pattern_end: str
-    pattern_start: str
+    pattern: Union[str, Literal[False]] = False
+    pattern_end: str = " End"
+    pattern_start: str = " Start"
 
 
-class EndpointConfigBase(TypedDict):
-    """Default config params specific to sync endpoint setup."""
-
-    description: str
-    endpoint_name: str
-    endpoint_type: (
-        Literal["MENU", "THREAD", "WIDGET", "WIKI_PAGE"] | EndpointType)
-
-
-class EndpointConfig(EndpointConfigBase):
-    """Inherited config params specific to sync endpoint setup."""
-
-    subreddit: str
-
-
-class FullEndpointConfigBase(EndpointConfigBase, PatternConfig):
-    """Default config params for a sync source/target endpoint."""
-
-    enabled: bool
-    menu_config: dict[str, str]
-    replace_patterns: Mapping[str, str]
-
-
-class FullEndpointConfig(FullEndpointConfigBase):
-    """Inherited config params for a sync source/target endpoint."""
+class ContextConfig(pydantic.BaseModel):
+    """Local context configuration for the bot."""
 
     account: str
     subreddit: str
 
 
-DEFAULT_MENU_CONFIG = MenuConfig(
-    split="\n\n",
-    subsplit="\n",
-    pattern_title=r"\[([^\n\]]*)\]\(",
-    pattern_url=r"\]\(([^\s\)]*)[\s\)]",
-    pattern_subtitle=r"\[([^\n\]]*)\]\(",
+class EndpointConfig(pydantic.BaseModel):
+    """Config params specific to sync endpoint setup."""
+
+    context: ContextConfig
+    endpoint_name: str
+    endpoint_type: EndpointType = EndpointType.WIKI_PAGE
+    description: str = ""
+
+    @pydantic.validator("description")
+    def description_fill(  # pylint: disable = no-self-use, no-self-argument
+            cls, value: str, values: dict[str, Any]) -> str:
+        """Fill the description from the endpoint name, if not provided."""
+        if not value:
+            endpoint_name: str = values["endpoint_name"]
+            return endpoint_name.replace("_", " ").title()
+        return value
+
+
+class FullEndpointConfig(EndpointConfig, PatternConfig):
+    """Config params for a sync source/target endpoint."""
+
+    enabled: bool = True
+    menu_config: MenuConfig = MenuConfig()
+    replace_patterns: Mapping[str, str] = {}
+
+
+class SyncPairConfig(pydantic.BaseModel):
+    """Configuration object for a sync pair of a source and target(s)."""
+
+    description: str = ""
+    enabled: bool = True
+    source: FullEndpointConfig
+    targets: Mapping[str, FullEndpointConfig]
+
+
+class SyncConfig(pydantic.BaseModel):
+    """Top-level configuration for the thread management module."""
+
+    enabled: bool = True
+    pairs: Mapping[str, SyncPairConfig] = {}
+
+
+class InitialThreadConfig(pydantic.BaseModel):
+    """Initial configuration of a managed thread."""
+
+    thread_id: Union[Literal[False], ThreadIDStr] = False
+    thread_number: pydantic.NonNegativeInt = 0
+
+
+class ThreadConfig(pydantic.BaseModel):
+    """Configuration for a managed thread item."""
+
+    context: ContextConfig
+    description: str = ""
+    enabled: bool = True
+    initial: InitialThreadConfig = InitialThreadConfig()
+    link_update_pages: List[str] = []
+    new_thread_interval: str = "month"
+    new_thread_redirect_op: bool = False
+    new_thread_redirect_sticky: bool = False
+    new_thread_redirect_template: str = DEFAULT_REDIRECT_TEMPLATE
+    pin_thread: Union[Literal["top"], Literal["bottom"], bool] = "top"
+    post_title_template: str = "{subreddit} Megathread (#{thread_number})"
+    source: FullEndpointConfig
+    target_context: ContextConfig
+
+
+class ThreadsConfig(pydantic.BaseModel):
+    """Top-level configuration for the thread management module."""
+
+    enabled: bool = True
+    megathreads: Mapping[str, ThreadConfig] = {}
+
+
+class StaticConfig(pydantic.BaseModel):
+    """Model reprisenting the bot's static configuration."""
+
+    repeat_interval_s: float = 60
+    accounts: AccountsConfig
+    context_default: ContextConfig
+    megathread: ThreadsConfig = ThreadsConfig()
+    sync: SyncConfig = SyncConfig()
+
+
+class DynamicSyncConfig(pydantic.BaseModel):
+    """Dynamically-updated configuration for sync pairs."""
+
+    source_timestamp: pydantic.NonNegativeFloat = 0
+
+
+class DynamicThreadConfig(DynamicSyncConfig, InitialThreadConfig):
+    """Dynamically-updated configuration for managed threads."""
+
+
+class DynamicConfig(pydantic.BaseModel):
+    """Model reprisenting the current dynamic configuration."""
+
+    megathread: Dict[str, DynamicThreadConfig] = {}
+    sync: Dict[str, DynamicSyncConfig] = {}
+
+
+EXAMPLE_ACCOUNT_NAME: Final = "EXAMPLE_USER"
+
+EXAMPLE_ACCOUNT_CONFIG: Final[AccountConfig] = {
+    "site_name": "EXAMPLE_SITE_NAME",
+    }
+
+EXAMPLE_ACCOUNTS: Final[AccountsConfig] = {
+    EXAMPLE_ACCOUNT_NAME: EXAMPLE_ACCOUNT_CONFIG,
+    }
+
+EXAMPLE_CONTEXT: Final = ContextConfig(
+    account="EXAMPLE_USER",
+    subreddit="EXAMPLESUBREDDIT",
+    )
+
+EXAMPLE_SOURCE: Final = FullEndpointConfig(
+    context=EXAMPLE_CONTEXT,
+    description="Example sync source",
+    endpoint_name="EXAMPLE_SOURCE_NAME",
+    replace_patterns={"https://old.reddit.com": "https://www.reddit.com"},
+    )
+
+EXAMPLE_TARGET: Final = FullEndpointConfig(
+    context=EXAMPLE_CONTEXT,
+    description="Example sync target",
+    endpoint_name="EXAMPLE_TARGET_NAME",
+    )
+
+EXAMPLE_SYNC_PAIR: Final = SyncPairConfig(
+    description="Example sync pair",
+    enabled=False,
+    source=EXAMPLE_SOURCE,
+    targets={"EXAMPLE_TARGET": EXAMPLE_TARGET},
     )
 
 
-DEFAULT_SYNC_ENDPOINT: Final[EndpointConfigBase] = FullEndpointConfigBase(
-    description="",
-    enabled=True,
-    endpoint_name="",
-    endpoint_type=EndpointType.WIKI_PAGE.name,
-    menu_config={},
-    pattern=False,
-    pattern_end=" End",
-    pattern_start=" Start",
-    replace_patterns={},
+EXAMPLE_THREAD: Final = ThreadConfig(
+    context=EXAMPLE_CONTEXT,
+    description="Example managed thread",
+    enabled=False,
+    source=EXAMPLE_SOURCE,
+    target_context=EXAMPLE_CONTEXT,
     )
 
-DEFAULT_SYNC_PAIR: Final[ConfigDict] = {
-    "defaults": {},
-    "description": "",
-    "enabled": True,
-    "source": {},
-    "targets": {},
-    }
 
-DEFAULT_MEGATHREAD_CONFIG: Final[ThreadConfig] = {
-    "defaults": {},
-    "description": "",
-    "enabled": True,
-    "initial": {
-        "thread_number": 0,
-        "thread_id": "",
-        },
-    "link_update_pages": [],
-    "new_thread_interval": "month",
-    "new_thread_redirect_op": False,
-    "new_thread_redirect_sticky": False,
-    "new_thread_redirect_template": DEFAULT_REDIRECT_TEMPLATE,
-    "pin_thread": "top",
-    "post_title_template": ("{subreddit} Megathread (#{thread_number})"),
-    "source": {},
-    }
+EXAMPLE_STATIC_CONFIG: Final = StaticConfig(
+    accounts=EXAMPLE_ACCOUNTS,
+    context_default=EXAMPLE_CONTEXT,
+    megathread=ThreadsConfig(megathreads={"EXAMPLE_THREAD": EXAMPLE_THREAD}),
+    sync=SyncConfig(pairs={"EXAMPLE_SYNC_PAIR": EXAMPLE_SYNC_PAIR}),
+    )
 
-DYNAMIC_CONFIGS: Final[DynamicConfigs] = {
+
+EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
     "megathread": {
-        "static_config_path": ("megathread", "megathreads"),
-        "defaults": {
-            "thread_number": 0,
-            "thread_id": "",
-            "source_timestamp": 0,
-            },
-        },
-    "sync": {
-        "static_config_path": ("sync", "pairs"),
-        "defaults": {
-            "source_timestamp": 0,
-            },
-        },
-    }
-
-DEFAULT_CONFIG: Final[StaticConfig] = {
-    "repeat_interval_s": 60,
-    "accounts": {
-        "example": {
-            "site_name": "EXAMPLE",
-            },
-        },
-    "defaults": {
-        "account": "example",
-        "subreddit": "YOURSUBNAMEHERE",
-        },
-    "megathread": {
-        "enabled": True,
-        "defaults": {
-            "new_thread_redirect_template": DEFAULT_REDIRECT_TEMPLATE,
-            },
         "megathreads": {
-            "example_primary": {
-                "description": "Primary megathread",
-                "enabled": False,
-                "initial": {
-                    "thread_number": 0,
-                    "thread_id": "",
-                    },
-                "link_update_pages": [],
-                "new_thread_interval": "month",
-                "pin_thread": "top",
-                "post_title_template": ("{subreddit} Megathread "
-                                        "({current_datetime:%B %Y}, "
-                                        "#{thread_number})"),
-                "source": {
-                    "description": "Megathreads wiki page",
-                    "endpoint_name": "threads",
-                    "replace_patterns": {
-                        "https://old.reddit.com": "https://www.reddit.com",
-                        },
-                    },
+            "EXAMPLE_THREAD": {
+                "context": ...,
+                "source": {"context"},
+                "target_context": ...,
                 },
             },
         },
     "sync": {
-        "enabled": True,
-        "defaults": {
-            "pattern_end": " End",
-            "pattern_start": " Start",
-            },
         "pairs": {
-            "example_sidebar": {
-                "description": "Sync Sidebar Demo",
-                "enabled": False,
-                "source": {
-                    "description": "Thread source wiki page",
-                    "endpoint_name": "threads",
-                    "endpoint_type": EndpointType.WIKI_PAGE.name,
-                    "pattern": "Sidebar",
-                    "replace_patterns": {
-                        "https://www.reddit.com": "https://old.reddit.com",
-                        },
-                    },
-                "targets": {
-                    "sidebar": {
-                        "description": "Sub Sidebar",
-                        "enabled": True,
-                        "endpoint_name": "config/sidebar",
-                        "endpoint_type": EndpointType.WIKI_PAGE.name,
-                        "pattern": "Sidebar",
-                        "replace_patterns": {},
-                        },
-                    },
+            "EXAMPLE_SYNC_PAIR": {
+                "source": {"context"},
+                "target": {"context"},
                 },
             },
         },
@@ -353,6 +383,29 @@ def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
     if interval_unit == "week" and not interval_n:
         interval_n = 1
     return interval_unit, interval_n
+
+
+KeyType = TypeVar("KeyType")
+
+
+def update_dict_recursive(
+        base: MutableMapping[KeyType, Any],
+        update: MutableMapping[KeyType, Any],
+        inplace: bool | None = None,
+        ) -> MutableMapping[KeyType, Any]:
+    """Recursively update the given base dict from another dict."""
+    if not inplace:
+        base = copy.deepcopy(base)
+    for update_key, update_value in update.items():
+        base_value = base.get(update_key, {})
+        if not isinstance(base_value, MutableMapping):
+            base[update_key] = update_value
+        elif isinstance(update_value, MutableMapping):
+            base[update_key] = update_dict_recursive(
+                base_value, update_value)
+        else:
+            base[update_key] = update_value
+    return base
 
 
 # ----------------- Helper classes -----------------
@@ -539,36 +592,47 @@ SYNC_ENDPOINT_TYPES: Final[Mapping[EndpointType, type[SyncEndpoint]]] = {
 def create_sync_endpoint_from_config(
         config: EndpointConfig, reddit: praw.Reddit) -> SyncEndpoint:
     """Create a new sync endpoint given a particular config and Reddit obj."""
-    endpoint_type = config["endpoint_type"]
-    if not isinstance(endpoint_type, EndpointType):
-        endpoint_type = EndpointType[endpoint_type]
-    sync_endpoint = SYNC_ENDPOINT_TYPES[endpoint_type](
-        endpoint_name=config["endpoint_name"],
+    sync_endpoint = SYNC_ENDPOINT_TYPES[config.endpoint_type](
+        endpoint_name=config.endpoint_name,
         reddit=reddit,
-        subreddit=config["subreddit"],
-        description=config["description"],
+        subreddit=config.context.subreddit,
+        description=config.description,
         )
     return sync_endpoint
 
 
 # ----------------- Config functions -----------------
 
+def serialize_config(
+        config: ConfigDict | pydantic.BaseModel,
+        output_format: str = "json",
+        ) -> str:
+    """Convert the configuration data to a serializable text form."""
+    if output_format == "json":
+        if isinstance(config, pydantic.BaseModel):
+            serialized_config = config.json(indent=4)
+        else:
+            serialized_config = json.dumps(dict(config), indent=4)
+    elif output_format == "toml":
+        serialized_config = toml.dumps(dict(config))
+    else:
+        raise ConfigError("Format of config file not in {JSON, TOML}")
+    return serialized_config
+
+
 def write_config(
-        config: ConfigDict,
+        config: ConfigDict | pydantic.BaseModel,
         config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
-        ) -> None:
+        ) -> str:
     """Write the passed config to the specified config path."""
     config_path = Path(config_path)
     config_path.parent.mkdir(parents=True, exist_ok=True)
+    serialized_config = serialize_config(
+        config=config, output_format=config_path.suffix[1:])
     with open(config_path, mode="w",
               encoding="utf-8", newline="\n") as config_file:
-        if config_path.suffix == ".json":
-            json.dump(config, config_file, indent=4)
-        elif config_path.suffix == ".toml":
-            toml.dump(config, config_file)
-        else:
-            raise ConfigError(
-                f"Format of config file {config_path} not in {{JSON, TOML}}")
+        config_file.write(serialized_config)
+    return serialized_config
 
 
 def load_config(config_path: PathLikeStr) -> ConfigDict:
@@ -586,66 +650,100 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
     return config
 
 
+def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
+    """Fill in the defaults of a raw static config dictionary."""
+    context_default = raw_config.get("context_default", {})
+
+    sync_defaults = update_dict_recursive(
+        {"context": context_default},
+        raw_config.get("sync", {}).get("defaults", {}))
+    for sync_pair in (
+            raw_config.get("sync", {}).get("pairs", {}).values()):
+        sync_defaults_item = update_dict_recursive(
+            sync_defaults, sync_pair.get("defaults", {}))
+        sync_pair["source"] = update_dict_recursive(
+            sync_defaults_item, sync_pair.get("source", {}))
+        for target_config in sync_pair.get("targets", {}).values():
+            target_config.update(
+                update_dict_recursive(sync_defaults_item, target_config))
+
+    thread_defaults = update_dict_recursive(
+        {"context": context_default},
+        raw_config.get("megathread", {}).get("defaults", {}))
+    for thread in (
+            raw_config.get("megathread", {}).get("megathreads", {}).values()):
+        thread.update(
+            update_dict_recursive(thread_defaults, thread))
+        thread["source"] = update_dict_recursive(
+            {"context": thread.get("context", {})}, thread["source"])
+        thread["target_context"] = {
+            **thread.get("context", {}), **thread.get("target_context", {})}
+
+    return raw_config
+
+
+def render_static_config(raw_config: ConfigDict) -> StaticConfig:
+    """Transform the input config into an object with defaults filled in."""
+    raw_config = dict(copy.deepcopy(raw_config))
+    raw_config = fill_static_config_defaults(raw_config)
+    static_config = StaticConfig.parse_obj(raw_config)
+    return static_config
+
+
 def load_static_config(
         config_path: PathLikeStr = CONFIG_PATH_STATIC) -> StaticConfig:
     """Load manager's static (user) config file, creating it if needed."""
     config_path = Path(config_path)
+    example_config = EXAMPLE_STATIC_CONFIG.dict(exclude=EXAMPLE_EXCLUDE_FIELDS)
     if not config_path.exists():
-        write_config(DEFAULT_CONFIG, config_path=config_path)
-    static_config = load_config(config_path)
-    static_config = {**DEFAULT_CONFIG, **static_config}
-    if not static_config or static_config == DEFAULT_CONFIG:
+        write_config(config=example_config, config_path=config_path)
+    raw_config = load_config(config_path)
+    if not raw_config:
         raise ConfigNotFoundError(
-            f"Config file at {config_path.as_posix()} needs to be set up.")
+            f"Config file at {config_path.as_posix()} is empty.")
+    static_config = render_static_config(raw_config)
 
     return static_config
 
 
 def render_dynamic_config(
-        static_config: StaticConfig | None = None,
-        dynamic_config: DynamicConfigs | None = None,
-        ) -> DynamicConfigs:
+        static_config: StaticConfig,
+        dynamic_config_raw: ConfigDictDynamic,
+        ) -> DynamicConfig:
     """Generate the dynamic config, filling defaults as needed."""
-    # Set up existing config
-    if static_config is None:
-        static_config = load_static_config()
-    if dynamic_config is None:
-        dynamic_config = {}
+    dynamic_config_raw = dict(copy.deepcopy(dynamic_config_raw))
 
     # Fill defaults in dynamic config
-    for dynamic_config_key, config_params in DYNAMIC_CONFIGS.items():
-        dynamic_config_section = dynamic_config.get(dynamic_config_key, {})
+    dynamic_config_raw["sync"] = dynamic_config_raw.get("sync", {})
+    for pair_key in static_config.sync.pairs:
+        dynamic_config_raw["sync"][pair_key] = (
+            dynamic_config_raw["sync"].get(pair_key, {}))
 
-        static_config_items = static_config
-        for path_element in config_params["static_config_path"]:
-            static_config_items = static_config_items.get(path_element, {})
+    dynamic_config_raw["megathread"] = dynamic_config_raw.get("megathread", {})
+    for thread_key, thread_config in (
+            static_config.megathread.megathreads.items()):
+        dynamic_config_raw["megathread"][thread_key] = {
+            **dict(thread_config.initial),
+            **dynamic_config_raw["megathread"].get(thread_key, {})}
 
-        for config_id, static_config_item in static_config_items.items():
-            initial_dynamic_config = static_config_item.get("initial", {})
-            dynamic_config_section[config_id] = {
-                **config_params["defaults"],
-                **initial_dynamic_config,
-                **dynamic_config_section.get(config_id, {}),
-                }
-        dynamic_config[dynamic_config_key] = dynamic_config_section
-
+    dynamic_config = DynamicConfig.parse_obj(dynamic_config_raw)
     return dynamic_config
 
 
 def load_dynamic_config(
+        static_config: StaticConfig,
         config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
-        static_config: StaticConfig | None = None,
-        ) -> DynamicConfigs:
+        ) -> DynamicConfig:
     """Load manager's dynamic runtime config file, creating it if needed."""
     config_path = Path(config_path)
     if not config_path.exists():
         dynamic_config = render_dynamic_config(
-            static_config=static_config, dynamic_config={})
+            static_config=static_config, dynamic_config_raw={})
         write_config(dynamic_config, config_path=config_path)
     else:
-        dynamic_config = dict(load_config(config_path))
+        dynamic_config_raw = dict(load_config(config_path))
         dynamic_config = render_dynamic_config(
-            static_config=static_config, dynamic_config=dynamic_config)
+            static_config=static_config, dynamic_config_raw=dynamic_config_raw)
 
     return dynamic_config
 
@@ -654,64 +752,58 @@ def load_dynamic_config(
 
 def generate_template_vars(
         thread_config: ThreadConfig,
-        dynamic_config: DynamicConfig,
-        ) -> dict[str, str | float | datetime.datetime]:
+        dynamic_config: DynamicThreadConfig,
+        ) -> dict[str, str | int | datetime.datetime]:
     """Generate the title and post templates."""
-    template_vars = {
+    template_vars: dict[str, str | int | datetime.datetime] = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
-        "subreddit": thread_config["subreddit"],
-        "thread_number": dynamic_config["thread_number"],
-        "thread_number_previous": dynamic_config["thread_number"] - 1,
-        "thread_id_previous": dynamic_config["thread_id"],
+        "subreddit": thread_config.context.subreddit,
+        "thread_number": dynamic_config.thread_number,
+        "thread_number_previous": dynamic_config.thread_number - 1,
+        "thread_id_previous":
+            "" if not dynamic_config.thread_id else dynamic_config.thread_id,
         }
     template_vars["post_title"] = (
-        thread_config["post_title_template"].strip().format(**template_vars))
+        thread_config.post_title_template.strip().format(**template_vars))
     return template_vars
 
 
 def create_new_thread(
         thread_config: ThreadConfig,
-        dynamic_config: DynamicConfig,
+        dynamic_config: DynamicThreadConfig,
         accounts: AccountsMap,
         ) -> None:
     """Create a new thread based on the title and post template."""
     # Generate thread title and contents
-    dynamic_config["source_timestamp"] = 0
-    dynamic_config["thread_number"] += 1
-    description = thread_config["description"]
+    dynamic_config.source_timestamp = 0
+    dynamic_config.thread_number += 1
 
-    # Get subreddit objects for thread
-    reddit_mod = accounts[thread_config["account"]]
-    subreddit_mod = reddit_mod.subreddit(thread_config["subreddit"])
-    target_config = {**thread_config["defaults"], **thread_config["target"]}
-    reddit_post = accounts[target_config["account"]]
-    subreddit_post = reddit_post.subreddit(target_config["subreddit"])
+    # Get subreddit objects for accounts
+    reddit_mod = accounts[thread_config.context.account]
+    subreddit_mod = reddit_mod.subreddit(thread_config.context.subreddit)
+    reddit_post = accounts[thread_config.target_context.account]
+    subreddit_post = reddit_post.subreddit(
+        thread_config.target_context.subreddit)
 
-    source_config: ConfigDict = {
-        **DEFAULT_SYNC_ENDPOINT,
-        **thread_config["defaults"],
-        **thread_config["source"],
-        }
-    source_config = cast(FullEndpointConfig, source_config)
     source_obj = create_sync_endpoint_from_config(
-        config=source_config, reddit=accounts[source_config["account"]])
+        config=thread_config.source,
+        reddit=accounts[thread_config.source.context.account])
 
     template_vars = generate_template_vars(thread_config, dynamic_config)
     post_text = process_source_endpoint(
-        source_config, source_obj, dynamic_config)
-    post_title = template_vars["post_title"]
+        thread_config.source, source_obj, dynamic_config)
+
+    # Get current thread objects first
+    current_thread = None
+    current_thread_mod = None
+    if dynamic_config.thread_id:
+        current_thread = reddit_post.submission(id=dynamic_config.thread_id)
+        current_thread_mod = reddit_mod.submission(id=dynamic_config.thread_id)
 
     # Submit and approve new thread
-    thread_id = dynamic_config["thread_id"]
-    if thread_id:
-        current_thread = reddit_post.submission(id=thread_id)
-        current_thread_mod = reddit_mod.submission(id=thread_id)
-    else:
-        current_thread = None
-        current_thread_mod = None
-
-    new_thread = subreddit_post.submit(title=post_title, selftext=post_text)
+    new_thread = subreddit_post.submit(
+        title=template_vars["post_title"], selftext=post_text)
     new_thread.disable_inbox_replies()
     new_thread_mod = reddit_mod.submission(id=new_thread.id)
     new_thread_mod.mod.approve()
@@ -719,9 +811,9 @@ def create_new_thread(
         template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
 
     # Unpin old thread and pin new one
-    if thread_config["pin_thread"]:
-        bottom_sticky = thread_config["pin_thread"] != "top"
-        if current_thread:
+    if thread_config.pin_thread:
+        bottom_sticky = thread_config.pin_thread != "top"
+        if current_thread_mod:
             current_thread_mod.mod.sticky(state=False)
             time.sleep(10)
         try:
@@ -735,16 +827,16 @@ def create_new_thread(
             sticky_to_keep.mod.sticky(state=True)
 
     # Update links to point to new thread
-    if current_thread:
+    if current_thread and current_thread_mod:
         links = (
             tuple((getattr(thread, link_type).strip("/")
                    for thread in [current_thread, new_thread]))
             for link_type in ["permalink", "shortlink"])
-        for idx, page_name in enumerate(thread_config["link_update_pages"]):
+        for idx, page_name in enumerate(thread_config.link_update_pages):
             page = WikiSyncEndpoint(
                 endpoint_name=page_name,
                 reddit=reddit_mod,
-                subreddit=thread_config["subreddit"],
+                subreddit=thread_config.context.subreddit,
                 description=f"Megathread link page {idx + 1}",
                 )
             new_content = page.content
@@ -756,74 +848,76 @@ def create_new_thread(
                     flags=re.IGNORECASE,
                     )
             page.edit(
-                new_content, reason=f"Update {description} megathread URLs")
+                new_content,
+                reason=f"Update {thread_config.description} megathread URLs")
 
         # Add messages to new thread on old thread if enabled
-        redirect_template = thread_config["new_thread_redirect_template"]
+        redirect_template = thread_config.new_thread_redirect_template
         redirect_message = redirect_template.strip().format(**template_vars)
 
-        if thread_config["new_thread_redirect_op"]:
+        if thread_config.new_thread_redirect_op:
             current_thread.edit(
                 redirect_message + "\n\n" + current_thread.selftext)
-        if thread_config["new_thread_redirect_sticky"]:
+        if thread_config.new_thread_redirect_sticky:
             redirect_comment = current_thread_mod.reply(redirect_message)
             redirect_comment.mod.distinguish(sticky=True)
 
     # Update config accordingly
-    dynamic_config["thread_id"] = new_thread.id
+    dynamic_config.thread_id = new_thread.id
 
 
 def manage_thread(
         thread_config: ThreadConfig,
-        dynamic_config: DynamicConfig,
+        dynamic_config: DynamicThreadConfig,
         accounts: AccountsMap,
         ) -> None:
     """Manage the current thread, creating or updating it as necessary."""
-    if not thread_config["enabled"]:
+    if not thread_config.enabled:
         return
 
-    reddit = accounts[thread_config["account"]]
-    interval = thread_config["new_thread_interval"]
+    reddit = accounts[thread_config.context.account]
+    interval = thread_config.new_thread_interval
+
+    # Determine if its time to post a new thread
     if interval:
         interval_unit, interval_n = process_raw_interval(interval)
 
-        if dynamic_config["thread_id"]:
-            current_thread = reddit.submission(id=dynamic_config["thread_id"])
-            last_post_timestamp = datetime.datetime.fromtimestamp(
-                current_thread.created_utc, tz=datetime.timezone.utc)
-            current_datetime = datetime.datetime.now(datetime.timezone.utc)
-            if interval_n is None:
-                should_post_new_thread = (
-                    getattr(last_post_timestamp, interval_unit)
-                    != getattr(current_datetime, interval_unit))
-            else:
-                delta_kwargs: dict[str, int] = {
-                    f"{interval_unit}s": interval_n}
-                relative_timedelta = dateutil.relativedelta.relativedelta(
-                    **delta_kwargs)  # type: ignore[arg-type]
-                should_post_new_thread = (
-                    current_datetime > (
-                        last_post_timestamp + relative_timedelta))
+        current_thread = reddit.submission(id=dynamic_config.thread_id)
+        last_post_timestamp = datetime.datetime.fromtimestamp(
+            current_thread.created_utc, tz=datetime.timezone.utc)
+        current_datetime = datetime.datetime.now(datetime.timezone.utc)
+        if interval_n is None:
+            interval_exceeded = (
+                getattr(last_post_timestamp, interval_unit)
+                != getattr(current_datetime, interval_unit))
         else:
-            should_post_new_thread = True
+            delta_kwargs: dict[str, int] = {
+                f"{interval_unit}s": interval_n}
+            relative_timedelta = dateutil.relativedelta.relativedelta(
+                **delta_kwargs)  # type: ignore[arg-type]
+            interval_exceeded = (
+                current_datetime > (
+                    last_post_timestamp + relative_timedelta))
     else:
-        should_post_new_thread = False
+        interval_exceeded = False
 
-    if should_post_new_thread:
-        print("Creating new thread for '{}'".format(
-            thread_config.get('description', dynamic_config["thread_id"])))
+    if interval_exceeded or not dynamic_config.thread_id:
+        # If needed post a new thread
+        print("Creating new thread for", thread_config.description)
         create_new_thread(thread_config, dynamic_config, accounts)
     else:
-        sync_pair = {key: value for key, value in thread_config.items()
-                     if key in {"defaults", "source"}}
-        sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
-        target = {
-            "description": f"{thread_config['description']} Megathread",
-            "endpoint_name": dynamic_config["thread_id"],
-            "endpoint_type": EndpointType.THREAD,
-            }
-        sync_pair["targets"] = {
-            "megathread": {**target, **thread_config["target"]}}
+        # Otherwise, sync the current thread
+        thread_target = FullEndpointConfig(
+            context=thread_config.target_context,
+            description=f"{thread_config.description} Megathread",
+            endpoint_name=dynamic_config.thread_id,
+            endpoint_type=EndpointType.THREAD,
+            )
+        sync_pair = SyncPairConfig(
+            description=thread_config.description,
+            source=thread_config.source,
+            targets={"megathread": thread_target},
+            )
         sync_one(
             sync_pair=sync_pair,
             dynamic_config=dynamic_config,
@@ -833,25 +927,15 @@ def manage_thread(
 
 def manage_threads(
         static_config: StaticConfig,
-        dynamic_config: DynamicConfigs,
+        dynamic_config: DynamicConfig,
         accounts: AccountsMap,
         ) -> None:
     """Check and create/update all defined megathreads for a sub."""
-    defaults = {
-        **static_config["defaults"],
-        **static_config["megathread"]["defaults"],
-        }
-    for thread_id, thread_config in (
-            static_config["megathread"]["megathreads"].items()):
-        thread_config = {**DEFAULT_MEGATHREAD_CONFIG, **thread_config}
-        thread_config["defaults"] = {**defaults, **thread_config["defaults"]}
-        thread_config = {
-            **thread_config["defaults"], **thread_config}
-        dynamic_config_thread = dynamic_config["megathread"][thread_id]
-
+    for thread_key, thread_config in (
+            static_config.megathread.megathreads.items()):
         manage_thread(
             thread_config=thread_config,
-            dynamic_config=dynamic_config_thread,
+            dynamic_config=dynamic_config.megathread[thread_key],
             accounts=accounts,
             )
 
@@ -864,26 +948,26 @@ def parse_menu(
         ) -> MenuData:
     """Parse source Markdown text and render it into a strucured format."""
     if menu_config is None:
-        menu_config = DEFAULT_MENU_CONFIG
+        menu_config = MenuConfig()
 
     menu_data: MenuData = []
     source_text = source_text.replace("\r\n", "\n")
     menu_sections = split_and_clean_text(
-        source_text, menu_config["split"])
+        source_text, menu_config.split)
     for menu_section in menu_sections:
         section_data: SectionData
         menu_subsections = split_and_clean_text(
-            menu_section, menu_config["subsplit"])
+            menu_section, menu_config.subsplit)
         if not menu_subsections:
             continue
         title_text = extract_text(
-            menu_config["pattern_title"], menu_subsections[0])
+            menu_config.pattern_title, menu_subsections[0])
         if title_text is False:
             continue
         section_data = {"text": title_text}
         if len(menu_subsections) == 1:
             url_text = extract_text(
-                menu_config["pattern_url"], menu_subsections[0])
+                menu_config.pattern_url, menu_subsections[0])
             if url_text is False:
                 continue
             section_data["url"] = url_text
@@ -891,9 +975,9 @@ def parse_menu(
             children: ChildrenData = []
             for menu_child in menu_subsections[1:]:
                 title_text = extract_text(
-                    menu_config["pattern_subtitle"], menu_child)
+                    menu_config.pattern_subtitle, menu_child)
                 url_text = extract_text(
-                    menu_config["pattern_url"], menu_child)
+                    menu_config.pattern_url, menu_child)
                 if title_text is not False and url_text is not False:
                     children.append(
                         {"text": title_text, "url": url_text})
@@ -910,9 +994,9 @@ def process_endpoint_text(
     """Perform the desired find-replace for a specific sync endpoint."""
     match_obj = search_startend(
         content,
-        config["pattern"],
-        config["pattern_start"],
-        config["pattern_end"],
+        config.pattern,
+        config.pattern_start,
+        config.pattern_end,
         )
     if match_obj is not False:
         if not match_obj:
@@ -926,9 +1010,9 @@ def process_endpoint_text(
 
 
 def process_source_endpoint(
-        source_config: FullEndpointConfigBase,
+        source_config: FullEndpointConfig,
         source_obj: SyncEndpoint,
-        dynamic_config: DynamicConfig,
+        dynamic_config: DynamicSyncConfig,
         ) -> str | MenuData | Literal[False]:
     """Get and preprocess the text from a source if its out of date."""
     try:
@@ -939,10 +1023,10 @@ def process_source_endpoint(
         pass
     else:
         source_updated = (
-            source_timestamp > dynamic_config["source_timestamp"])
+            source_timestamp > dynamic_config.source_timestamp)
         if not source_updated:
             return False
-        dynamic_config["source_timestamp"] = source_timestamp
+        dynamic_config.source_timestamp = source_timestamp
 
     source_content = source_obj.content
     if isinstance(source_content, str):
@@ -953,14 +1037,14 @@ def process_source_endpoint(
                   f"{source_obj.description}; skipping")
             return False
         source_content_processed = replace_patterns(
-            source_content_processed, source_config["replace_patterns"])
+            source_content_processed, source_config.replace_patterns)
         return source_content_processed
 
     return source_content
 
 
 def process_target_endpoint(
-        target_config: FullEndpointConfigBase,
+        target_config: FullEndpointConfig,
         target_obj: SyncEndpoint,
         source_content: str | MenuData,
         menu_config: MenuConfig | None = None,
@@ -968,7 +1052,7 @@ def process_target_endpoint(
     """Handle text conversions and deployment onto a sync target."""
     if isinstance(source_content, str):
         source_content = replace_patterns(
-            source_content, target_config["replace_patterns"])
+            source_content, target_config.replace_patterns)
 
     target_content = target_obj.content
     if (isinstance(target_obj, MenuSyncEndpoint)
@@ -990,69 +1074,57 @@ def process_target_endpoint(
 
 
 def sync_one(
-        sync_pair: ConfigDict,
-        dynamic_config: DynamicConfig,
+        sync_pair: SyncPairConfig,
+        dynamic_config: DynamicSyncConfig,
         accounts: AccountsMap,
         ) -> bool | None:
     """Sync one specific pair of sources and targets."""
-    description = sync_pair.get("description", "Unnamed")
-    defaults = {**DEFAULT_SYNC_ENDPOINT, **sync_pair["defaults"]}
-    source_config: ConfigDict = {**defaults, **sync_pair["source"]}
-    source_config = cast(FullEndpointConfig, source_config)
-
-    if not (sync_pair["enabled"] and source_config["enabled"]):
+    if not (sync_pair.enabled and sync_pair.source.enabled):
         return None
-    if not sync_pair["targets"]:
+    if not sync_pair.targets:
         raise ConfigError(
-            f"No sync targets specified for sync_pair {description}")
+            f"No sync targets specified for sync_pair {sync_pair.description}")
 
     source_obj = create_sync_endpoint_from_config(
-        config=source_config, reddit=accounts[source_config["account"]])
+        config=sync_pair.source,
+        reddit=accounts[sync_pair.source.context.account])
     source_content = process_source_endpoint(
-        source_config, source_obj, dynamic_config)
+        sync_pair.source, source_obj, dynamic_config)
     if source_content is False:
         return False
 
-    for target_config_raw in sync_pair["targets"].values():
-        target_config: ConfigDict = {**defaults, **target_config_raw}
-        target_config = cast(FullEndpointConfig, target_config)
-        if not target_config["enabled"]:
+    for target_config in sync_pair.targets.values():
+        if not target_config.enabled:
             continue
 
         target_obj = create_sync_endpoint_from_config(
-            config=target_config, reddit=accounts[target_config["account"]])
-        menu_config: ConfigDict = {
-            **DEFAULT_MENU_CONFIG, **source_config["menu_config"]}
-        menu_config = cast(MenuConfig, menu_config)
+            config=target_config,
+            reddit=accounts[target_config.context.account])
         target_content = process_target_endpoint(
-            target_config, target_obj, source_content, menu_config)
+            target_config=target_config,
+            target_obj=target_obj,
+            source_content=source_content,
+            menu_config=sync_pair.source.menu_config,
+            )
         if target_content is False:
             continue
 
         target_obj.edit(
             target_content,
-            reason=f"Auto-sync {description} from {target_obj.name}",
+            reason=f"Auto-sync {sync_pair.description} from {target_obj.name}",
             )
     return True
 
 
 def sync_all(static_config: StaticConfig,
-             dynamic_config: DynamicConfigs,
+             dynamic_config: DynamicConfig,
              accounts: AccountsMap,
              ) -> None:
     """Sync all pairs of sources/targets (pages,threads, sections) on a sub."""
-    defaults = {
-        **static_config["defaults"],
-        **static_config["sync"]["defaults"],
-        }
-    for sync_pair_id, sync_pair in static_config["sync"]["pairs"].items():
-        sync_pair = {**DEFAULT_SYNC_PAIR, **sync_pair}
-        sync_pair["defaults"] = {**defaults, **sync_pair["defaults"]}
-        dynamic_config_sync = dynamic_config["sync"][sync_pair_id]
-
+    for sync_pair_id, sync_pair in static_config.sync.pairs.items():
         sync_one(
             sync_pair=sync_pair,
-            dynamic_config=dynamic_config_sync,
+            dynamic_config=dynamic_config.sync[sync_pair_id],
             accounts=accounts,
             )
 
@@ -1109,15 +1181,16 @@ def run_manage(
     """Load the config file and run the thread manager."""
     # Load config and set up session
     static_config = load_static_config(config_path_static)
-    dynamic_config = load_dynamic_config(config_path_dynamic, static_config)
-    dynamic_config_active = copy.deepcopy(dynamic_config)
+    dynamic_config = load_dynamic_config(
+        static_config=static_config, config_path=config_path_dynamic)
+    dynamic_config_active = dynamic_config.copy(deep=True)
     accounts = setup_accounts(
-        static_config["accounts"], config_path_refresh=config_path_refresh)
+        static_config.accounts, config_path_refresh=config_path_refresh)
 
     # Run the core manager tasks
-    if static_config["sync"]["enabled"]:
+    if static_config.sync.enabled:
         sync_all(static_config, dynamic_config_active, accounts)
-    if static_config["megathread"]["enabled"]:
+    if static_config.megathread.enabled:
         manage_threads(static_config, dynamic_config_active, accounts)
 
     # Write out the dynamic config if it changed
@@ -1129,13 +1202,21 @@ def run_manage_loop(
         config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
         config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        repeat: bool = True,
+        repeat: float | bool = True,
         ) -> None:
     """Run the mainloop of sub-manager, performing each task in sequance."""
     static_config = load_static_config(config_path=config_path_static)
+    load_dynamic_config(
+        static_config=static_config, config_path=config_path_dynamic)
+
+    # If default config was generated or config was unmodified, return
+    if static_config.accounts == EXAMPLE_ACCOUNTS:
+        print("Default config file generated at",
+              Path(config_path_static).as_posix())
+        return
+
     if repeat is True:
-        repeat = static_config.get(
-            "repeat_interval_s", DEFAULT_CONFIG["repeat_interval_s"])
+        repeat = static_config.repeat_interval_s
     while True:
         print(f"Running megathread manager for config at {config_path_static}")
         run_manage(
