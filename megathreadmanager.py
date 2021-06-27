@@ -259,8 +259,8 @@ class ThreadConfig(CustomBaseModel):
     link_update_pages: List[StripStr] = []
     new_thread_interval: Union[
         Literal[False], Tuple[str, Union[int, None]], str] = ("month", None)
-    new_thread_redirect_op: bool = False
-    new_thread_redirect_sticky: bool = False
+    new_thread_redirect_op: bool = True
+    new_thread_redirect_sticky: bool = True
     new_thread_redirect_template: NonEmptyStr = DEFAULT_REDIRECT_TEMPLATE
     pin_thread: Union[Literal["top"], Literal["bottom"], bool] = "top"
     post_title_template: StripStr = "{subreddit} Megathread (#{thread_number})"
