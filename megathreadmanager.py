@@ -24,6 +24,8 @@ from typing import (
     Mapping,  # Added to collections.abc in Python 3.9
     MutableMapping,  # Added to collections.abc in Python 3.9
     NoReturn,
+    Pattern,  # Import from re in Python 3.9
+    Tuple,  # Not needed in Python 3.9
     TYPE_CHECKING,
     TypeVar,
     Union,  # Not needed in Python 3.9
@@ -102,11 +104,51 @@ This thread is no longer being updated, and has been replaced by:
 
 # ----------------- Config classes -----------------
 
-class ThreadIDStr(pydantic.ConstrainedStr):
-    """Pydantic type class for a thread ID of exactly 6 characters."""
+# ---- Conversion functions ----
 
-    max_length = 6
-    min_length = 6
+def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
+    """Convert a time interval expressed as a string into a standard form."""
+    interval_split = raw_interval.strip().split()
+    interval_unit = interval_split[-1]
+    if len(interval_split) == 1:
+        interval_n = None
+    else:
+        interval_n = int(interval_split[0])
+    interval_unit = interval_unit.rstrip("s")
+    if interval_unit[-2:] == "ly":
+        interval_unit = interval_unit[:-2]
+    if interval_unit == "week" and not interval_n:
+        interval_n = 1
+    return interval_unit, interval_n
+
+
+# ---- Custom model and validator classes ----
+
+# Hack so that mypy interprets the Pydantic validation types correctly
+if TYPE_CHECKING:
+    NonEmptyStr = str
+    StripStr = str
+    ThreadIDStr = str
+else:
+
+    class NonEmptyStr(pydantic.ConstrainedStr):
+        """A non-emptry string type."""
+
+        min_length = 1
+        strict = True
+
+    class StripStr(NonEmptyStr):
+        """A string with whitespace stripped."""
+
+        strip_whitespace = True
+
+    class ThreadIDStr(StripStr):
+        """Pydantic type class for a thread ID of exactly 6 characters."""
+
+        max_length = 6
+        min_length = 6
+        regex = re.compile(r"[a-z0-9]+")
+        to_lower = True
 
 
 class CustomBaseModel(
@@ -123,38 +165,43 @@ class CustomMutableBaseModel(CustomBaseModel, allow_mutation=True):
     """Custom BaseModel that allows mutation."""
 
 
+# ---- Pydantic models ----
+
 class MenuConfig(CustomBaseModel):
     """Configuration to parse the menu data from Markdown text."""
 
-    split: str = "\n\n"
-    subsplit: str = "\n"
-    pattern_title: str = r"\[([^\n\]]*)\]\("
-    pattern_url: str = r"\]\(([^\s\)]*)[\s\)]"
-    pattern_subtitle: str = r"\[([^\n\]]*)\]\("
+    split: NonEmptyStr = "\n\n"
+    subsplit: NonEmptyStr = "\n"
+    pattern_title: Pattern = re.compile(  # type: ignore[type-arg]
+        r"\[([^\n\]]*)\]\(")
+    pattern_url: Pattern = re.compile(  # type: ignore[type-arg]
+        r"\]\(([^\s\)]*)[\s\)]")
+    pattern_subtitle: Pattern = re.compile(  # type: ignore[type-arg]
+        r"\[([^\n\]]*)\]\(")
 
 
 class PatternConfig(CustomBaseModel):
     """Configuration for the section pattern-matching."""
 
-    pattern: Union[str, Literal[False]] = False
-    pattern_end: str = " End"
-    pattern_start: str = " Start"
+    pattern: Union[pydantic.StrictStr, Literal[False]] = False
+    pattern_end: pydantic.StrictStr = " End"
+    pattern_start: pydantic.StrictStr = " Start"
 
 
 class ContextConfig(CustomBaseModel):
     """Local context configuration for the bot."""
 
-    account: str
-    subreddit: str
+    account: StripStr
+    subreddit: StripStr
 
 
 class EndpointConfig(CustomBaseModel):
     """Config params specific to sync endpoint setup."""
 
     context: ContextConfig
-    endpoint_name: str
+    endpoint_name: StripStr
     endpoint_type: EndpointType = EndpointType.WIKI_PAGE
-    description: str = ""
+    description: pydantic.StrictStr = ""
 
     @pydantic.validator("description")
     def description_fill(  # pylint: disable = no-self-use, no-self-argument
@@ -171,23 +218,23 @@ class FullEndpointConfig(EndpointConfig, PatternConfig):
 
     enabled: bool = True
     menu_config: MenuConfig = MenuConfig()
-    replace_patterns: Mapping[str, str] = {}
+    replace_patterns: Mapping[NonEmptyStr, pydantic.StrictStr] = {}
 
 
 class SyncPairConfig(CustomBaseModel):
     """Configuration object for a sync pair of a source and target(s)."""
 
-    description: str = ""
+    description: pydantic.StrictStr = ""
     enabled: bool = True
     source: FullEndpointConfig
-    targets: Mapping[str, FullEndpointConfig]
+    targets: Mapping[StripStr, FullEndpointConfig]
 
 
 class SyncConfig(CustomBaseModel):
     """Top-level configuration for the thread management module."""
 
     enabled: bool = True
-    pairs: Mapping[str, SyncPairConfig] = {}
+    pairs: Mapping[StripStr, SyncPairConfig] = {}
 
 
 class InitialThreadConfig(CustomBaseModel):
@@ -201,31 +248,43 @@ class ThreadConfig(CustomBaseModel):
     """Configuration for a managed thread item."""
 
     context: ContextConfig
-    description: str = ""
+    description: pydantic.StrictStr = ""
     enabled: bool = True
     initial: InitialThreadConfig = InitialThreadConfig()
-    link_update_pages: List[str] = []
-    new_thread_interval: str = "month"
+    link_update_pages: List[StripStr] = []
+    new_thread_interval: Union[
+        Literal[False], Tuple[str, Union[int, None]], str] = ("month", None)
     new_thread_redirect_op: bool = False
     new_thread_redirect_sticky: bool = False
-    new_thread_redirect_template: str = DEFAULT_REDIRECT_TEMPLATE
+    new_thread_redirect_template: NonEmptyStr = DEFAULT_REDIRECT_TEMPLATE
     pin_thread: Union[Literal["top"], Literal["bottom"], bool] = "top"
-    post_title_template: str = "{subreddit} Megathread (#{thread_number})"
+    post_title_template: StripStr = "{subreddit} Megathread (#{thread_number})"
     source: FullEndpointConfig
     target_context: ContextConfig
+
+    @pydantic.validator("new_thread_interval")
+    def convert_interval(  # pylint: disable = no-self-use, no-self-argument
+            cls, raw_interval: tuple[str, int | None] | str | Literal[False],
+            ) -> Literal[False] | tuple[str, int | None]:
+        """Convert a time interval to the expected form."""
+        if not raw_interval:
+            return False
+        if isinstance(raw_interval, tuple):
+            return raw_interval
+        return process_raw_interval(raw_interval)
 
 
 class ThreadsConfig(CustomBaseModel):
     """Top-level configuration for the thread management module."""
 
     enabled: bool = True
-    megathreads: Mapping[str, ThreadConfig] = {}
+    megathreads: Mapping[StripStr, ThreadConfig] = {}
 
 
 class StaticConfig(CustomBaseModel):
     """Model reprisenting the bot's static configuration."""
 
-    repeat_interval_s: float = 60
+    repeat_interval_s: pydantic.NonNegativeFloat = 60
     accounts: AccountsConfig
     context_default: ContextConfig
     megathread: ThreadsConfig = ThreadsConfig()
@@ -246,8 +305,8 @@ class DynamicThreadConfig(
 class DynamicConfig(CustomMutableBaseModel):
     """Model reprisenting the current dynamic configuration."""
 
-    megathread: Dict[str, DynamicThreadConfig] = {}
-    sync: Dict[str, DynamicSyncConfig] = {}
+    megathread: Dict[StripStr, DynamicThreadConfig] = {}
+    sync: Dict[StripStr, DynamicSyncConfig] = {}
 
 
 EXAMPLE_ACCOUNT_NAME: Final = "EXAMPLE_USER"
@@ -375,29 +434,16 @@ def split_and_clean_text(source_text: str, split: str) -> list[str]:
     return sections
 
 
-def extract_text(pattern: str, source_text: str) -> str | Literal[False]:
+def extract_text(
+        pattern: re.Pattern[Any] | str,
+        source_text: str,
+        ) -> str | Literal[False]:
     """Match the given pattern and extract the matched text as a string."""
     match = re.search(pattern, source_text)
     if not match:
         return False
     match_text = match.groups()[0] if match.groups() else match.group()
     return match_text
-
-
-def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
-    """Convert a time interval expressed as a string into a standard form."""
-    interval_split = raw_interval.split()
-    interval_unit = interval_split[-1]
-    if len(interval_split) == 1:
-        interval_n = None
-    else:
-        interval_n = int(interval_split[0])
-    interval_unit = interval_unit.rstrip("s")
-    if interval_unit[-2:] == "ly":
-        interval_unit = interval_unit[:-2]
-    if interval_unit == "week" and not interval_n:
-        interval_n = 1
-    return interval_unit, interval_n
 
 
 KeyType = TypeVar("KeyType")
@@ -780,7 +826,7 @@ def generate_template_vars(
             "" if not dynamic_config.thread_id else dynamic_config.thread_id,
         }
     template_vars["post_title"] = (
-        thread_config.post_title_template.strip().format(**template_vars))
+        thread_config.post_title_template.format(**template_vars))
     return template_vars
 
 
@@ -890,12 +936,11 @@ def manage_thread(
     if not thread_config.enabled:
         return
 
-    reddit = accounts[thread_config.context.account]
-    interval = thread_config.new_thread_interval
-
     # Determine if its time to post a new thread
-    if interval:
-        interval_unit, interval_n = process_raw_interval(interval)
+    reddit = accounts[thread_config.context.account]
+    if thread_config.new_thread_interval:
+        assert not isinstance(thread_config.new_thread_interval, str)
+        interval_unit, interval_n = thread_config.new_thread_interval
 
         current_thread = reddit.submission(id=dynamic_config.thread_id)
         last_post_timestamp = datetime.datetime.fromtimestamp(
