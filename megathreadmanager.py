@@ -17,14 +17,15 @@ import re
 import time
 from typing import (
     Any,
-    Callable,  # Added to collections.abc in Python 3.9
+    Callable,  # Import from collections.abc in Python 3.9
     Dict,  # Not needed in Python 3.9
     Generic,
     List,  # Not needed in Python 3.9
-    Mapping,  # Added to collections.abc in Python 3.9
-    MutableMapping,  # Added to collections.abc in Python 3.9
+    Mapping,  # Import from collections.abc in Python 3.9
+    MutableMapping,  # Import from collections.abc in Python 3.9
     NoReturn,
     Pattern,  # Import from re in Python 3.9
+    Sequence,  # Import from collections.abc in Python 3.9
     Tuple,  # Not needed in Python 3.9
     TYPE_CHECKING,
     TypeVar,
@@ -56,7 +57,18 @@ CONFIG_PATH_REFRESH: Final = CONFIG_DIRECTORY / "refresh_token_{key}.txt"
 USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 
-# Enum values
+# Config constants
+DEFAULT_REDIRECT_TEMPLATE: Final = """
+This thread is no longer being updated, and has been replaced by:
+
+# [{post_title}]({thread_url})
+"""
+
+
+# ----------------- General utility boilerplate -----------------
+
+# ---- Enums ----
+
 @enum.unique
 class EndpointType(enum.Enum):
     """Reprisent the type of sync endpoint on Reddit."""
@@ -75,7 +87,8 @@ class EndpointType(enum.Enum):
     WIKI_PAGE = "WIKI_PAGE"
 
 
-# Type aliases
+# ---- Type aliases ----
+
 if TYPE_CHECKING:
     PathLikeStr = Union['os.PathLike[str]', str]
 else:
@@ -92,14 +105,6 @@ AccountsConfig = Mapping[str, AccountConfig]
 AccountsMap = Mapping[str, praw.Reddit]
 ConfigDict = Mapping[str, Any]
 ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
-
-
-# Config constants
-DEFAULT_REDIRECT_TEMPLATE: Final = """
-This thread is no longer being updated, and has been replaced by:
-
-# [{post_title}]({thread_url})
-"""
 
 
 # ----------------- Config classes -----------------
@@ -205,7 +210,7 @@ class EndpointConfig(CustomBaseModel):
 
     @pydantic.validator("description")
     def description_fill(  # pylint: disable = no-self-use, no-self-argument
-            cls, value: str, values: dict[str, Any]) -> str:
+            cls, value: str, values: dict[str, str]) -> str:
         """Fill the description from the endpoint name, if not provided."""
         if not value:
             endpoint_name: str = values["endpoint_name"]
@@ -527,7 +532,7 @@ class MenuSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit top bar menu widget."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: str) -> None:
         super().__init__(**kwargs)
         if not self.name:
             self.name = "menu"
@@ -559,7 +564,7 @@ class ThreadSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit thread (selfpost submission)."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: str) -> None:
         super().__init__(**kwargs)
         self._object = self._reddit.submission(id=self.name)
 
@@ -588,7 +593,7 @@ class WidgetSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit sidebar text content widget."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: str) -> None:
         super().__init__(**kwargs)
         for widget in self._subreddit.widgets.sidebar:
             if widget.shortName == self.name:
@@ -619,7 +624,7 @@ class WikiSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit wiki page."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: str) -> None:
         super().__init__(**kwargs)
         self._object = self._subreddit.wiki[self.name]
 
@@ -830,6 +835,33 @@ def generate_template_vars(
     return template_vars
 
 
+def update_page_links(
+        links: Mapping[str, str],
+        pages_to_update: Sequence[str],
+        reddit: praw.Reddit,
+        subreddit: str,
+        description: str = "",
+        ) -> None:
+    """Update the links to the given thread on the passed pages."""
+    for idx, page_name in enumerate(pages_to_update):
+        page = WikiSyncEndpoint(
+            endpoint_name=page_name,
+            reddit=reddit,
+            subreddit=subreddit,
+            description=f"Megathread link page {idx + 1}",
+            )
+        new_content = page.content
+        for old_link, new_link in links.items():
+            new_content = re.sub(
+                pattern=re.escape(old_link),
+                repl=new_link,
+                string=new_content,
+                flags=re.IGNORECASE,
+                )
+        page.edit(
+            new_content, reason=f"Update {description} megathread URLs")
+
+
 def create_new_thread(
         thread_config: ThreadConfig,
         dynamic_config: DynamicThreadConfig,
@@ -842,10 +874,7 @@ def create_new_thread(
 
     # Get subreddit objects for accounts
     reddit_mod = accounts[thread_config.context.account]
-    subreddit_mod = reddit_mod.subreddit(thread_config.context.subreddit)
     reddit_post = accounts[thread_config.target_context.account]
-    subreddit_post = reddit_post.subreddit(
-        thread_config.target_context.subreddit)
 
     source_obj = create_sync_endpoint_from_config(
         config=thread_config.source,
@@ -863,8 +892,9 @@ def create_new_thread(
         current_thread_mod = reddit_mod.submission(id=dynamic_config.thread_id)
 
     # Submit and approve new thread
-    new_thread = subreddit_post.submit(
-        title=template_vars["post_title"], selftext=post_text)
+    new_thread = reddit_post.subreddit(
+        thread_config.target_context.subreddit
+        ).submit(title=template_vars["post_title"], selftext=post_text)
     new_thread.disable_inbox_replies()
     new_thread_mod = reddit_mod.submission(id=new_thread.id)
     new_thread_mod.mod.approve()
@@ -878,9 +908,11 @@ def create_new_thread(
             current_thread_mod.mod.sticky(state=False)
             time.sleep(10)
         try:
-            sticky_to_keep = subreddit_mod.sticky(number=1)
+            sticky_to_keep = reddit_mod.subreddit(
+                thread_config.context.subreddit).sticky(number=1)
             if current_thread and sticky_to_keep.id == current_thread.id:
-                sticky_to_keep = subreddit_mod.sticky(number=2)
+                sticky_to_keep = reddit_mod.subreddit(
+                    thread_config.context.subreddit).sticky(number=2)
         except prawcore.exceptions.NotFound:
             sticky_to_keep = None
         new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
@@ -889,28 +921,17 @@ def create_new_thread(
 
     # Update links to point to new thread
     if current_thread and current_thread_mod:
-        links = (
-            tuple((getattr(thread, link_type).strip("/")
-                   for thread in [current_thread, new_thread]))
-            for link_type in ["permalink", "shortlink"])
-        for idx, page_name in enumerate(thread_config.link_update_pages):
-            page = WikiSyncEndpoint(
-                endpoint_name=page_name,
-                reddit=reddit_mod,
-                subreddit=thread_config.context.subreddit,
-                description=f"Megathread link page {idx + 1}",
-                )
-            new_content = page.content
-            for old_link, new_link in links:
-                new_content = re.sub(
-                    pattern=re.escape(old_link),
-                    repl=new_link,
-                    string=new_content,
-                    flags=re.IGNORECASE,
-                    )
-            page.edit(
-                new_content,
-                reason=f"Update {thread_config.description} megathread URLs")
+        links = {
+            getattr(current_thread, link_type).strip("/"): (
+                getattr(new_thread, link_type).strip("/"))
+            for link_type in ["permalink", "shortlink"]}
+        update_page_links(
+            links=links,
+            pages_to_update=thread_config.link_update_pages,
+            reddit=reddit_mod,
+            subreddit=thread_config.context.subreddit,
+            description=thread_config.description,
+            )
 
         # Add messages to new thread on old thread if enabled
         redirect_template = thread_config.new_thread_redirect_template
@@ -1194,7 +1215,8 @@ def sync_all(static_config: StaticConfig,
 def handle_refresh_tokens(
         accounts_config: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        ) -> Mapping[str, Mapping[str, Any]]:
+        ) -> Mapping[
+            str, Mapping[str, praw.util.token_manager.FileTokenManager]]:
     """Set up each account with the appropriate refresh tokens."""
     config_path_refresh = Path(config_path_refresh)
     accounts_config_processed = dict(copy.deepcopy(accounts_config))
@@ -1334,13 +1356,14 @@ def main(sys_argv: list[str] | None = None) -> None:
         )
     parsed_args = parser_main.parse_args(sys_argv)
 
-    if getattr(parsed_args, "version", False):
-        print(f"Megathread Manager version {__version__}")
-    else:
-        try:
-            run_manage_loop(**vars(parsed_args))
-        except ConfigNotFoundError as e:
-            print(f"Default config file generated. {e}")
+    try:
+        if parsed_args.version:
+            print(f"Megathread Manager version {__version__}")
+            return
+    except AttributeError:  # If version flag not passed
+        pass
+
+    run_manage_loop(**vars(parsed_args))
 
 
 if __name__ == "__main__":
