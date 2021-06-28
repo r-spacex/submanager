@@ -57,44 +57,12 @@ CONFIG_PATH_REFRESH: Final = CONFIG_DIRECTORY / "refresh_token_{key}.txt"
 USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 
-# Config constants
-DEFAULT_REDIRECT_TEMPLATE: Final = """
-This thread is no longer being updated, and has been replaced by:
-
-# [{post_title}]({thread_url})
-"""
-
-
-# ----------------- General utility boilerplate -----------------
-
-# ---- Enums ----
-
-@enum.unique
-class EndpointType(enum.Enum):
-    """Reprisent the type of sync endpoint on Reddit."""
-
-    def __repr__(self) -> str:
-        """Convert enum value to repr."""
-        return str(self.value)
-
-    def __str__(self) -> str:
-        """Convert enum value to string."""
-        return str(self.value)
-
-    MENU = "MENU"
-    THREAD = "THREAD"
-    WIDGET = "WIDGET"
-    WIKI_PAGE = "WIKI_PAGE"
-
-
 # ---- Type aliases ----
 
 if TYPE_CHECKING:
-    PathLikeStr = Union['os.PathLike[str]', str]
+    PathLikeStr = Union["os.PathLike[str]", str]
 else:
     PathLikeStr = Union[os.PathLike, str]
-
-EndpointTypesStr = Literal["MENU", "THREAD", "WIDGET", "WIKI_PAGE"]
 
 ChildrenData = List[MutableMapping[str, str]]
 SectionData = MutableMapping[str, Union[str, ChildrenData]]
@@ -107,9 +75,83 @@ ConfigDict = Mapping[str, Any]
 ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
 
 
+# ----------------- General utility boilerplate -----------------
+
+# ---- Misc utility functions and classes ----
+
+# Replace with StrEnum in Python 3.10
+class StrValueEnum(enum.Enum):
+    """Enum whose repr and str and just the values, for easy serialization."""
+
+    def __repr__(self) -> str:
+        """Convert enum value to repr."""
+        return str(self.value)
+
+    def __str__(self) -> str:
+        """Convert enum value to string."""
+        return str(self.value)
+
+
+Fun = TypeVar("Fun", bound=Callable[..., Any])
+
+
+class copy_signature(Generic[Fun]):  # pylint: disable=invalid-name
+    """Decorator to copy the signature from another function."""
+
+    def __init__(self, target: Fun) -> None:  # pylint: disable=unused-argument
+        ...
+
+    def __call__(self, wrapped: Callable[..., Any]) -> Fun:
+        """Call the function/method."""
+
+
+KeyType = TypeVar("KeyType")
+
+
+def update_dict_recursive(
+        base: MutableMapping[KeyType, Any],
+        update: MutableMapping[KeyType, Any],
+        inplace: bool | None = None,
+        ) -> MutableMapping[KeyType, Any]:
+    """Recursively update the given base dict from another dict."""
+    if not inplace:
+        base = copy.deepcopy(base)
+    for update_key, update_value in update.items():
+        base_value = base.get(update_key, {})
+        if not isinstance(base_value, MutableMapping):
+            base[update_key] = update_value
+        elif isinstance(update_value, MutableMapping):
+            base[update_key] = update_dict_recursive(
+                base_value, update_value)
+        else:
+            base[update_key] = update_value
+    return base
+
+
+# ---- General enum constants ----
+
+@enum.unique
+class EndpointType(StrValueEnum):
+    """Reprisent the type of sync endpoint on Reddit."""
+
+    MENU = "MENU"
+    THREAD = "THREAD"
+    WIDGET = "WIDGET"
+    WIKI_PAGE = "WIKI_PAGE"
+
+
+@enum.unique
+class PinType(StrValueEnum):
+    """Reprisent the type of thread pinning behavior on Reddit."""
+
+    NONE = "NONE"
+    BOTTOM = "BOTTOM"
+    TOP = "TOP"
+
+
 # ----------------- Config classes -----------------
 
-# ---- Conversion functions ----
+# ---- Conversion functions and classes ----
 
 def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
     """Convert a time interval expressed as a string into a standard form."""
@@ -126,8 +168,6 @@ def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
         interval_n = 1
     return interval_unit, interval_n
 
-
-# ---- Custom model and validator classes ----
 
 # Hack so that mypy interprets the Pydantic validation types correctly
 if TYPE_CHECKING:
@@ -156,6 +196,15 @@ else:
         to_lower = True
 
 
+# ---- Pydantic models ----
+
+DEFAULT_REDIRECT_TEMPLATE: Final = """
+This thread is no longer being updated, and has been replaced by:
+
+# [{post_title}]({thread_url})
+"""
+
+
 class CustomBaseModel(
         pydantic.BaseModel,
         validate_all=True,
@@ -169,8 +218,6 @@ class CustomBaseModel(
 class CustomMutableBaseModel(CustomBaseModel, allow_mutation=True):
     """Custom BaseModel that allows mutation."""
 
-
-# ---- Pydantic models ----
 
 class MenuConfig(CustomBaseModel):
     """Configuration to parse the menu data from Markdown text."""
@@ -262,7 +309,7 @@ class ThreadConfig(CustomBaseModel):
     new_thread_redirect_op: bool = True
     new_thread_redirect_sticky: bool = True
     new_thread_redirect_template: NonEmptyStr = DEFAULT_REDIRECT_TEMPLATE
-    pin_thread: Union[Literal["top"], Literal["bottom"], bool] = "top"
+    pin_thread: Union[PinType, bool] = PinType.BOTTOM
     post_title_template: StripStr = "{subreddit} Megathread (#{thread_number})"
     source: FullEndpointConfig
     target_context: ContextConfig
@@ -313,6 +360,8 @@ class DynamicConfig(CustomMutableBaseModel):
     megathread: Dict[StripStr, DynamicThreadConfig] = {}
     sync: Dict[StripStr, DynamicSyncConfig] = {}
 
+
+# ---- Example config ----
 
 EXAMPLE_ACCOUNT_NAME: Final = "EXAMPLE_USER"
 
@@ -388,7 +437,7 @@ EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
     }
 
 
-# ----------------- Helper functions -----------------
+# ----------------- Pattern matching utility functions -----------------
 
 def replace_patterns(text: str, patterns: Mapping[str, str]) -> str:
     """Replace each pattern in the text with its mapped replacement."""
@@ -451,51 +500,7 @@ def extract_text(
     return match_text
 
 
-KeyType = TypeVar("KeyType")
-
-
-def update_dict_recursive(
-        base: MutableMapping[KeyType, Any],
-        update: MutableMapping[KeyType, Any],
-        inplace: bool | None = None,
-        ) -> MutableMapping[KeyType, Any]:
-    """Recursively update the given base dict from another dict."""
-    if not inplace:
-        base = copy.deepcopy(base)
-    for update_key, update_value in update.items():
-        base_value = base.get(update_key, {})
-        if not isinstance(base_value, MutableMapping):
-            base[update_key] = update_value
-        elif isinstance(update_value, MutableMapping):
-            base[update_key] = update_dict_recursive(
-                base_value, update_value)
-        else:
-            base[update_key] = update_value
-    return base
-
-
-# ----------------- Helper classes -----------------
-
-class ConfigError(RuntimeError):
-    """Raised when there is a problem with the Sub Manager configuration."""
-
-
-class ConfigNotFoundError(ConfigError):
-    """Raised when the Sub Manager configuration file is not found."""
-
-
-F = TypeVar('F', bound=Callable[..., Any])  # pylint: disable=invalid-name
-
-
-class copy_signature(Generic[F]):  # pylint: disable=invalid-name
-    """Decorator to copy the signature from another function."""
-
-    def __init__(self, target: F) -> None:  # pylint: disable=unused-argument
-        ...
-
-    def __call__(self, wrapped: Callable[..., Any]) -> F:
-        """Call the function/method."""
-
+# ----------------- Sync endpoint classes -----------------
 
 class SyncEndpoint(metaclass=abc.ABCMeta):
     """Abstraction of a source or target for a Reddit sync action."""
@@ -667,7 +672,18 @@ def create_sync_endpoint_from_config(
     return sync_endpoint
 
 
-# ----------------- Config functions -----------------
+# ----------------- Config handling -----------------
+
+# ---- Config utilities ----
+
+
+class ConfigError(RuntimeError):
+    """Raised when there is a problem with the Sub Manager configuration."""
+
+
+class ConfigNotFoundError(ConfigError):
+    """Raised when the Sub Manager configuration file is not found."""
+
 
 def serialize_config(
         config: ConfigDict | pydantic.BaseModel,
@@ -715,6 +731,8 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
                 f"Format of config file {config_path} not in {{JSON, TOML}}")
     return config
 
+
+# ---- Static config ----
 
 def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     """Fill in the defaults of a raw static config dictionary."""
@@ -771,6 +789,8 @@ def load_static_config(
 
     return static_config
 
+
+# ---- Dynamic config ----
 
 def render_dynamic_config(
         static_config: StaticConfig,
@@ -902,8 +922,8 @@ def create_new_thread(
         template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
 
     # Unpin old thread and pin new one
-    if thread_config.pin_thread:
-        bottom_sticky = thread_config.pin_thread != "top"
+    if thread_config.pin_thread and thread_config.pin_thread != PinType.NONE:
+        bottom_sticky = thread_config.pin_thread != PinType.TOP
         if current_thread_mod:
             current_thread_mod.mod.sticky(state=False)
             time.sleep(10)
@@ -948,6 +968,34 @@ def create_new_thread(
     dynamic_config.thread_id = new_thread.id
 
 
+def sync_thread(
+        thread_config: ThreadConfig,
+        dynamic_config: DynamicThreadConfig,
+        accounts: AccountsMap,
+        ) -> None:
+    """Sync a managed thread from its source."""
+    if not dynamic_config.thread_id:
+        raise ValueError(
+            f"Thread ID for {thread_config.description} must be specified.")
+
+    thread_target = FullEndpointConfig(
+        context=thread_config.target_context,
+        description=f"{thread_config.description} Megathread",
+        endpoint_name=dynamic_config.thread_id,
+        endpoint_type=EndpointType.THREAD,
+        )
+    sync_pair = SyncPairConfig(
+        description=thread_config.description,
+        source=thread_config.source,
+        targets={"megathread": thread_target},
+        )
+    sync_one(
+        sync_pair=sync_pair,
+        dynamic_config=dynamic_config,
+        accounts=accounts,
+        )
+
+
 def manage_thread(
         thread_config: ThreadConfig,
         dynamic_config: DynamicThreadConfig,
@@ -988,19 +1036,8 @@ def manage_thread(
         create_new_thread(thread_config, dynamic_config, accounts)
     else:
         # Otherwise, sync the current thread
-        thread_target = FullEndpointConfig(
-            context=thread_config.target_context,
-            description=f"{thread_config.description} Megathread",
-            endpoint_name=dynamic_config.thread_id,
-            endpoint_type=EndpointType.THREAD,
-            )
-        sync_pair = SyncPairConfig(
-            description=thread_config.description,
-            source=thread_config.source,
-            targets={"megathread": thread_target},
-            )
-        sync_one(
-            sync_pair=sync_pair,
+        sync_thread(
+            thread_config=thread_config,
             dynamic_config=dynamic_config,
             accounts=accounts,
             )
@@ -1158,10 +1195,10 @@ def sync_one(
         sync_pair: SyncPairConfig,
         dynamic_config: DynamicSyncConfig,
         accounts: AccountsMap,
-        ) -> bool | None:
+        ) -> None:
     """Sync one specific pair of sources and targets."""
     if not (sync_pair.enabled and sync_pair.source.enabled):
-        return None
+        return
     if not sync_pair.targets:
         raise ConfigError(
             f"No sync targets specified for sync_pair {sync_pair.description}")
@@ -1172,7 +1209,7 @@ def sync_one(
     source_content = process_source_endpoint(
         sync_pair.source, source_obj, dynamic_config)
     if source_content is False:
-        return False
+        return
 
     for target_config in sync_pair.targets.values():
         if not target_config.enabled:
@@ -1194,7 +1231,6 @@ def sync_one(
             target_content,
             reason=f"Auto-sync {sync_pair.description} from {target_obj.name}",
             )
-    return True
 
 
 def sync_all(static_config: StaticConfig,
@@ -1210,7 +1246,9 @@ def sync_all(static_config: StaticConfig,
             )
 
 
-# ----------------- Setup and orchestration -----------------
+# ----------------- Setup and run -----------------
+
+# ---- Setup routines ----
 
 def handle_refresh_tokens(
         accounts_config: AccountsConfig,
@@ -1254,6 +1292,8 @@ def setup_accounts(
         accounts[account_key] = reddit
     return accounts
 
+
+# ---- Core run code ----
 
 def run_manage(
         config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
@@ -1322,8 +1362,10 @@ def run_manage_loop(
             break
 
 
-def main(sys_argv: list[str] | None = None) -> None:
-    """Run the main function for the Megathread Manager CLI and dispatch."""
+# ---- CLI ----
+
+def create_arg_parser() -> argparse.ArgumentParser:
+    """Create the argument parser for the CLI."""
     parser_main = argparse.ArgumentParser(
         description="Generate, post, update and pin a Reddit megathread.",
         argument_default=argparse.SUPPRESS)
@@ -1354,8 +1396,11 @@ def main(sys_argv: list[str] | None = None) -> None:
         help=("If passed, re-runs every N seconds, or the value from the "
               "config file variable repeat_interval_s if N isn't specified."),
         )
-    parsed_args = parser_main.parse_args(sys_argv)
+    return parser_main
 
+
+def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
+    """Dispatch to the specified command based on the passed args."""
     try:
         if parsed_args.version:
             print(f"Megathread Manager version {__version__}")
@@ -1364,6 +1409,13 @@ def main(sys_argv: list[str] | None = None) -> None:
         pass
 
     run_manage_loop(**vars(parsed_args))
+
+
+def main(sys_argv: list[str] | None = None) -> None:
+    """Run the main function for the Megathread Manager CLI and dispatch."""
+    parser_main = create_arg_parser()
+    parsed_args = parser_main.parse_args(sys_argv)
+    handle_parsed_args(parsed_args)
 
 
 if __name__ == "__main__":
