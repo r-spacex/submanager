@@ -55,7 +55,7 @@ However, you can specify an alternate config file for one or both with the vario
 All configuration, except for ``repeat_interval_s``, is read and updated for each run while ``megathread-manager`` is active, so settings can be changed on the fly without stopping and restarting it.
 
 Individual modules, such as ``megathread`` and ``sync``, can be enabled and disabled via their corresponding ``enabled`` options, and can be further configured as described below.
-On first run ``megathread-manager`` will generate a suitible configurable file for you, which you can then edit to tell it what you want it to do.
+On first run ``megathread-manager`` will generate a suitable configurable file for you, which you can then edit to tell it what you want it to do.
 
 
 ### Configuring credentials
@@ -63,7 +63,7 @@ On first run ``megathread-manager`` will generate a suitible configurable file f
 With Megathread Manager v0.5.0, the Reddit account to use for a given action can be specified per module (megathread, sync), per task (megathread, sync pair) and even per source and target, as well as globally.
 You'll need to configure and register the account(s) involved for Reddit app access with the Reddit API.
 We recommend you configure your credentials in ``praw.ini`` and simply refer to them via the PRAW ``site_name`` argument of the respective account listed under the ``accounts`` table, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
-The various parameters that ``praw.Reddit()`` can accept, e.g. username/password, client id/client secret, refresh token, etc) go in the ``mod`` and ``post`` subkeys of the ``accounts`` table for the respective mod account and public posting account.
+However, if you prefer, the various arguments that ``praw.Reddit()`` can accept, e.g. username/password, client id/client secret, refresh token, etc) can be also all be included as subkeys of the named account in the ``accounts`` table.
 Megathread Manager fully supports the new Reddit refresh token handling; just enter your initial refresh token under the `refresh_token` key for the account in the ``accounts`` table, and it will automatically set up a handler to store it and keep it updated going forward.
 
 
@@ -78,8 +78,7 @@ For either form, the units can be given with or without `s` or `ly` as suffices.
 There's currently a minor limitation with this as currently implemented: getting it to create a new thread "on-demand" rather than on a schedule (or not at all) is not completely obvious.
 There is a relatively simple workaround, however—just set the ``new_thread_interval`` to ``false``, and then whenever you want a new thread, set it to e.g. ``1 day``, wait `repeat_interval_s` seconds for it to create the new thread (or manually restart it, if you're impatient), and then set it back to ``false``.
 
-We could, and probably eventually will add a proper feature for this, likely in the form of a new CLI command, e.g. ``megathread-manager new-thread <thread_name>`` to programmatically tell the running manager instance to create a new one on-demand.
-However, while it would be a bit more obvious and elegant than the current approach, it likely isn't much faster in practice.
+We will eventually add a proper feature for this, likely in the form of a new CLI command, e.g. ``megathread-manager new-thread <thread_name>`` to programmatically tell the running manager instance to create a new one on-demand.
 
 
 ### Syncing sections
@@ -96,7 +95,7 @@ Example section content
 
 This allows easily syncing just specific sections between sources and targets.
 
-If any variable (e.g. ``pattern``) is not specified for a ``target``, the value from ``defaults`` is used.
+If any variable (e.g. ``pattern``) is not specified for a ``target``, the value is recursively inherited from the respective ``defaults`` table in the sync pair, and then sync config section, including the ``context`` sub-table in each as well as the ``default context`` in the config.
 Conversely, any ``replace_patterns`` for a specific target are applied after (and in addition) to those specified in ``source`` for all targets; note the ``source`` section is *not* actually modified unless it is specified as a ``target``.
 
 
