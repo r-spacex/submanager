@@ -26,7 +26,6 @@ from typing import (
     NoReturn,
     Pattern,  # Import from re in Python 3.9
     Sequence,  # Import from collections.abc in Python 3.9
-    Tuple,  # Not needed in Python 3.9
     TYPE_CHECKING,
     TypeVar,
     Union,  # Not needed in Python 3.9
@@ -219,6 +218,14 @@ class CustomMutableBaseModel(CustomBaseModel, allow_mutation=True):
     """Custom BaseModel that allows mutation."""
 
 
+class ConfigPaths(CustomBaseModel):
+    """Configuration path object for the various config file types."""
+
+    dynamic: Path = CONFIG_PATH_DYNAMIC
+    refresh: Path = CONFIG_PATH_REFRESH
+    static: Path = CONFIG_PATH_STATIC
+
+
 class MenuConfig(CustomBaseModel):
     """Configuration to parse the menu data from Markdown text."""
 
@@ -304,8 +311,7 @@ class ThreadConfig(CustomBaseModel):
     enabled: bool = True
     initial: InitialThreadConfig = InitialThreadConfig()
     link_update_pages: List[StripStr] = []
-    new_thread_interval: Union[
-        Literal[False], Tuple[str, Union[int, None]], str] = ("month", None)
+    new_thread_interval: Union[Literal[False], str] = "monthly"
     new_thread_redirect_op: bool = True
     new_thread_redirect_sticky: bool = True
     new_thread_redirect_template: NonEmptyStr = DEFAULT_REDIRECT_TEMPLATE
@@ -316,14 +322,13 @@ class ThreadConfig(CustomBaseModel):
 
     @pydantic.validator("new_thread_interval")
     def convert_interval(  # pylint: disable = no-self-use, no-self-argument
-            cls, raw_interval: tuple[str, int | None] | str | Literal[False],
-            ) -> Literal[False] | tuple[str, int | None]:
+            cls, raw_interval: str | Literal[False],
+            ) -> str | Literal[False]:
         """Convert a time interval to the expected form."""
         if not raw_interval:
             return False
-        if isinstance(raw_interval, tuple):
-            return raw_interval
-        return process_raw_interval(raw_interval)
+        process_raw_interval(raw_interval)
+        return raw_interval
 
 
 class ThreadsConfig(CustomBaseModel):
@@ -782,9 +787,6 @@ def load_static_config(
     if not config_path.exists():
         write_config(config=example_config, config_path=config_path)
     raw_config = load_config(config_path)
-    if not raw_config:
-        raise ConfigNotFoundError(
-            f"Config file at {config_path.as_posix()} is empty.")
     static_config = render_static_config(raw_config)
 
     return static_config
@@ -1008,8 +1010,8 @@ def manage_thread(
     # Determine if its time to post a new thread
     reddit = accounts[thread_config.context.account]
     if thread_config.new_thread_interval:
-        assert not isinstance(thread_config.new_thread_interval, str)
-        interval_unit, interval_n = thread_config.new_thread_interval
+        interval_unit, interval_n = process_raw_interval(
+            thread_config.new_thread_interval)
 
         current_thread = reddit.submission(id=dynamic_config.thread_id)
         last_post_timestamp = datetime.datetime.fromtimestamp(
@@ -1293,21 +1295,38 @@ def setup_accounts(
     return accounts
 
 
+def setup_config(
+        config_paths: ConfigPaths | None = None,
+        ) -> tuple[StaticConfig, DynamicConfig, AccountsConfig]:
+    """Load the config and set up the accounts mapping."""
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    static_config = load_static_config(config_paths.static)
+    dynamic_config = load_dynamic_config(
+        static_config=static_config, config_path=config_paths.dynamic)
+
+    # If default config was generated or config was unmodified, raise
+    if static_config.accounts == EXAMPLE_ACCOUNTS:
+        print("Default config file generated at",
+              Path(config_paths.static).as_posix())
+        raise ConfigNotFoundError(
+            "Default configuration file generated; terminating execution")
+
+    accounts = setup_accounts(
+        static_config.accounts, config_path_refresh=config_paths.refresh)
+    return static_config, dynamic_config, accounts
+
+
 # ---- Core run code ----
 
+
 def run_manage(
-        config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
-        config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
-        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        config_paths: ConfigPaths | None = None,
         ) -> None:
     """Load the config file and run the thread manager."""
     # Load config and set up session
-    static_config = load_static_config(config_path_static)
-    dynamic_config = load_dynamic_config(
-        static_config=static_config, config_path=config_path_dynamic)
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    static_config, dynamic_config, accounts = setup_config(config_paths)
     dynamic_config_active = dynamic_config.copy(deep=True)
-    accounts = setup_accounts(
-        static_config.accounts, config_path_refresh=config_path_refresh)
 
     # Run the core manager tasks
     if static_config.sync.enabled:
@@ -1317,40 +1336,28 @@ def run_manage(
 
     # Write out the dynamic config if it changed
     if dynamic_config_active != dynamic_config:
-        write_config(dynamic_config_active, config_path=config_path_dynamic)
+        write_config(dynamic_config_active, config_path=config_paths.dynamic)
 
 
-def run_manage_loop(
-        config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
-        config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
-        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        repeat: float | bool = True,
+def start_manage(
+        config_paths: ConfigPaths | None = None,
+        repeat_interval_s: float | None = None,
         ) -> None:
     """Run the mainloop of sub-manager, performing each task in sequance."""
-    static_config = load_static_config(config_path=config_path_static)
-    load_dynamic_config(
-        static_config=static_config, config_path=config_path_dynamic)
+    # Load config and set up session
+    __: Any
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    static_config, __, __ = setup_config(config_paths)
 
-    # If default config was generated or config was unmodified, return
-    if static_config.accounts == EXAMPLE_ACCOUNTS:
-        print("Default config file generated at",
-              Path(config_path_static).as_posix())
-        return
-
-    if repeat is True:
-        repeat = static_config.repeat_interval_s
+    if repeat_interval_s is None:
+        repeat_interval_s = static_config.repeat_interval_s
     while True:
-        print(f"Running megathread manager for config at {config_path_static}")
-        run_manage(
-            config_path_static=config_path_static,
-            config_path_dynamic=config_path_dynamic,
-            config_path_refresh=config_path_refresh,
-            )
+        print("Running megathread manager for config at "
+              f"{config_paths.static.as_posix()}")
+        run_manage(config_paths=config_paths)
         print("Megathread manager run complete")
-        if not repeat:
-            break
         try:
-            time_left_s = repeat
+            time_left_s = repeat_interval_s
             while True:
                 time_to_sleep_s = min((time_left_s, 1))
                 time.sleep(time_to_sleep_s)
@@ -1364,58 +1371,114 @@ def run_manage_loop(
 
 # ---- CLI ----
 
+def get_version_str() -> str:
+    """Get a pretty-printed string of the application's version."""
+    return f"Megathread Manager version {__version__}"
+
+
 def create_arg_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the CLI."""
     parser_main = argparse.ArgumentParser(
         description="Generate, post, update and pin a Reddit megathread.",
         argument_default=argparse.SUPPRESS)
+    subparsers = parser_main.add_subparsers(
+        description="Subcommand to execute")
+
+    # Top-level arguments
     parser_main.add_argument(
         "--version",
         action="store_true",
         help="If passed, will print the version number and exit",
         )
     parser_main.add_argument(
-        "--config-path", dest="config_path_static",
+        "--config-path",
+        dest="config_path_static",
         help="The path to a custom static (user) config file to use.",
         )
     parser_main.add_argument(
-        "--dynamic-config-path", dest="config_path_dynamic",
+        "--dynamic-config-path",
+        dest="config_path_dynamic",
         help="The path to a custom dynamic (runtime) config file to use.",
         )
     parser_main.add_argument(
-        "--refresh-config-path", dest="config_path_refresh",
+        "--refresh-config-path",
+        dest="config_path_refresh",
         help="The path to a custom (set of) refresh token files to use.",
         )
-    parser_main.add_argument(
-        "--repeat",
-        nargs="?",
-        default=False,
-        const=True,
-        type=int,
-        metavar="N",
-        help=("If passed, re-runs every N seconds, or the value from the "
-              "config file variable repeat_interval_s if N isn't specified."),
+
+    # Run the bot once
+    run_desc = "Run the bot through one cycle and exit."
+    parser_run = subparsers.add_parser(
+        "run",
+        description=run_desc,
+        help=run_desc,
+        argument_default=argparse.SUPPRESS,
         )
+    parser_run.set_defaults(func=run_manage)
+
+    # Start the bot running
+    start_desc = "Start the bot running continously until stopped or errored."
+    parser_start = subparsers.add_parser(
+        "start",
+        description=start_desc,
+        help=start_desc,
+        argument_default=argparse.SUPPRESS,
+        )
+    parser_start.set_defaults(func=start_manage)
+    parser_start.add_argument(
+        "--repeat-interval-s",
+        type=float,
+        metavar="N",
+        help=("Run every N seconds, or the value from the config file "
+              "variable repeat_interval_s if N isn't specified."),
+        )
+
     return parser_main
+
+
+def run_toplevel_function(
+        func: Callable[..., None],
+        config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
+        config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
+        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        **kwargs: Any,
+        ) -> None:
+    """Dispatch to the top-level function, converting paths to objs."""
+    config_paths = ConfigPaths(
+        static=Path(config_path_static),
+        dynamic=Path(config_path_dynamic),
+        refresh=Path(config_path_refresh),
+        )
+    func(config_paths=config_paths, **kwargs)
 
 
 def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
     """Dispatch to the specified command based on the passed args."""
+    # Print version and exit if --version passed
     try:
         if parsed_args.version:
-            print(f"Megathread Manager version {__version__}")
+            print(get_version_str())
             return
     except AttributeError:  # If version flag not passed
         pass
 
-    run_manage_loop(**vars(parsed_args))
+    # Execute desired subcommand function if passed, otherwise print help
+    try:
+        parsed_args.func
+    except AttributeError:  # If function is not specified
+        create_arg_parser().print_usage()
+    else:
+        run_toplevel_function(**vars(parsed_args))
 
 
 def main(sys_argv: list[str] | None = None) -> None:
     """Run the main function for the Megathread Manager CLI and dispatch."""
     parser_main = create_arg_parser()
     parsed_args = parser_main.parse_args(sys_argv)
-    handle_parsed_args(parsed_args)
+    try:
+        handle_parsed_args(parsed_args)
+    except ConfigNotFoundError as error:
+        print(f"{type(error).__name__}: {error}")
 
 
 if __name__ == "__main__":
