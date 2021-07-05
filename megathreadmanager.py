@@ -13,6 +13,7 @@ import enum
 import json
 import os
 import re
+import sys
 import time
 from pathlib import Path
 from typing import (
@@ -67,7 +68,7 @@ ChildrenData = List[MutableMapping[str, str]]
 SectionData = MutableMapping[str, Union[str, ChildrenData]]
 MenuData = List[SectionData]
 
-AccountConfig = Mapping[str, str]
+AccountConfig = MutableMapping[str, str]
 AccountsConfig = Mapping[str, AccountConfig]
 AccountsMap = Mapping[str, praw.Reddit]
 ConfigDict = Mapping[str, Any]
@@ -706,9 +707,16 @@ class ConfigErrorWithPath(ConfigError, metaclass=abc.ABCMeta):
     def _generate_message(config_path: str) -> str:
         """Generate a config method given a path; meant to be overriden."""
 
-    def __init__(self, config_path: PathLikeStr) -> None:
+    def __init__(
+            self,
+            config_path: PathLikeStr,
+            message: str | None = None,
+            ) -> None:
         self.config_path = Path(config_path)
-        super().__init__(self._generate_message(self.config_path.as_posix()))
+        full_message = self._generate_message(self.config_path.as_posix())
+        if message:
+            full_message += "\n" + message
+        super().__init__(full_message)
 
 
 class ConfigNotFoundError(ConfigErrorWithPath):
@@ -1316,7 +1324,6 @@ def handle_refresh_tokens(
     config_path_refresh = Path(config_path_refresh)
     accounts_config_processed = dict(copy.deepcopy(accounts_config))
     for account_key, account_kwargs in accounts_config_processed.items():
-        account_kwargs = dict(account_kwargs)
         refresh_token = account_kwargs.pop("refresh_token", None)
         if refresh_token:
             # Initialize refresh token file
@@ -1410,6 +1417,13 @@ def generate_config(
     print(message.format(action=action))
 
 
+def validate_config(config_paths: ConfigPaths | None = None) -> None:
+    """Ensure the config is valid, raising an error if it is not."""
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    setup_config(config_paths=config_paths)
+    print(f"Config at {config_paths.static.as_posix()} is valid")
+
+
 # ---- Core run code ----
 
 def run_manage(
@@ -1499,7 +1513,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         help="The path to a custom (set of) refresh token files to use.",
         )
 
-    # Generate the config files
+    # Generate the config file
     generate_desc = "Generate the bot's config files."
     parser_generate = subparsers.add_parser(
         "generate-config",
@@ -1518,6 +1532,16 @@ def create_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Don't raise an error/warning if the config file already exists.",
         )
+
+    # Validate the config file
+    validate_desc = "Validate the bot's config files."
+    parser_validate = subparsers.add_parser(
+        "validate-config",
+        description=validate_desc,
+        help=validate_desc,
+        argument_default=argparse.SUPPRESS,
+        )
+    parser_validate.set_defaults(func=validate_config)
 
     # Run the bot once
     run_desc = "Run the bot through one cycle and exit."
@@ -1591,7 +1615,7 @@ def main(sys_argv: list[str] | None = None) -> None:
     try:
         handle_parsed_args(parsed_args)
     except ConfigError as error:
-        print_error(error)
+        sys.exit(format_error(error))
 
 
 if __name__ == "__main__":
