@@ -12,9 +12,9 @@ import datetime
 import enum
 import json
 import os
-from pathlib import Path
 import re
 import time
+from pathlib import Path
 from typing import (
     Any,
     Callable,  # Import from collections.abc in Python 3.9
@@ -77,6 +77,16 @@ ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
 # ----------------- General utility boilerplate -----------------
 
 # ---- Misc utility functions and classes ----
+
+def format_error(error: BaseException) -> str:
+    """Format an error as a human-readible string."""
+    return f"{type(error).__name__}: {error}"
+
+
+def print_error(error: BaseException) -> None:
+    """Print the error in a human-readible format for end users."""
+    print(format_error(error))
+
 
 # Replace with StrEnum in Python 3.10
 class StrValueEnum(enum.Enum):
@@ -681,13 +691,56 @@ def create_sync_endpoint_from_config(
 
 # ---- Config utilities ----
 
+SUPPORTED_FORMATS: Final = frozenset({"json", "toml"})
+
 
 class ConfigError(RuntimeError):
-    """Raised when there is a problem with the Sub Manager configuration."""
+    """There is a problem with the Sub Manager configuration."""
 
 
-class ConfigNotFoundError(ConfigError):
-    """Raised when the Sub Manager configuration file is not found."""
+class ConfigErrorWithPath(ConfigError, metaclass=abc.ABCMeta):
+    """ConfigErrors that involve a config file at a specific path."""
+
+    @staticmethod
+    @abc.abstractmethod
+    def _generate_message(config_path: str) -> str:
+        """Generate a config method given a path; meant to be overriden."""
+
+    def __init__(self, config_path: PathLikeStr) -> None:
+        self.config_path = Path(config_path)
+        super().__init__(self._generate_message(self.config_path.as_posix()))
+
+
+class ConfigNotFoundError(ConfigErrorWithPath):
+    """The Sub Manager configuration file is not found."""
+
+    @staticmethod
+    def _generate_message(config_path: str) -> str:
+        return f"Config file not found at path {config_path}"
+
+
+class ConfigExistsError(ConfigErrorWithPath):
+    """The Sub Manager configuration file already exists when generated."""
+
+    @staticmethod
+    def _generate_message(config_path: str) -> str:
+        return f"Config file already exists at path {config_path}"
+
+
+class ConfigTypeError(ConfigErrorWithPath):
+    """The Sub Manager config file is not in a recognized format."""
+
+    @staticmethod
+    def _generate_message(config_path: str) -> str:
+        return f"Format not in {SUPPORTED_FORMATS} for config at {config_path}"
+
+
+class ConfigDefaultError(ConfigErrorWithPath):
+    """The Sub Manager configuration file has not been configured."""
+
+    @staticmethod
+    def _generate_message(config_path: str) -> str:
+        return f"Configuration file not set up at path {config_path}"
 
 
 def serialize_config(
@@ -703,7 +756,8 @@ def serialize_config(
     elif output_format == "toml":
         serialized_config = toml.dumps(dict(config))
     else:
-        raise ConfigError("Format of config file not in {JSON, TOML}")
+        raise ConfigError(
+            f"Output format {output_format} must be in {SUPPORTED_FORMATS}")
     return serialized_config
 
 
@@ -714,8 +768,11 @@ def write_config(
     """Write the passed config to the specified config path."""
     config_path = Path(config_path)
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    serialized_config = serialize_config(
-        config=config, output_format=config_path.suffix[1:])
+    try:
+        serialized_config = serialize_config(
+            config=config, output_format=config_path.suffix[1:])
+    except ConfigError as error:
+        raise ConfigTypeError(config_path) from error
     with open(config_path, mode="w",
               encoding="utf-8", newline="\n") as config_file:
         config_file.write(serialized_config)
@@ -732,8 +789,7 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
         elif config_path.suffix == ".toml":
             config = dict(toml.load(config_file))
         else:
-            raise ConfigError(
-                f"Format of config file {config_path} not in {{JSON, TOML}}")
+            raise ConfigTypeError(config_path)
     return config
 
 
@@ -782,11 +838,10 @@ def render_static_config(raw_config: ConfigDict) -> StaticConfig:
 def load_static_config(
         config_path: PathLikeStr = CONFIG_PATH_STATIC) -> StaticConfig:
     """Load manager's static (user) config file, creating it if needed."""
-    config_path = Path(config_path)
-    example_config = EXAMPLE_STATIC_CONFIG.dict(exclude=EXAMPLE_EXCLUDE_FIELDS)
-    if not config_path.exists():
-        write_config(config=example_config, config_path=config_path)
-    raw_config = load_config(config_path)
+    try:
+        raw_config = load_config(config_path)
+    except FileNotFoundError as error:
+        raise ConfigNotFoundError(config_path) from error
     static_config = render_static_config(raw_config)
 
     return static_config
@@ -1297,6 +1352,7 @@ def setup_accounts(
 
 def setup_config(
         config_paths: ConfigPaths | None = None,
+        error_default: bool = True,
         ) -> tuple[StaticConfig, DynamicConfig, AccountsConfig]:
     """Load the config and set up the accounts mapping."""
     config_paths = ConfigPaths() if config_paths is None else config_paths
@@ -1304,20 +1360,57 @@ def setup_config(
     dynamic_config = load_dynamic_config(
         static_config=static_config, config_path=config_paths.dynamic)
 
-    # If default config was generated or config was unmodified, raise
-    if static_config.accounts == EXAMPLE_ACCOUNTS:
-        print("Default config file generated at",
-              Path(config_paths.static).as_posix())
-        raise ConfigNotFoundError(
-            "Default configuration file generated; terminating execution")
+    # If default config was generated and is unmodified, raise an error
+    if error_default and static_config.accounts == EXAMPLE_ACCOUNTS:
+        raise ConfigDefaultError(config_paths.static)
 
     accounts = setup_accounts(
         static_config.accounts, config_path_refresh=config_paths.refresh)
     return static_config, dynamic_config, accounts
 
 
-# ---- Core run code ----
+def generate_static_config(
+        config_path: PathLikeStr = CONFIG_PATH_STATIC,
+        force: bool = False,
+        exist_ok: bool = False,
+        ) -> bool:
+    """Generate a static config file with the default example settings."""
+    config_path = Path(config_path)
+    config_exists = config_path.exists()
+    if config_exists:
+        if exist_ok:
+            return config_exists
+        if not force:
+            raise ConfigExistsError(config_path)
 
+    example_config = EXAMPLE_STATIC_CONFIG.dict(exclude=EXAMPLE_EXCLUDE_FIELDS)
+    write_config(config=example_config, config_path=config_path)
+    return config_exists
+
+
+# ---- High level command code ----
+
+def generate_config(
+        config_paths: ConfigPaths | None = None,
+        force: bool = False,
+        exist_ok: bool = False,
+        ) -> None:
+    """Generate the various config files for sub manager."""
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    config_exists = generate_static_config(
+        config_path=config_paths.static, force=force, exist_ok=exist_ok)
+
+    message = f"Config {{action}} at {config_paths.static.as_posix()}"
+    if not config_exists:
+        action = "generated"
+    elif force:
+        action = "overwritten"
+    else:
+        action = "already exists"
+    print(message.format(action=action))
+
+
+# ---- Core run code ----
 
 def run_manage(
         config_paths: ConfigPaths | None = None,
@@ -1388,7 +1481,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_main.add_argument(
         "--version",
         action="store_true",
-        help="If passed, will print the version number and exit",
+        help="Print the version number and exit",
         )
     parser_main.add_argument(
         "--config-path",
@@ -1404,6 +1497,26 @@ def create_arg_parser() -> argparse.ArgumentParser:
         "--refresh-config-path",
         dest="config_path_refresh",
         help="The path to a custom (set of) refresh token files to use.",
+        )
+
+    # Generate the config files
+    generate_desc = "Generate the bot's config files."
+    parser_generate = subparsers.add_parser(
+        "generate-config",
+        description=generate_desc,
+        help=generate_desc,
+        argument_default=argparse.SUPPRESS,
+        )
+    parser_generate.set_defaults(func=generate_config)
+    parser_generate.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite the existing static config with the default example.",
+        )
+    parser_generate.add_argument(
+        "--exist-ok",
+        action="store_true",
+        help="Don't raise an error/warning if the config file already exists.",
         )
 
     # Run the bot once
@@ -1477,8 +1590,8 @@ def main(sys_argv: list[str] | None = None) -> None:
     parsed_args = parser_main.parse_args(sys_argv)
     try:
         handle_parsed_args(parsed_args)
-    except ConfigNotFoundError as error:
-        print(f"{type(error).__name__}: {error}")
+    except ConfigError as error:
+        print_error(error)
 
 
 if __name__ == "__main__":
