@@ -304,6 +304,15 @@ class SyncPairConfig(CustomBaseModel):
     source: FullEndpointConfig
     targets: Mapping[StripStr, FullEndpointConfig]
 
+    @pydantic.validator("targets")
+    def check_targets(  # pylint: disable = no-self-use, no-self-argument
+            cls, value: Mapping[StripStr, FullEndpointConfig]
+            ) -> Mapping[StripStr, FullEndpointConfig]:
+        """Validate that at least one target is defined for each sync pair."""
+        if not value:
+            raise ValueError("No targets defined for sync pair")
+        return value
+
 
 class SyncConfig(CustomBaseModel):
     """Top-level configuration for the thread management module."""
@@ -362,6 +371,18 @@ class StaticConfig(CustomBaseModel):
     context_default: ContextConfig
     megathread: ThreadsConfig = ThreadsConfig()
     sync: SyncConfig = SyncConfig()
+
+    @pydantic.validator("accounts")
+    def check_accounts(  # pylint: disable = no-self-use, no-self-argument
+            cls, value: AccountsConfig) -> AccountsConfig:
+        """Validate that at least one user account is defined."""
+        if not value:
+            raise ValueError("No Reddit user accounts defined")
+        for account_key, account_kwargs in value.items():
+            if not account_kwargs:
+                raise ValueError(
+                    f"No parameters defined for account {account_key!r}")
+        return value
 
 
 class DynamicSyncConfig(CustomMutableBaseModel):
@@ -1346,9 +1367,6 @@ def sync_one(
     """Sync one specific pair of sources and targets."""
     if not (sync_pair.enabled and sync_pair.source.enabled):
         return
-    if not sync_pair.targets:
-        raise ConfigError(
-            f"No sync targets specified for sync_pair {sync_pair.description}")
 
     source_obj = create_sync_endpoint_from_config(
         config=sync_pair.source,
