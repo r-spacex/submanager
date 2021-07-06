@@ -336,23 +336,43 @@ class ThreadConfig(CustomBaseModel):
     enabled: bool = True
     initial: InitialThreadConfig = InitialThreadConfig()
     link_update_pages: List[StripStr] = []
-    new_thread_interval: Union[Literal[False], str] = "monthly"
+    new_thread_interval: Union[NonEmptyStr, Literal[False]] = "monthly"
     new_thread_redirect_op: bool = True
     new_thread_redirect_sticky: bool = True
     new_thread_redirect_template: NonEmptyStr = DEFAULT_REDIRECT_TEMPLATE
-    pin_thread: Union[PinType, bool] = PinType.BOTTOM
+    pin_thread: Union[PinType, pydantic.StrictBool] = PinType.BOTTOM
     post_title_template: StripStr = "{subreddit} Megathread (#{thread_number})"
     source: FullEndpointConfig
     target_context: ContextConfig
 
     @pydantic.validator("new_thread_interval")
-    def convert_interval(  # pylint: disable = no-self-use, no-self-argument
+    def check_interval(  # pylint: disable = no-self-use, no-self-argument
             cls, raw_interval: str | Literal[False],
             ) -> str | Literal[False]:
         """Convert a time interval to the expected form."""
         if not raw_interval:
             return False
-        process_raw_interval(raw_interval)
+        interval_unit, interval_n = process_raw_interval(raw_interval)
+        if interval_n is None:
+            try:
+                interval_value = getattr(
+                    datetime.datetime.now(), interval_unit)
+            except AttributeError as error:
+                raise ValueError(
+                    f"Interval unit {interval_unit} "
+                    "must be a datetime attribute") from error
+            if not isinstance(interval_value, int):
+                raise TypeError(
+                    f"Interval value {interval_value!r} for unit "
+                    f"{interval_unit!r} must be an integer, "
+                    f"not {type(interval_value)!r}")
+        else:
+            delta_kwargs: dict[str, int] = {f"{interval_unit}s": interval_n}
+            dateutil.relativedelta.relativedelta(
+                **delta_kwargs)  # type: ignore[arg-type]
+            if interval_n < 1:
+                raise ValueError(
+                    f"Interval n has invalid nonpositive value {interval_n!r}")
         return raw_interval
 
 
