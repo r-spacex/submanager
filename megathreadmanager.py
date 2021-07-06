@@ -7,10 +7,12 @@ from __future__ import annotations
 # Standard library imports
 import abc
 import argparse
+import configparser
 import copy
 import datetime
 import enum
 import json
+import json.decoder
 import os
 import re
 import sys
@@ -19,6 +21,7 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,  # Import from collections.abc in Python 3.9
+    ClassVar,
     Dict,  # Not needed in Python 3.9
     Generic,
     List,  # Not needed in Python 3.9
@@ -39,10 +42,12 @@ from typing_extensions import (
 # Third party imports
 import dateutil.relativedelta
 import praw
+import praw.exceptions
 import praw.util.token_manager
 import prawcore.exceptions
 import pydantic
 import toml
+import toml.decoder
 
 
 # ----------------- Constants -----------------
@@ -695,60 +700,128 @@ def create_sync_endpoint_from_config(
 SUPPORTED_FORMATS: Final = frozenset({"json", "toml"})
 
 
-class ConfigError(RuntimeError):
+class SubManagerError(Exception):
+    """Base class for errors raised by Sub Manager."""
+
+
+class AuthError(SubManagerError, RuntimeError):
+    """Errors related to user authentication."""
+
+
+class NoAuthorizedScopesError(AuthError):
+    """The user has no authorized scopes."""
+
+
+class IdentityCheckError(AuthError):
+    """Cannot get the user's identity."""
+
+
+class ConfigError(SubManagerError, RuntimeError):
     """There is a problem with the Sub Manager configuration."""
 
 
-class ConfigErrorWithPath(ConfigError, metaclass=abc.ABCMeta):
-    """ConfigErrors that involve a config file at a specific path."""
+class ConfigErrorFillable(ConfigError, metaclass=abc.ABCMeta):
+    """Configuration error with a fillable message."""
 
-    @staticmethod
-    @abc.abstractmethod
-    def _generate_message(config_path: str) -> str:
-        """Generate a config method given a path; meant to be overriden."""
+    _message_template: ClassVar[str] = "Config error occured"
+
+    def __init__(
+            self, message: str | None = None, **extra_fillables: str) -> None:
+        full_message = self._message_template.format(**extra_fillables)
+        if message:
+            full_message += ("\n\n" + message)
+        super().__init__(full_message)
+
+
+class ConfigErrorWithPath(ConfigErrorFillable):
+    """Config errors that involve a config file at a specific path."""
+
+    _message_template_sub: ClassVar[str] = "Error"
+    _message_template: ClassVar[str] = (
+        "{template_sub} for config file at path {config_path!r}")
 
     def __init__(
             self,
             config_path: PathLikeStr,
             message: str | None = None,
+            **extra_fillables: str,
             ) -> None:
         self.config_path = Path(config_path)
-        full_message = self._generate_message(self.config_path.as_posix())
-        if message:
-            full_message += "\n" + message
-        super().__init__(full_message)
+        super().__init__(
+            message=message,
+            template_sub=self._message_template_sub,
+            config_path=self.config_path.as_posix(),
+            **extra_fillables)
 
 
 class ConfigNotFoundError(ConfigErrorWithPath):
     """The Sub Manager configuration file is not found."""
 
-    @staticmethod
-    def _generate_message(config_path: str) -> str:
-        return f"Config file not found at path {config_path}"
+    _message_template_sub: ClassVar[str] = "File not found"
 
 
 class ConfigExistsError(ConfigErrorWithPath):
     """The Sub Manager configuration file already exists when generated."""
 
-    @staticmethod
-    def _generate_message(config_path: str) -> str:
-        return f"Config file already exists at path {config_path}"
+    _message_template_sub: ClassVar[str] = "File already exists"
 
 
 class ConfigTypeError(ConfigErrorWithPath):
     """The Sub Manager config file is not in a recognized format."""
 
-    @staticmethod
-    def _generate_message(config_path: str) -> str:
-        return f"Format not in {SUPPORTED_FORMATS} for config at {config_path}"
+    _message_template_sub: ClassVar[str] = (
+        f"Unrecognized format (not in {SUPPORTED_FORMATS})")
+
+
+class ConfigFormatError(ConfigErrorWithPath):
+    """The Sub Manager config file format is not valid."""
+
+    _message_template_sub: ClassVar[str] = "File format error"
+
+
+class ConfigValidationError(ConfigErrorWithPath):
+    """The Sub Manager config file has invalid property value(s)."""
+
+    _message_template_sub: ClassVar[str] = "Validation failed"
 
 
 class ConfigDefaultError(ConfigErrorWithPath):
     """The Sub Manager configuration file has not been configured."""
 
-    @staticmethod
-    def _generate_message(config_path: str) -> str:
-        return f"Configuration file not set up at path {config_path}"
+    _message_template_sub: ClassVar[str] = "Unconfigured defaults"
+
+
+class ConfigErrorWithAccount(ConfigErrorFillable):
+    """Something's wrong with the Reddit account configuration."""
+
+    _message_template_sub: ClassVar[str] = "Configuration error"
+    _message_template: ClassVar[str] = (
+        "{template_sub} for Reddit account {account_key!r}")
+
+    def __init__(
+            self,
+            account_key: str,
+            message: str | None = None,
+            **extra_fillables: str,
+            ) -> None:
+        self.account_key = account_key
+        super().__init__(
+            message=message,
+            template_sub=self._message_template_sub,
+            account_key=account_key,
+            **extra_fillables)
+
+
+class ConfigPRAWError(ConfigErrorWithAccount):
+    """PRAW error loading the Reddit account configuration."""
+
+    _message_template_sub: ClassVar[str] = "PRAW error on initialization"
+
+
+class ConfigAuthError(ConfigErrorWithAccount, AuthError):
+    """PRAW error loading the Reddit account configuration."""
+
+    _message_template_sub: ClassVar[str] = "Account authorization failure"
 
 
 def serialize_config(
@@ -850,7 +923,16 @@ def load_static_config(
         raw_config = load_config(config_path)
     except FileNotFoundError as error:
         raise ConfigNotFoundError(config_path) from error
-    static_config = render_static_config(raw_config)
+    except (
+            json.decoder.JSONDecodeError,
+            toml.decoder.TomlDecodeError,
+            ) as error:
+        raise ConfigFormatError(config_path, format_error(error)) from error
+    try:
+        static_config = render_static_config(raw_config)
+    except pydantic.ValidationError as error:
+        raise ConfigValidationError(
+            config_path, format_error(error)) from error
 
     return static_config
 
@@ -1342,6 +1424,32 @@ def handle_refresh_tokens(
     return accounts_config_processed
 
 
+def check_reddit_auth_valid(
+        reddit: praw.Reddit, suppress_exceptions: bool = True) -> bool:
+    """Check if the Reddit account associated with the object is authorized."""
+    if reddit.read_only:
+        if suppress_exceptions:
+            return False
+        raise praw.exceptions.ReadOnlyException("Reddit instance is read-only")
+    scopes = reddit.auth.scopes()
+    if not scopes:
+        if suppress_exceptions:
+            return False
+        raise NoAuthorizedScopesError("The user auth scope ")
+    if "*" in scopes or "identity" in scopes:
+        try:
+            reddit.user.me()
+        except (praw.exceptions.PRAWException,
+                prawcore.exceptions.PrawcoreException) as error:
+            if suppress_exceptions:
+                return False
+            raise IdentityCheckError(
+                "Checking the user's identity failed with error:\n\n"
+                + format_error(error)) from error
+
+    return True
+
+
 def setup_accounts(
         accounts_config: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
@@ -1351,8 +1459,25 @@ def setup_accounts(
         accounts_config, config_path_refresh=config_path_refresh)
     accounts = {}
     for account_key, account_kwargs in accounts_config_processed.items():
-        reddit = praw.Reddit(user_agent=USER_AGENT, **account_kwargs)
+        try:
+            reddit = praw.Reddit(
+                user_agent=USER_AGENT,
+                praw8_raise_exception_on_me=True,
+                **account_kwargs)
+        except (
+                praw.exceptions.PRAWException,
+                prawcore.exceptions.PrawcoreException,
+                configparser.Error,
+                ) as error:
+            raise ConfigPRAWError(account_key, format_error(error)) from error
         reddit.validate_on_submit = True
+        try:
+            check_reddit_auth_valid(reddit, suppress_exceptions=False)
+        except (praw.exceptions.PRAWException,
+                prawcore.exceptions.PrawcoreException,
+                AuthError,
+                ) as error:
+            raise ConfigAuthError(account_key, format_error(error)) from error
         accounts[account_key] = reddit
     return accounts
 
@@ -1615,7 +1740,7 @@ def main(sys_argv: list[str] | None = None) -> None:
     try:
         handle_parsed_args(parsed_args)
     except ConfigError as error:
-        sys.exit(format_error(error))
+        sys.exit("\n" + format_error(error) + "\n")
 
 
 if __name__ == "__main__":
