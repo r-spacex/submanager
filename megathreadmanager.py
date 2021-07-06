@@ -1742,6 +1742,13 @@ def create_arg_parser() -> argparse.ArgumentParser:
         help="Print the version number and exit",
         )
     parser_main.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Print more information about errors and other issues",
+        )
+    parser_main.add_argument(
         "--config-path",
         dest="config_path_static",
         help="The path to a custom static (user) config file to use",
@@ -1856,9 +1863,12 @@ def main(sys_argv: list[str] | None = None) -> None:
     """Run the main function for the Megathread Manager CLI and dispatch."""
     parser_main = create_arg_parser()
     parsed_args = parser_main.parse_args(sys_argv)
+    verbose = vars(parsed_args).pop("verbose")
     try:
         handle_parsed_args(parsed_args)
     except ConfigError as error:
+        if verbose:
+            raise
         sys.exit("\n" + format_error(error) + "\n")
 
 
