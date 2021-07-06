@@ -57,9 +57,10 @@ __version__: Final = "0.6.0dev0"
 
 # General constants
 CONFIG_DIRECTORY: Final = Path("~/.config/megathread-manager").expanduser()
+TOKEN_DIRECTORY: Final = CONFIG_DIRECTORY / "refresh_tokens"
 CONFIG_PATH_STATIC: Final = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC: Final = CONFIG_DIRECTORY / "config_dynamic.json"
-CONFIG_PATH_REFRESH: Final = CONFIG_DIRECTORY / "refresh_token_{key}.txt"
+CONFIG_PATH_REFRESH: Final = TOKEN_DIRECTORY / "refresh_token_{key}.txt"
 USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 
@@ -1530,6 +1531,7 @@ def handle_refresh_tokens(
             # Initialize refresh token file
             token_path = config_path_refresh.with_name(
                 config_path_refresh.name.format(key=account_key))
+            token_path.parent.mkdir(parents=True, exist_ok=True)
             if not token_path.exists():
                 with open(token_path, "w",
                           encoding="utf-8", newline="\n") as token_file:
