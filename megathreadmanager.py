@@ -22,6 +22,7 @@ from typing import (
     Any,
     Callable,  # Import from collections.abc in Python 3.9
     ClassVar,
+    Collection,  # Import from collections.abc in Python 3.9
     Dict,  # Not needed in Python 3.9
     Generic,
     List,  # Not needed in Python 3.9
@@ -123,10 +124,47 @@ class copy_signature(Generic[Fun]):  # pylint: disable=invalid-name
 KeyType = TypeVar("KeyType")
 
 
+def process_dict_items_recursive(
+        dict_toprocess: MutableMapping[KeyType, Any],
+        fn_torun: Callable[..., Any],
+        fn_kwargs: dict[str, Any] | None = None,
+        keys_match: Collection[str] | None = None,
+        inplace: bool = False,
+        ) -> MutableMapping[KeyType, Any]:
+    """Run the passed function for every matching key in the dictionary."""
+    if fn_kwargs is None:
+        fn_kwargs = {}
+    if not inplace:
+        dict_toprocess = copy.deepcopy(dict_toprocess)
+
+    def _process_dict_items_inner(
+            dict_toprocess: MutableMapping[KeyType, Any],
+            fn_torun: Callable[..., Any],
+            fn_kwargs: dict[str, Any],
+            ) -> None:
+        for key, value in dict_toprocess.items():
+            if isinstance(value, dict):
+                _process_dict_items_inner(
+                    dict_toprocess=value,
+                    fn_torun=fn_torun,
+                    fn_kwargs=fn_kwargs,
+                    )
+            else:
+                if keys_match is None or key in keys_match:
+                    dict_toprocess[key] = fn_torun(value, **fn_kwargs)
+
+    _process_dict_items_inner(
+        dict_toprocess=dict_toprocess,
+        fn_torun=fn_torun,
+        fn_kwargs=fn_kwargs,
+        )
+    return dict_toprocess
+
+
 def update_dict_recursive(
         base: MutableMapping[KeyType, Any],
         update: MutableMapping[KeyType, Any],
-        inplace: bool | None = None,
+        inplace: bool = False,
         ) -> MutableMapping[KeyType, Any]:
     """Recursively update the given base dict from another dict."""
     if not inplace:
@@ -167,6 +205,17 @@ class PinType(StrValueEnum):
 # ----------------- Config classes -----------------
 
 # ---- Conversion functions and classes ----
+
+class MissingAccount:
+    """Reprisent missing account keys."""
+
+    def __init__(self, key: str) -> None:
+        self.key = key
+
+    def __str__(self) -> str:
+        """Convert the class to a string."""
+        return str(self.key)
+
 
 def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
     """Convert a time interval expressed as a string into a standard form."""
@@ -268,6 +317,15 @@ class ContextConfig(CustomBaseModel):
 
     account: StripStr
     subreddit: StripStr
+
+    @pydantic.validator("account", pre=True)
+    def check_account_found(  # pylint: disable = no-self-use, no-self-argument
+            cls, value: MissingAccount | str) -> str:
+        """Check that the account is present in the global accounts table."""
+        if isinstance(value, MissingAccount):
+            raise ValueError(
+                f"Account key '{value!s}' not listed in accounts table")
+        return value
 
 
 class EndpointConfig(CustomBaseModel):
@@ -949,10 +1007,33 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     return raw_config
 
 
+def replace_value_with_missing(
+        account_key: str,
+        valid_account_keys: Collection[str],
+        ) -> str | MissingAccount:
+    """Replace the value with the sentinel class if not in the collection."""
+    if account_key.strip() in valid_account_keys:
+        return account_key.strip()
+    return MissingAccount(account_key)
+
+
+def replace_missing_account_keys(raw_config: ConfigDict) -> ConfigDict:
+    """Replace missing account keys with a special class for validation."""
+    account_keys = raw_config.get("accounts", {}).keys()
+    raw_config = process_dict_items_recursive(
+        dict(raw_config),
+        fn_torun=replace_value_with_missing,
+        fn_kwargs={"valid_account_keys": account_keys},
+        keys_match={"account"},
+        )
+    return raw_config
+
+
 def render_static_config(raw_config: ConfigDict) -> StaticConfig:
     """Transform the input config into an object with defaults filled in."""
     raw_config = dict(copy.deepcopy(raw_config))
     raw_config = fill_static_config_defaults(raw_config)
+    raw_config = replace_missing_account_keys(raw_config)
     static_config = StaticConfig.parse_obj(raw_config)
     return static_config
 
