@@ -1611,7 +1611,7 @@ def get_version_str() -> str:
 def create_arg_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the CLI."""
     parser_main = argparse.ArgumentParser(
-        description="Generate, post, update and pin a Reddit megathread.",
+        description="Generate, post, update and pin a Reddit megathread",
         argument_default=argparse.SUPPRESS)
     subparsers = parser_main.add_subparsers(
         description="Subcommand to execute")
@@ -1625,21 +1625,21 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_main.add_argument(
         "--config-path",
         dest="config_path_static",
-        help="The path to a custom static (user) config file to use.",
+        help="The path to a custom static (user) config file to use",
         )
     parser_main.add_argument(
         "--dynamic-config-path",
         dest="config_path_dynamic",
-        help="The path to a custom dynamic (runtime) config file to use.",
+        help="The path to a custom dynamic (runtime) config file to use",
         )
     parser_main.add_argument(
         "--refresh-config-path",
         dest="config_path_refresh",
-        help="The path to a custom (set of) refresh token files to use.",
+        help="The path to a custom (set of) refresh token files to use",
         )
 
     # Generate the config file
-    generate_desc = "Generate the bot's config files."
+    generate_desc = "Generate the bot's config files"
     parser_generate = subparsers.add_parser(
         "generate-config",
         description=generate_desc,
@@ -1650,16 +1650,16 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_generate.add_argument(
         "--force",
         action="store_true",
-        help="Overwrite the existing static config with the default example.",
+        help="Overwrite the existing static config with the default example",
         )
     parser_generate.add_argument(
         "--exist-ok",
         action="store_true",
-        help="Don't raise an error/warning if the config file already exists.",
+        help="Don't raise an error/warning if the config file already exists",
         )
 
     # Validate the config file
-    validate_desc = "Validate the bot's config files."
+    validate_desc = "Validate the bot's config files"
     parser_validate = subparsers.add_parser(
         "validate-config",
         description=validate_desc,
@@ -1669,7 +1669,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_validate.set_defaults(func=validate_config)
 
     # Run the bot once
-    run_desc = "Run the bot through one cycle and exit."
+    run_desc = "Run the bot through one cycle and exit"
     parser_run = subparsers.add_parser(
         "run",
         description=run_desc,
@@ -1679,7 +1679,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_run.set_defaults(func=run_manage)
 
     # Start the bot running
-    start_desc = "Start the bot running continously until stopped or errored."
+    start_desc = "Start the bot running continously until stopped or errored"
     parser_start = subparsers.add_parser(
         "start",
         description=start_desc,
@@ -1692,7 +1692,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         type=float,
         metavar="N",
         help=("Run every N seconds, or the value from the config file "
-              "variable repeat_interval_s if N isn't specified."),
+              "variable repeat_interval_s if N isn't specified"),
         )
 
     return parser_main
