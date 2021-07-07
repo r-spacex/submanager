@@ -24,7 +24,6 @@ from typing import (
     ClassVar,
     Collection,  # Import from collections.abc in Python 3.9
     Dict,  # Not needed in Python 3.9
-    Generic,
     List,  # Not needed in Python 3.9
     Mapping,  # Import from collections.abc in Python 3.9
     MutableMapping,  # Import from collections.abc in Python 3.9
@@ -38,12 +37,20 @@ from typing import (
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
     Literal,  # Added to typing in Python 3.8
+    Protocol,  # Added to typing in Python 3.8
+    runtime_checkable,  # Added to typing in Python 3.8
     )
 
 # Third party imports
 import dateutil.relativedelta
 import praw
 import praw.exceptions
+import praw.models
+import praw.models.base
+import praw.models.reddit.submission
+import praw.models.reddit.subreddit
+import praw.models.reddit.widgets
+import praw.models.reddit.wikipage
 import praw.reddit
 import praw.util.token_manager
 import prawcore.exceptions
@@ -84,6 +91,7 @@ AccountsConfigProcessed = Mapping[str, AccountConfigProcessed]
 AccountsMap = Mapping[str, praw.reddit.Reddit]
 ConfigDict = Mapping[str, Any]
 ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
+StrMap = MutableMapping[str, Any]
 
 
 # ----------------- General utility boilerplate -----------------
@@ -111,19 +119,6 @@ class StrValueEnum(enum.Enum):
     def __str__(self) -> str:
         """Convert enum value to string."""
         return str(self.value)
-
-
-Fun = TypeVar("Fun", bound=Callable[..., Any])
-
-
-class copy_signature(Generic[Fun]):  # pylint: disable=invalid-name
-    """Decorator to copy the signature from another function."""
-
-    def __init__(self, target: Fun) -> None:  # pylint: disable=unused-argument
-        ...
-
-    def __call__(self, wrapped: Callable[..., Any]) -> Fun:
-        """Call the function/method."""
 
 
 KeyType = TypeVar("KeyType")
@@ -301,12 +296,20 @@ class MenuConfig(CustomBaseModel):
 
     split: NonEmptyStr = "\n\n"
     subsplit: NonEmptyStr = "\n"
-    pattern_title: Pattern = re.compile(  # type: ignore[type-arg]
-        r"\[([^\n\]]*)\]\(")
-    pattern_url: Pattern = re.compile(  # type: ignore[type-arg]
-        r"\]\(([^\s\)]*)[\s\)]")
-    pattern_subtitle: Pattern = re.compile(  # type: ignore[type-arg]
-        r"\[([^\n\]]*)\]\(")
+    if TYPE_CHECKING:
+        pattern_title: re.Pattern[str] = re.compile(
+            r"\[([^\n\]]*)\]\(")
+        pattern_url: re.Pattern[str] = re.compile(
+            r"\]\(([^\s\)]*)[\s\)]")
+        pattern_subtitle: re.Pattern[str] = re.compile(
+            r"\[([^\n\]]*)\]\(")
+    else:
+        pattern_title: Pattern = re.compile(
+            r"\[([^\n\]]*)\]\(")
+        pattern_url: Pattern = re.compile(
+            r"\]\(([^\s\)]*)[\s\)]")
+        pattern_subtitle: Pattern = re.compile(
+            r"\[([^\n\]]*)\]\(")
 
 
 class PatternConfig(CustomBaseModel):
@@ -418,7 +421,7 @@ class ThreadConfig(CustomBaseModel):
         interval_unit, interval_n = process_raw_interval(raw_interval)
         if interval_n is None:
             try:
-                interval_value = getattr(
+                interval_value: int = getattr(
                     datetime.datetime.now(), interval_unit)
             except AttributeError as error:
                 raise ValueError(
@@ -614,7 +617,7 @@ def split_and_clean_text(source_text: str, split: str) -> list[str]:
 
 
 def extract_text(
-        pattern: re.Pattern[Any] | str,
+        pattern: re.Pattern[str] | str,
         source_text: str,
         ) -> str | Literal[False]:
     """Match the given pattern and extract the matched text as a string."""
@@ -627,10 +630,30 @@ def extract_text(
 
 # ----------------- Sync endpoint classes -----------------
 
+@runtime_checkable
+class EditableTextWidgetModeration(Protocol):
+    """Widget moderation object with editable text."""
+
+    def update(self, text: str) -> None:
+        """Update method that takes a string."""
+
+
+@runtime_checkable
+class EditableTextWidget(Protocol):
+    """An object with text that can be edited."""
+
+    mod: EditableTextWidgetModeration
+    text: str
+
+
 class SyncEndpoint(metaclass=abc.ABCMeta):
     """Abstraction of a source or target for a Reddit sync action."""
 
     @abc.abstractmethod
+    def _setup_object(self) -> object:
+        """Set up the underlying PRAW object the endpoint will use."""
+        raise NotImplementedError
+
     def __init__(
             self,
             endpoint_name: str,
@@ -640,8 +663,10 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
             ) -> None:
         self.name = endpoint_name
         self._reddit = reddit
-        self._subreddit = self._reddit.subreddit(subreddit)
+        self._subreddit: praw.models.reddit.subreddit.Subreddit = (
+            self._reddit.subreddit(subreddit))
         self.description = endpoint_name if not description else description
+        self._object = self._setup_object()
 
     @property
     @abc.abstractmethod
@@ -661,23 +686,31 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
 class MenuSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit top bar menu widget."""
 
-    @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        if not self.name:
-            self.name = "menu"
+    _object: praw.models.reddit.widgets.Menu
+
+    def _setup_object(self) -> praw.models.reddit.widgets.Menu:
+        """Set up the menu widget object for syncing to a menu."""
         for widget in self._subreddit.widgets.topbar:
-            if widget.kind == self.name:
-                self._object = widget
-                break
-        else:
-            print("Menu widget not found; assuming its first in the topbar")
-            self._object = self._subreddit.widgets.topbar[0]
+            if isinstance(widget, praw.models.reddit.widgets.Menu):
+                return widget
+        raise WidgetNotFoundError(
+            "No menu widget found in "
+            f"subreddit r/{self._subreddit.display_name!r} "
+            f"for sync endpoint {self.description!r}"
+            )
 
     @property
     def content(self) -> MenuData:
         """Get the current structured data in the menu widget."""
-        menu_data: MenuData = self._object.data
+        attribute_name = "data"
+        menu_data: MenuData | None = getattr(
+            self._object, attribute_name, None)
+        if menu_data is None:
+            raise WidgetModelError(
+                f"Menu widget missing attribute {attribute_name!r} "
+                f"in subreddit r/{self._subreddit.display_name!r} "
+                f"for sync endpoint {self.description!r}"
+                )
         return menu_data
 
     def edit(self, new_content: object, reason: str = "") -> None:
@@ -693,21 +726,23 @@ class MenuSyncEndpoint(SyncEndpoint):
 class ThreadSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit thread (selfpost submission)."""
 
-    @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self._object = self._reddit.submission(id=self.name)
+    _object: praw.models.reddit.submission.Submission
+
+    def _setup_object(self) -> praw.models.reddit.submission.Submission:
+        """Set up the submission object for syncing to a thread."""
+        submission: praw.models.reddit.submission.Submission = (
+            self._reddit.submission(id=self.name))
+        return submission
 
     @property
     def content(self) -> str:
         """Get the current submission's selftext."""
         submission_text: str = self._object.selftext
-        assert isinstance(submission_text, str)
         return submission_text
 
     def edit(self, new_content: object, reason: str = "") -> None:
         """Update the thread's text to be that passed."""
-        self._object.edit(new_content)
+        self._object.edit(str(new_content))
 
     @property
     def revision_date(self) -> int:
@@ -715,34 +750,41 @@ class ThreadSyncEndpoint(SyncEndpoint):
         edited_date: int | Literal[False] = self._object.edited
         if not edited_date:
             edited_date = self._object.created_utc
-        assert isinstance(edited_date, int)
         return edited_date
 
 
 class WidgetSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit sidebar text content widget."""
 
-    @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    _object: EditableTextWidget
+
+    def _setup_object(self) -> EditableTextWidget:
+        """Set up the widget object for syncing to a sidebar widget."""
         for widget in self._subreddit.widgets.sidebar:
-            if widget.shortName == self.name:
-                self._object = widget
-                break
-        else:
-            raise ValueError(
-                f"Widget {self.name} missing for endpoint {self.description}")
+            if getattr(widget, "shortName", None) == self.name:
+                if isinstance(widget, EditableTextWidget):
+                    return widget
+                raise WidgetNotFoundError(
+                    f"Widget named {self.name!r} "
+                    f"has unsupported type {type(widget)!r} "
+                    f"in subreddit r/{self._subreddit.display_name!r} "
+                    f"for sync endpoint {self.description!r}"
+                    )
+        raise WidgetNotFoundError(
+            f"No widget named {self.name!r} "
+            f"found in subreddit r/{self._subreddit.display_name!r} "
+            f"for sync endpoint {self.description!r}"
+            )
 
     @property
     def content(self) -> str:
         """Get the current text content of the sidebar widget."""
         widget_text: str = self._object.text
-        assert isinstance(widget_text, str)
         return widget_text
 
     def edit(self, new_content: object, reason: str = "") -> None:
         """Update the sidebar widget with the given text content."""
-        self._object.mod.update(text=new_content)
+        self._object.mod.update(text=str(new_content))
 
     @property
     def revision_date(self) -> NoReturn:
@@ -753,27 +795,28 @@ class WidgetSyncEndpoint(SyncEndpoint):
 class WikiSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit wiki page."""
 
-    @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self._object = self._subreddit.wiki[self.name]
+    _object: praw.models.reddit.wikipage.WikiPage
+
+    def _setup_object(self) -> praw.models.reddit.wikipage.WikiPage:
+        """Set up the wiki page object for syncing to a wiki page."""
+        wiki_page: praw.models.reddit.wikipage.WikiPage = (
+            self._subreddit.wiki[self.name])
+        return wiki_page
 
     @property
     def content(self) -> str:
         """Get the current text content of the wiki page."""
         wiki_text: str = self._object.content_md
-        assert isinstance(wiki_text, str)
         return wiki_text
 
     def edit(self, new_content: object, reason: str = "") -> None:
         """Update the wiki page with the given text."""
-        self._object.edit(new_content, reason=reason)
+        self._object.edit(str(new_content), reason=reason)
 
     @property
     def revision_date(self) -> int:
         """Get the date the wiki page was last updated."""
         revision_timestamp: int = self._object.revision_date
-        assert isinstance(revision_timestamp, int)
         return revision_timestamp
 
 
@@ -806,6 +849,18 @@ SUPPORTED_FORMATS: Final = frozenset({"json", "toml"})
 
 class SubManagerError(Exception):
     """Base class for errors raised by Sub Manager."""
+
+
+class WidgetError(SubManagerError):
+    """Errors that occur with a subreddit's sidebar and topbar widgets."""
+
+
+class WidgetModelError(WidgetError):
+    """The sidebar/topbar widget's data model didn't match that required."""
+
+
+class WidgetNotFoundError(WidgetError):
+    """Missing New Reddit sidebar widget or menu, or wrong type."""
 
 
 class AuthError(SubManagerError, RuntimeError):
@@ -982,24 +1037,27 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
 
 def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     """Fill in the defaults of a raw static config dictionary."""
-    context_default = raw_config.get("context_default", {})
+    context_default: StrMap = raw_config.get("context_default", {})
 
-    sync_defaults = update_dict_recursive(
+    sync_defaults: StrMap = update_dict_recursive(
         {"context": context_default},
         raw_config.get("sync", {}).pop("defaults", {}))
+    sync_pair: StrMap
     for sync_pair in (
             raw_config.get("sync", {}).get("pairs", {}).values()):
-        sync_defaults_item = update_dict_recursive(
+        sync_defaults_item: StrMap = update_dict_recursive(
             sync_defaults, sync_pair.pop("defaults", {}))
         sync_pair["source"] = update_dict_recursive(
             sync_defaults_item, sync_pair.get("source", {}))
+        target_config: StrMap
         for target_config in sync_pair.get("targets", {}).values():
             target_config.update(
                 update_dict_recursive(sync_defaults_item, target_config))
 
-    thread_defaults = update_dict_recursive(
+    thread_defaults: StrMap = update_dict_recursive(
         {"context": context_default},
         raw_config.get("megathread", {}).pop("defaults", {}))
+    thread: StrMap
     for thread in (
             raw_config.get("megathread", {}).get("megathreads", {}).values()):
         thread.update(
@@ -1024,7 +1082,7 @@ def replace_value_with_missing(
 
 def replace_missing_account_keys(raw_config: ConfigDict) -> ConfigDict:
     """Replace missing account keys with a special class for validation."""
-    account_keys = raw_config.get("accounts", {}).keys()
+    account_keys: Collection[str] = raw_config.get("accounts", {}).keys()
     raw_config = process_dict_items_recursive(
         dict(raw_config),
         fn_torun=replace_value_with_missing,
@@ -1179,18 +1237,22 @@ def create_new_thread(
         thread_config.source, source_obj, dynamic_config)
 
     # Get current thread objects first
-    current_thread = None
-    current_thread_mod = None
+    current_thread: praw.models.reddit.submission.Submission | None = None
+    current_thread_mod: praw.models.reddit.submission.Submission | None = None
     if dynamic_config.thread_id:
         current_thread = reddit_post.submission(id=dynamic_config.thread_id)
         current_thread_mod = reddit_mod.submission(id=dynamic_config.thread_id)
 
     # Submit and approve new thread
-    new_thread = reddit_post.subreddit(
-        thread_config.target_context.subreddit
-        ).submit(title=template_vars["post_title"], selftext=post_text)
-    new_thread.disable_inbox_replies()
-    new_thread_mod = reddit_mod.submission(id=new_thread.id)
+    new_thread: praw.models.reddit.submission.Submission = (
+        reddit_post.subreddit(
+            thread_config.target_context.subreddit
+            )
+        .submit(title=template_vars["post_title"], selftext=post_text)
+        )
+    new_thread.disable_inbox_replies()  # type: ignore[no-untyped-call]
+    new_thread_mod: praw.models.reddit.submission.Submission = (
+        reddit_mod.submission(id=new_thread.id))
     new_thread_mod.mod.approve()
     for attribute in ["id", "url", "permalink", "shortlink"]:
         template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
@@ -1201,14 +1263,16 @@ def create_new_thread(
         if current_thread_mod:
             current_thread_mod.mod.sticky(state=False)
             time.sleep(10)
+        sticky_to_keep: praw.models.reddit.submission.Submission | None = None
         try:
             sticky_to_keep = reddit_mod.subreddit(
                 thread_config.context.subreddit).sticky(number=1)
-            if current_thread and sticky_to_keep.id == current_thread.id:
+            if (current_thread and sticky_to_keep
+                    and sticky_to_keep.id == current_thread.id):
                 sticky_to_keep = reddit_mod.subreddit(
                     thread_config.context.subreddit).sticky(number=2)
-        except prawcore.exceptions.NotFound:
-            sticky_to_keep = None
+        except prawcore.exceptions.NotFound:  # Ignore if there is no sticky
+            pass
         new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
         if sticky_to_keep:
             sticky_to_keep.mod.sticky(state=True)
@@ -1248,9 +1312,8 @@ def sync_thread(
         accounts: AccountsMap,
         ) -> None:
     """Sync a managed thread from its source."""
-    if not dynamic_config.thread_id:
-        raise ValueError(
-            f"Thread ID for {thread_config.description} must be specified.")
+    assert dynamic_config.thread_id, (
+        f"Thread ID for {thread_config.description} must be specified.")
 
     thread_target = FullEndpointConfig(
         context=thread_config.target_context,
@@ -1284,7 +1347,8 @@ def should_post_new_thread(
     # Process the interval and the current thread
     interval_unit, interval_n = process_raw_interval(
         thread_config.new_thread_interval)
-    current_thread = reddit.submission(id=dynamic_config.thread_id)
+    current_thread: praw.models.reddit.submission.Submission = (
+        reddit.submission(id=dynamic_config.thread_id))
 
     # Get last post and current timestamp
     last_post_timestamp = datetime.datetime.fromtimestamp(
@@ -1579,7 +1643,7 @@ def check_reddit_auth_valid(
         if suppress_exceptions:
             return False
         raise praw.exceptions.ReadOnlyException("Reddit instance is read-only")
-    scopes = reddit.auth.scopes()
+    scopes: Collection[str] = reddit.auth.scopes()
     if not scopes:
         if suppress_exceptions:
             return False
@@ -1602,7 +1666,7 @@ def setup_accounts(
         accounts_config: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
         ) -> AccountsMap:
-    """Set up the praw.reddit objects for each account in the config."""
+    """Set up the PRAW Reddit objects for each account in the config."""
     accounts_config_processed = handle_refresh_tokens(
         accounts_config, config_path_refresh=config_path_refresh)
     accounts = {}
@@ -1896,12 +1960,10 @@ def run_toplevel_function(
 def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
     """Dispatch to the specified command based on the passed args."""
     # Print version and exit if --version passed
-    try:
-        if parsed_args.version:
-            print(get_version_str())
-            return
-    except AttributeError:  # If version flag not passed
-        pass
+    version: bool = getattr(parsed_args, "version", None)
+    if version:
+        print(get_version_str())
+        return
 
     # Execute desired subcommand function if passed, otherwise print help
     try:
@@ -1916,7 +1978,7 @@ def main(sys_argv: list[str] | None = None) -> None:
     """Run the main function for the Megathread Manager CLI and dispatch."""
     parser_main = create_arg_parser()
     parsed_args = parser_main.parse_args(sys_argv)
-    verbose = vars(parsed_args).pop("verbose")
+    verbose: bool = vars(parsed_args).pop("verbose")
     try:
         handle_parsed_args(parsed_args)
     except ConfigError as error:
