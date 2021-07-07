@@ -44,6 +44,7 @@ from typing_extensions import (
 import dateutil.relativedelta
 import praw
 import praw.exceptions
+import praw.reddit
 import praw.util.token_manager
 import prawcore.exceptions
 import pydantic
@@ -77,7 +78,10 @@ MenuData = List[SectionData]
 
 AccountConfig = MutableMapping[str, str]
 AccountsConfig = Mapping[str, AccountConfig]
-AccountsMap = Mapping[str, praw.Reddit]
+AccountConfigProcessed = MutableMapping[str, Union[
+    str, praw.util.token_manager.FileTokenManager]]
+AccountsConfigProcessed = Mapping[str, AccountConfigProcessed]
+AccountsMap = Mapping[str, praw.reddit.Reddit]
 ConfigDict = Mapping[str, Any]
 ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
 
@@ -630,7 +634,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
     def __init__(
             self,
             endpoint_name: str,
-            reddit: praw.Reddit,
+            reddit: praw.reddit.Reddit,
             subreddit: str,
             description: str | None = None,
             ) -> None:
@@ -658,7 +662,7 @@ class MenuSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit top bar menu widget."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: str) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         if not self.name:
             self.name = "menu"
@@ -690,7 +694,7 @@ class ThreadSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit thread (selfpost submission)."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: str) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._object = self._reddit.submission(id=self.name)
 
@@ -719,7 +723,7 @@ class WidgetSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit sidebar text content widget."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: str) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         for widget in self._subreddit.widgets.sidebar:
             if widget.shortName == self.name:
@@ -750,7 +754,7 @@ class WikiSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a Reddit wiki page."""
 
     @copy_signature(SyncEndpoint.__init__)
-    def __init__(self, **kwargs: str) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._object = self._subreddit.wiki[self.name]
 
@@ -782,7 +786,7 @@ SYNC_ENDPOINT_TYPES: Final[Mapping[EndpointType, type[SyncEndpoint]]] = {
 
 
 def create_sync_endpoint_from_config(
-        config: EndpointConfig, reddit: praw.Reddit) -> SyncEndpoint:
+        config: EndpointConfig, reddit: praw.reddit.Reddit) -> SyncEndpoint:
     """Create a new sync endpoint given a particular config and Reddit obj."""
     sync_endpoint = SYNC_ENDPOINT_TYPES[config.endpoint_type](
         endpoint_name=config.endpoint_name,
@@ -1128,7 +1132,7 @@ def generate_template_vars(
 def update_page_links(
         links: Mapping[str, str],
         pages_to_update: Sequence[str],
-        reddit: praw.Reddit,
+        reddit: praw.reddit.Reddit,
         subreddit: str,
         description: str = "",
         ) -> None:
@@ -1266,6 +1270,44 @@ def sync_thread(
         )
 
 
+def should_post_new_thread(
+        thread_config: ThreadConfig,
+        dynamic_config: DynamicThreadConfig,
+        reddit: praw.reddit.Reddit) -> bool:
+    """Determine if a new thread should be posted."""
+    # Don't create a new thread if disabled, otherwise always create if no prev
+    if not thread_config.new_thread_interval:
+        return False
+    if not dynamic_config.thread_id:
+        return True
+
+    # Process the interval and the current thread
+    interval_unit, interval_n = process_raw_interval(
+        thread_config.new_thread_interval)
+    current_thread = reddit.submission(id=dynamic_config.thread_id)
+
+    # Get last post and current timestamp
+    last_post_timestamp = datetime.datetime.fromtimestamp(
+        current_thread.created_utc, tz=datetime.timezone.utc)
+    current_datetime = datetime.datetime.now(datetime.timezone.utc)
+
+    # If fixed unit interval, simply compare equality, otherwise compare delta
+    if interval_n is None:
+        previous_n: int = getattr(last_post_timestamp, interval_unit)
+        current_n: int = getattr(current_datetime, interval_unit)
+        interval_exceeded = not previous_n == current_n
+    else:
+        delta_kwargs: dict[str, int] = {
+            f"{interval_unit}s": interval_n}
+        relative_timedelta = dateutil.relativedelta.relativedelta(
+            **delta_kwargs)  # type: ignore[arg-type]
+        interval_exceeded = (
+            current_datetime > (
+                last_post_timestamp + relative_timedelta))
+
+    return interval_exceeded
+
+
 def manage_thread(
         thread_config: ThreadConfig,
         dynamic_config: DynamicThreadConfig,
@@ -1276,31 +1318,12 @@ def manage_thread(
         return
 
     # Determine if its time to post a new thread
-    reddit = accounts[thread_config.context.account]
-    if thread_config.new_thread_interval:
-        interval_unit, interval_n = process_raw_interval(
-            thread_config.new_thread_interval)
+    post_new_thread = should_post_new_thread(
+        thread_config=thread_config,
+        dynamic_config=dynamic_config,
+        reddit=accounts[thread_config.context.account])
 
-        current_thread = reddit.submission(id=dynamic_config.thread_id)
-        last_post_timestamp = datetime.datetime.fromtimestamp(
-            current_thread.created_utc, tz=datetime.timezone.utc)
-        current_datetime = datetime.datetime.now(datetime.timezone.utc)
-        if interval_n is None:
-            interval_exceeded = (
-                getattr(last_post_timestamp, interval_unit)
-                != getattr(current_datetime, interval_unit))
-        else:
-            delta_kwargs: dict[str, int] = {
-                f"{interval_unit}s": interval_n}
-            relative_timedelta = dateutil.relativedelta.relativedelta(
-                **delta_kwargs)  # type: ignore[arg-type]
-            interval_exceeded = (
-                current_datetime > (
-                    last_post_timestamp + relative_timedelta))
-    else:
-        interval_exceeded = False
-
-    if interval_exceeded or not dynamic_config.thread_id:
+    if post_new_thread:
         # If needed post a new thread
         print("Creating new thread for", thread_config.description)
         create_new_thread(thread_config, dynamic_config, accounts)
@@ -1520,16 +1543,19 @@ def sync_all(static_config: StaticConfig,
 def handle_refresh_tokens(
         accounts_config: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        ) -> Mapping[
-            str, Mapping[str, praw.util.token_manager.FileTokenManager]]:
+        ) -> AccountsConfigProcessed:
     """Set up each account with the appropriate refresh tokens."""
     config_path_refresh = Path(config_path_refresh)
-    accounts_config_processed = dict(copy.deepcopy(accounts_config))
-    for account_key, account_kwargs in accounts_config_processed.items():
-        refresh_token = account_kwargs.pop("refresh_token", None)
+    accounts_config_processed: AccountsConfigProcessed = (
+        accounts_config)  # type: ignore[assignment]
+    accounts_config_processed = copy.deepcopy(accounts_config_processed)
+
+    for account_key, account_kwargs in accounts_config.items():
+        refresh_token = account_kwargs.get("refresh_token", None)
         if refresh_token:
+            del accounts_config_processed[account_key]["refresh_token"]
             # Initialize refresh token file
-            token_path = config_path_refresh.with_name(
+            token_path: Path = config_path_refresh.with_name(
                 config_path_refresh.name.format(key=account_key))
             token_path.parent.mkdir(parents=True, exist_ok=True)
             if not token_path.exists():
@@ -1539,14 +1565,15 @@ def handle_refresh_tokens(
 
             # Set up refresh token manager
             token_manager = praw.util.token_manager.FileTokenManager(
-                token_path)
-            account_kwargs["token_manager"] = token_manager
+                token_path)  # type: ignore[no-untyped-call]
+            accounts_config_processed[account_key]["token_manager"] = (
+                token_manager)
 
     return accounts_config_processed
 
 
 def check_reddit_auth_valid(
-        reddit: praw.Reddit, suppress_exceptions: bool = True) -> bool:
+        reddit: praw.reddit.Reddit, suppress_exceptions: bool = True) -> bool:
     """Check if the Reddit account associated with the object is authorized."""
     if reddit.read_only:
         if suppress_exceptions:
@@ -1581,7 +1608,7 @@ def setup_accounts(
     accounts = {}
     for account_key, account_kwargs in accounts_config_processed.items():
         try:
-            reddit = praw.Reddit(
+            reddit = praw.reddit.Reddit(
                 user_agent=USER_AGENT,
                 praw8_raise_exception_on_me=True,
                 **account_kwargs)
@@ -1606,7 +1633,7 @@ def setup_accounts(
 def setup_config(
         config_paths: ConfigPaths | None = None,
         error_default: bool = True,
-        ) -> tuple[StaticConfig, DynamicConfig, AccountsConfig]:
+        ) -> tuple[StaticConfig, DynamicConfig, AccountsMap]:
     """Load the config and set up the accounts mapping."""
     config_paths = ConfigPaths() if config_paths is None else config_paths
     static_config = load_static_config(config_paths.static)
