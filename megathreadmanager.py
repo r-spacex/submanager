@@ -63,12 +63,15 @@ import toml.decoder
 
 __version__: Final = "0.6.0dev0"
 
-# General constants
+# Path constants
 CONFIG_DIRECTORY: Final = Path("~/.config/megathread-manager").expanduser()
 TOKEN_DIRECTORY: Final = CONFIG_DIRECTORY / "refresh_tokens"
 CONFIG_PATH_STATIC: Final = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC: Final = CONFIG_DIRECTORY / "config_dynamic.json"
 CONFIG_PATH_REFRESH: Final = TOKEN_DIRECTORY / "refresh_token_{key}.txt"
+
+# General constants
+SUPPORTED_CONFIG_FORMATS: Final = frozenset({"json", "toml"})
 USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
 
 
@@ -237,6 +240,7 @@ def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
 if TYPE_CHECKING:
     NonEmptyStr = str
     StripStr = str
+    ItemIDStr = str
     ThreadIDStr = str
 else:
 
@@ -250,6 +254,11 @@ else:
         """A string with whitespace stripped."""
 
         strip_whitespace = True
+
+    class ItemIDStr(NonEmptyStr):
+        """String reprisenting an item ID in the config dict."""
+
+        regex = re.compile(r"[a-zA-Z0-9_\.]+")
 
     class ThreadIDStr(StripStr):
         """Pydantic type class for a thread ID of exactly 6 characters."""
@@ -340,21 +349,18 @@ class EndpointConfig(CustomBaseModel):
     """Config params specific to sync endpoint setup."""
 
     context: ContextConfig
-    endpoint_name: StripStr
-    endpoint_type: EndpointType = EndpointType.WIKI_PAGE
     description: pydantic.StrictStr = ""
-
-    @pydantic.validator("description")
-    def description_fill(  # pylint: disable = no-self-use, no-self-argument
-            cls, value: str, values: dict[str, str]) -> str:
-        """Fill the description from the endpoint name, if not provided."""
-        if not value:
-            endpoint_name: str = values["endpoint_name"]
-            return endpoint_name.replace("_", " ").title()
-        return value
+    endpoint_name: StripStr
+    uid: ItemIDStr
 
 
-class FullEndpointConfig(EndpointConfig, PatternConfig):
+class EndpointTypeConfig(EndpointConfig):
+    """Endpoint config including an endpoint type."""
+
+    endpoint_type: EndpointType = EndpointType.WIKI_PAGE
+
+
+class FullEndpointConfig(EndpointTypeConfig, PatternConfig):
     """Config params for a sync source/target endpoint."""
 
     enabled: bool = True
@@ -369,6 +375,7 @@ class SyncPairConfig(CustomBaseModel):
     enabled: bool = True
     source: FullEndpointConfig
     targets: Mapping[StripStr, FullEndpointConfig]
+    uid: ItemIDStr
 
     @pydantic.validator("targets")
     def check_targets(  # pylint: disable = no-self-use, no-self-argument
@@ -410,6 +417,7 @@ class ThreadConfig(CustomBaseModel):
     post_title_template: StripStr = "{subreddit} Megathread (#{thread_number})"
     source: FullEndpointConfig
     target_context: ContextConfig
+    uid: ItemIDStr
 
     @pydantic.validator("new_thread_interval")
     def check_interval(  # pylint: disable = no-self-use, no-self-argument
@@ -511,12 +519,14 @@ EXAMPLE_SOURCE: Final = FullEndpointConfig(
     description="Example sync source",
     endpoint_name="EXAMPLE_SOURCE_NAME",
     replace_patterns={"https://old.reddit.com": "https://www.reddit.com"},
+    uid="EXAMPLE_SOURCE",
     )
 
 EXAMPLE_TARGET: Final = FullEndpointConfig(
     context=EXAMPLE_CONTEXT,
     description="Example sync target",
     endpoint_name="EXAMPLE_TARGET_NAME",
+    uid="EXAMPLE_TARGET",
     )
 
 EXAMPLE_SYNC_PAIR: Final = SyncPairConfig(
@@ -524,6 +534,7 @@ EXAMPLE_SYNC_PAIR: Final = SyncPairConfig(
     enabled=False,
     source=EXAMPLE_SOURCE,
     targets={"EXAMPLE_TARGET": EXAMPLE_TARGET},
+    uid="EXAMPLE_SYNC_PAIR",
     )
 
 
@@ -533,6 +544,7 @@ EXAMPLE_THREAD: Final = ThreadConfig(
     enabled=False,
     source=EXAMPLE_SOURCE,
     target_context=EXAMPLE_CONTEXT,
+    uid="EXAMPLE_THREAD",
     )
 
 
@@ -549,16 +561,18 @@ EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
         "megathreads": {
             "EXAMPLE_THREAD": {
                 "context": ...,
-                "source": {"context"},
+                "source": {"context", "uid"},
                 "target_context": ...,
+                "uid": ...,
                 },
             },
         },
     "sync": {
         "pairs": {
             "EXAMPLE_SYNC_PAIR": {
-                "source": {"context"},
-                "target": {"context"},
+                "source": {"context", "uid"},
+                "target": {"context", "uid"},
+                "uid": ...,
                 },
             },
         },
@@ -656,16 +670,14 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
 
     def __init__(
             self,
-            endpoint_name: str,
+            config: EndpointConfig,
             reddit: praw.reddit.Reddit,
-            subreddit: str,
-            description: str | None = None,
             ) -> None:
-        self.name = endpoint_name
+        self.config = config
         self._reddit = reddit
+
         self._subreddit: praw.models.reddit.subreddit.Subreddit = (
-            self._reddit.subreddit(subreddit))
-        self.description = endpoint_name if not description else description
+            self._reddit.subreddit(self.config.context.subreddit))
         self._object = self._setup_object()
 
     @property
@@ -694,9 +706,10 @@ class MenuSyncEndpoint(SyncEndpoint):
             if isinstance(widget, praw.models.reddit.widgets.Menu):
                 return widget
         raise WidgetNotFoundError(
-            "No menu widget found in "
-            f"subreddit r/{self._subreddit.display_name!r} "
-            f"for sync endpoint {self.description!r}"
+            self.config,
+            message_pre="No menu widget found",
+            message_post=(
+                "You may need to create it by adding at least one menu item"),
             )
 
     @property
@@ -707,9 +720,8 @@ class MenuSyncEndpoint(SyncEndpoint):
             self._object, attribute_name, None)
         if menu_data is None:
             raise WidgetModelError(
-                f"Menu widget missing attribute {attribute_name!r} "
-                f"in subreddit r/{self._subreddit.display_name!r} "
-                f"for sync endpoint {self.description!r}"
+                self.config,
+                message_pre=f"Menuwidget missing attribute {attribute_name!r}",
                 )
         return menu_data
 
@@ -731,7 +743,7 @@ class ThreadSyncEndpoint(SyncEndpoint):
     def _setup_object(self) -> praw.models.reddit.submission.Submission:
         """Set up the submission object for syncing to a thread."""
         submission: praw.models.reddit.submission.Submission = (
-            self._reddit.submission(id=self.name))
+            self._reddit.submission(id=self.config.endpoint_name))
         return submission
 
     @property
@@ -761,19 +773,19 @@ class WidgetSyncEndpoint(SyncEndpoint):
     def _setup_object(self) -> EditableTextWidget:
         """Set up the widget object for syncing to a sidebar widget."""
         for widget in self._subreddit.widgets.sidebar:
-            if getattr(widget, "shortName", None) == self.name:
+            if getattr(widget, "shortName", None) == self.config.endpoint_name:
                 if isinstance(widget, EditableTextWidget):
                     return widget
-                raise WidgetNotFoundError(
-                    f"Widget named {self.name!r} "
-                    f"has unsupported type {type(widget)!r} "
-                    f"in subreddit r/{self._subreddit.display_name!r} "
-                    f"for sync endpoint {self.description!r}"
+                raise WidgetTypeError(
+                    self.config,
+                    message_pre=(f"Widget {self.config.endpoint_name!r} "
+                                 "has unsupported type {type(widget)!r}"),
+                    message_post=(
+                        "Only text-content widgets are currently supported"),
                     )
         raise WidgetNotFoundError(
-            f"No widget named {self.name!r} "
-            f"found in subreddit r/{self._subreddit.display_name!r} "
-            f"for sync endpoint {self.description!r}"
+            self.config,
+            message_pre=f"No widget {self.config.endpoint_name!r} found",
             )
 
     @property
@@ -800,7 +812,7 @@ class WikiSyncEndpoint(SyncEndpoint):
     def _setup_object(self) -> praw.models.reddit.wikipage.WikiPage:
         """Set up the wiki page object for syncing to a wiki page."""
         wiki_page: praw.models.reddit.wikipage.WikiPage = (
-            self._subreddit.wiki[self.name])
+            self._subreddit.wiki[self.config.endpoint_name])
         return wiki_page
 
     @property
@@ -829,29 +841,91 @@ SYNC_ENDPOINT_TYPES: Final[Mapping[EndpointType, type[SyncEndpoint]]] = {
 
 
 def create_sync_endpoint_from_config(
-        config: EndpointConfig, reddit: praw.reddit.Reddit) -> SyncEndpoint:
+        config: EndpointTypeConfig,
+        reddit: praw.reddit.Reddit,
+        ) -> SyncEndpoint:
     """Create a new sync endpoint given a particular config and Reddit obj."""
     sync_endpoint = SYNC_ENDPOINT_TYPES[config.endpoint_type](
-        endpoint_name=config.endpoint_name,
-        reddit=reddit,
-        subreddit=config.context.subreddit,
-        description=config.description,
-        )
+        config=config, reddit=reddit)
     return sync_endpoint
 
 
-# ----------------- Config handling -----------------
+# ----------------- Error and exceptions -----------------
 
-# ---- Config utilities ----
-
-SUPPORTED_FORMATS: Final = frozenset({"json", "toml"})
-
+# ---- Base exception classes
 
 class SubManagerError(Exception):
     """Base class for errors raised by Sub Manager."""
 
+    def __init__(
+            self,
+            message_pre: str,
+            message_post: str | BaseException | None = None,
+            ) -> None:
+        message = message_pre.strip(" ")
+        if message_post:
+            if isinstance(message_post, BaseException):
+                message_post = format_error(message_post)
+            message += ("\n\n" + message_post.strip(" "))
+        super().__init__(message)
 
-class WidgetError(SubManagerError):
+
+class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
+    """Error with a fillable message."""
+
+    _message_pre: ClassVar[str] = "Error"
+    _message_template: ClassVar[str] = "{message_pre} occured"
+
+    def __init__(
+            self,
+            message_pre: str | None = None,
+            message_post: str | BaseException | None = None,
+            **extra_fillables: str,
+            ) -> None:
+        if message_pre is None:
+            message_pre = self._message_pre
+        message_pre = self._message_template.format(
+            message_pre=message_pre, **extra_fillables)
+        super().__init__(message_pre=message_pre, message_post=message_post)
+
+
+class SubManagerValueError(SubManagerError, ValueError):
+    """General programmer errors related to values not being as expected."""
+
+
+class SubManagerUserError(SubManagerError, RuntimeError):
+    """Errors at runtime that should be correctable via user action."""
+
+
+# ---- Reddit-related exceptions ----
+
+class RedditError(SubManagerError):
+    """Errors with the data returned from the Reddit API."""
+
+
+class EndpointError(ErrorFillable, RedditError):
+    """Something's wrong with an endpoint."""
+
+    _message_pre: ClassVar[str] = "Endpoint error"
+    _message_template: ClassVar[str] = (
+        "{message_pre} for sync endpoint {config}")
+
+    def __init__(
+            self,
+            config: EndpointConfig,
+            message_pre: str | None = None,
+            message_post: str | BaseException | None = None,
+            **extra_fillables: str,
+            ) -> None:
+        self.endpoint_config = config
+        super().__init__(
+            message_pre=message_pre,
+            message_post=message_post,
+            config=repr(self.endpoint_config),
+            **extra_fillables)
+
+
+class WidgetError(EndpointError):
     """Errors that occur with a subreddit's sidebar and topbar widgets."""
 
 
@@ -859,11 +933,17 @@ class WidgetModelError(WidgetError):
     """The sidebar/topbar widget's data model didn't match that required."""
 
 
-class WidgetNotFoundError(WidgetError):
-    """Missing New Reddit sidebar widget or menu, or wrong type."""
+class WidgetTypeError(WidgetError, SubManagerUserError):
+    """A widget was found with the given name, but is of the wrong type."""
 
 
-class AuthError(SubManagerError, RuntimeError):
+class WidgetNotFoundError(WidgetError, SubManagerUserError):
+    """Missing New Reddit sidebar widget or menu, try creating it."""
+
+
+# ---- Authorization-related exceptions ----
+
+class AuthError(SubManagerUserError):
     """Errors related to user authentication."""
 
 
@@ -872,43 +952,33 @@ class NoAuthorizedScopesError(AuthError):
 
 
 class IdentityCheckError(AuthError):
-    """Cannot get the user's identity."""
+    """Cannot get the user's identity when it should be in scope."""
 
 
-class ConfigError(SubManagerError, RuntimeError):
+# ---- Config-related exceptions ----
+
+class ConfigError(SubManagerUserError):
     """There is a problem with the Sub Manager configuration."""
 
 
-class ConfigErrorFillable(ConfigError, metaclass=abc.ABCMeta):
-    """Configuration error with a fillable message."""
-
-    _message_template: ClassVar[str] = "Config error occured"
-
-    def __init__(
-            self, message: str | None = None, **extra_fillables: str) -> None:
-        full_message = self._message_template.format(**extra_fillables)
-        if message:
-            full_message += ("\n\n" + message)
-        super().__init__(full_message)
-
-
-class ConfigErrorWithPath(ConfigErrorFillable):
+class ConfigErrorWithPath(ConfigError, ErrorFillable):
     """Config errors that involve a config file at a specific path."""
 
-    _message_template_sub: ClassVar[str] = "Error"
+    _message_pre: ClassVar[str] = "Error"
     _message_template: ClassVar[str] = (
-        "{template_sub} for config file at path {config_path!r}")
+        "{message_pre} for config file at path {config_path!r}")
 
     def __init__(
             self,
             config_path: PathLikeStr,
-            message: str | None = None,
+            message_pre: str | None = None,
+            message_post: str | BaseException | None = None,
             **extra_fillables: str,
             ) -> None:
         self.config_path = Path(config_path)
         super().__init__(
-            message=message,
-            template_sub=self._message_template_sub,
+            message_pre=message_pre,
+            message_post=message_post,
             config_path=self.config_path.as_posix(),
             **extra_fillables)
 
@@ -916,57 +986,57 @@ class ConfigErrorWithPath(ConfigErrorFillable):
 class ConfigNotFoundError(ConfigErrorWithPath):
     """The Sub Manager configuration file is not found."""
 
-    _message_template_sub: ClassVar[str] = "File not found"
+    _message_pre: ClassVar[str] = "File not found"
 
 
 class ConfigExistsError(ConfigErrorWithPath):
     """The Sub Manager configuration file already exists when generated."""
 
-    _message_template_sub: ClassVar[str] = "File already exists"
+    _message_pre: ClassVar[str] = "File already exists"
 
 
 class ConfigTypeError(ConfigErrorWithPath):
     """The Sub Manager config file is not in a recognized format."""
 
-    _message_template_sub: ClassVar[str] = (
-        f"Unrecognized format (not in {SUPPORTED_FORMATS})")
+    _message_pre: ClassVar[str] = "Config format type not supported"
 
 
 class ConfigFormatError(ConfigErrorWithPath):
     """The Sub Manager config file format is not valid."""
 
-    _message_template_sub: ClassVar[str] = "File format error"
+    _message_pre: ClassVar[str] = "File format error"
 
 
 class ConfigValidationError(ConfigErrorWithPath):
     """The Sub Manager config file has invalid property value(s)."""
 
-    _message_template_sub: ClassVar[str] = "Validation failed"
+    _message_pre: ClassVar[str] = "Validation failed"
 
 
 class ConfigDefaultError(ConfigErrorWithPath):
     """The Sub Manager configuration file has not been configured."""
 
-    _message_template_sub: ClassVar[str] = "Unconfigured defaults"
+    _message_pre: ClassVar[str] = "Unconfigured defaults"
 
 
-class ConfigErrorWithAccount(ConfigErrorFillable):
+class ConfigErrorWithAccount(ConfigError, ErrorFillable):
     """Something's wrong with the Reddit account configuration."""
 
-    _message_template_sub: ClassVar[str] = "Configuration error"
+    _message_pre: ClassVar[str] = "Configuration error"
     _message_template: ClassVar[str] = (
-        "{template_sub} for Reddit account {account_key!r}")
+        "{message_pre} for Reddit account {account_key!r}")
 
     def __init__(
             self,
             account_key: str,
-            message: str | None = None,
+            message_pre: str | None = None,
+            message_post: str | BaseException | None = None,
             **extra_fillables: str,
             ) -> None:
         self.account_key = account_key
         super().__init__(
-            message=message,
-            template_sub=self._message_template_sub,
+            message_pre=message_pre,
+            message_post=message_post,
             account_key=account_key,
             **extra_fillables)
 
@@ -983,6 +1053,10 @@ class ConfigAuthError(ConfigErrorWithAccount, AuthError):
     _message_template_sub: ClassVar[str] = "Account authorization failure"
 
 
+# ----------------- Config handling -----------------
+
+# ---- Config utilities ----
+
 def serialize_config(
         config: ConfigDict | pydantic.BaseModel,
         output_format: str = "json",
@@ -997,7 +1071,8 @@ def serialize_config(
         serialized_config = toml.dumps(dict(config))
     else:
         raise ConfigError(
-            f"Output format {output_format} must be in {SUPPORTED_FORMATS}")
+            f"Output format {output_format!r} must be in "
+            f"{SUPPORTED_CONFIG_FORMATS}")
     return serialized_config
 
 
@@ -1012,7 +1087,7 @@ def write_config(
         serialized_config = serialize_config(
             config=config, output_format=config_path.suffix[1:])
     except ConfigError as error:
-        raise ConfigTypeError(config_path) from error
+        raise ConfigTypeError(config_path, message_post=error) from error
     with open(config_path, mode="w",
               encoding="utf-8", newline="\n") as config_file:
         config_file.write(serialized_config)
@@ -1029,7 +1104,12 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
         elif config_path.suffix == ".toml":
             config = dict(toml.load(config_file))
         else:
-            raise ConfigTypeError(config_path)
+            raise ConfigTypeError(
+                config_path,
+                message_post=ConfigError(
+                    f"Input format {config_path.suffix!r} must be in "
+                    f"{SUPPORTED_CONFIG_FORMATS}"),
+                )
     return config
 
 
@@ -1043,27 +1123,32 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
         {"context": context_default},
         raw_config.get("sync", {}).pop("defaults", {}))
     sync_pair: StrMap
-    for sync_pair in (
-            raw_config.get("sync", {}).get("pairs", {}).values()):
+    for sync_key, sync_pair in (
+            raw_config.get("sync", {}).get("pairs", {}).items()):
         sync_defaults_item: StrMap = update_dict_recursive(
             sync_defaults, sync_pair.pop("defaults", {}))
+        sync_pair["uid"] = f"sync.pairs.{sync_key}"
         sync_pair["source"] = update_dict_recursive(
             sync_defaults_item, sync_pair.get("source", {}))
+        sync_pair["source"]["uid"] = sync_pair["uid"] + ".source"
         target_config: StrMap
-        for target_config in sync_pair.get("targets", {}).values():
+        for target_key, target_config in sync_pair.get("targets", {}).items():
             target_config.update(
                 update_dict_recursive(sync_defaults_item, target_config))
+            target_config["uid"] = sync_pair["uid"] + f"targets.{target_key}"
 
     thread_defaults: StrMap = update_dict_recursive(
         {"context": context_default},
         raw_config.get("megathread", {}).pop("defaults", {}))
     thread: StrMap
-    for thread in (
-            raw_config.get("megathread", {}).get("megathreads", {}).values()):
+    for thread_key, thread in (
+            raw_config.get("megathread", {}).get("megathreads", {}).items()):
         thread.update(
             update_dict_recursive(thread_defaults, thread))
+        thread["uid"] = f"megathread.megathreads.{thread_key}"
         thread["source"] = update_dict_recursive(
             {"context": thread.get("context", {})}, thread["source"])
+        thread["source"]["uid"] = thread["uid"] + ".source"
         thread["target_context"] = {
             **thread.get("context", {}), **thread.get("target_context", {})}
 
@@ -1112,12 +1197,13 @@ def load_static_config(
             json.decoder.JSONDecodeError,
             toml.decoder.TomlDecodeError,
             ) as error:
-        raise ConfigFormatError(config_path, format_error(error)) from error
+        raise ConfigFormatError(
+            config_path, message_post=error) from error
     try:
         static_config = render_static_config(raw_config)
     except pydantic.ValidationError as error:
         raise ConfigValidationError(
-            config_path, format_error(error)) from error
+            config_path, message_post=error) from error
 
     return static_config
 
@@ -1191,16 +1277,22 @@ def update_page_links(
         links: Mapping[str, str],
         pages_to_update: Sequence[str],
         reddit: praw.reddit.Reddit,
-        subreddit: str,
+        context: ContextConfig,
+        uid: str,
         description: str = "",
         ) -> None:
     """Update the links to the given thread on the passed pages."""
-    for idx, page_name in enumerate(pages_to_update):
-        page = WikiSyncEndpoint(
+    uid_base = ".".join(uid.split(".")[:-1])
+    for page_name in pages_to_update:
+        page_config = EndpointConfig(
+            context=context,
+            description=f"Megathread link page {page_name}",
             endpoint_name=page_name,
+            uid=uid + f".{page_name}",
+            )
+        page = WikiSyncEndpoint(
+            config=page_config,
             reddit=reddit,
-            subreddit=subreddit,
-            description=f"Megathread link page {idx + 1}",
             )
         new_content = page.content
         for old_link, new_link in links.items():
@@ -1211,7 +1303,8 @@ def update_page_links(
                 flags=re.IGNORECASE,
                 )
         page.edit(
-            new_content, reason=f"Update {description} megathread URLs")
+            new_content, reason=(
+                f"Update {description or uid_base} megathread URLs"))
 
 
 def create_new_thread(
@@ -1287,7 +1380,8 @@ def create_new_thread(
             links=links,
             pages_to_update=thread_config.link_update_pages,
             reddit=reddit_mod,
-            subreddit=thread_config.context.subreddit,
+            context=thread_config.context,
+            uid=thread_config.uid + ".link_update_pages",
             description=thread_config.description,
             )
 
@@ -1312,19 +1406,25 @@ def sync_thread(
         accounts: AccountsMap,
         ) -> None:
     """Sync a managed thread from its source."""
-    assert dynamic_config.thread_id, (
-        f"Thread ID for {thread_config.description} must be specified.")
+    if not dynamic_config.thread_id:
+        raise SubManagerValueError(
+            "Thread ID for must be specified for thread sync to work "
+            f"for thread {thread_config!r}",
+            message_post=f"Dynamic Config: {dynamic_config!r}")
 
     thread_target = FullEndpointConfig(
         context=thread_config.target_context,
-        description=f"{thread_config.description} Megathread",
+        description=(
+            f"{thread_config.description or thread_config.uid} Megathread"),
         endpoint_name=dynamic_config.thread_id,
         endpoint_type=EndpointType.THREAD,
+        uid=thread_config.uid + ".target"
         )
     sync_pair = SyncPairConfig(
         description=thread_config.description,
         source=thread_config.source,
         targets={"megathread": thread_target},
+        uid=thread_config.uid + ".sync_pair"
         )
     sync_one(
         sync_pair=sync_pair,
@@ -1389,7 +1489,8 @@ def manage_thread(
 
     if post_new_thread:
         # If needed post a new thread
-        print("Creating new thread for", thread_config.description)
+        print("Creating new thread for", thread_config.description,
+              f"{thread_config.uid}")
         create_new_thread(thread_config, dynamic_config, accounts)
     else:
         # Otherwise, sync the current thread
@@ -1491,8 +1592,6 @@ def process_source_endpoint(
         ) -> str | MenuData | Literal[False]:
     """Get and preprocess the text from a source if its out of date."""
     try:
-        # print("Source obj name:", source_obj.name,
-        #       "Description:", source_obj.description)
         source_timestamp = source_obj.revision_date
     except NotImplementedError:  # Always update if source has no timestamp
         pass
@@ -1508,8 +1607,8 @@ def process_source_endpoint(
         source_content_processed = process_endpoint_text(
             source_content, source_config)
         if source_content_processed is False:
-            print("Sync pattern not found in source "
-                  f"{source_obj.description}; skipping")
+            print("Skipping sync pattern not found in source "
+                  f"{source_obj.config.description} {source_obj.config.uid}")
             return False
         source_content_processed = replace_patterns(
             source_content_processed, source_config.replace_patterns)
@@ -1540,8 +1639,8 @@ def process_target_endpoint(
         target_content_processed = process_endpoint_text(
             target_content, target_config, replace_text=source_content)
         if target_content_processed is False:
-            print("Sync pattern not found in target "
-                  f"{target_obj.description}; skipping")
+            print("Skipping sync pattern not found in target "
+                  f"{target_obj.config.description} {target_obj.config.uid}")
             return False
         return target_content_processed
 
@@ -1583,7 +1682,8 @@ def sync_one(
 
         target_obj.edit(
             target_content,
-            reason=f"Auto-sync {sync_pair.description} from {target_obj.name}",
+            reason=(f"Auto-sync {sync_pair.description or sync_pair.uid} "
+                    f"from {target_obj.config.endpoint_name}"),
             )
 
 
@@ -1647,7 +1747,7 @@ def check_reddit_auth_valid(
     if not scopes:
         if suppress_exceptions:
             return False
-        raise NoAuthorizedScopesError("The user auth scope ")
+        raise NoAuthorizedScopesError("The user has no authorized scopes")
     if "*" in scopes or "identity" in scopes:
         try:
             reddit.user.me()
@@ -1656,8 +1756,9 @@ def check_reddit_auth_valid(
             if suppress_exceptions:
                 return False
             raise IdentityCheckError(
-                "Checking the user's identity failed with error:\n\n"
-                + format_error(error)) from error
+                "Checking the user's identity failed with error:",
+                message_post=error,
+                ) from error
 
     return True
 
@@ -1681,7 +1782,7 @@ def setup_accounts(
                 prawcore.exceptions.PrawcoreException,
                 configparser.Error,
                 ) as error:
-            raise ConfigPRAWError(account_key, format_error(error)) from error
+            raise ConfigPRAWError(account_key, message_post=error) from error
         reddit.validate_on_submit = True
         try:
             check_reddit_auth_valid(reddit, suppress_exceptions=False)
@@ -1689,7 +1790,7 @@ def setup_accounts(
                 prawcore.exceptions.PrawcoreException,
                 AuthError,
                 ) as error:
-            raise ConfigAuthError(account_key, format_error(error)) from error
+            raise ConfigAuthError(account_key, message_post=error) from error
         accounts[account_key] = reddit
     return accounts
 
@@ -1981,7 +2082,7 @@ def main(sys_argv: list[str] | None = None) -> None:
     verbose: bool = vars(parsed_args).pop("verbose")
     try:
         handle_parsed_args(parsed_args)
-    except ConfigError as error:
+    except SubManagerUserError as error:
         if verbose:
             raise
         sys.exit("\n" + format_error(error) + "\n")
