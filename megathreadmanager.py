@@ -718,6 +718,16 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
     def revision_date(self) -> int | NoReturn:
         """Get the date the sync endpoint was last updated, if supported."""
 
+    def validate(self, raise_error: bool = False) -> bool:
+        """Validate that the sync endpoint points to a valid Reddit object."""
+        try:
+            self._validate_object()
+        except RedditObjectNotFoundError:
+            if not raise_error:
+                return False
+            raise
+        return True
+
 
 class MenuSyncEndpoint(SyncEndpoint):
     """Sync endpoint reprisenting a New Reddit top bar menu widget."""
@@ -746,7 +756,7 @@ class MenuSyncEndpoint(SyncEndpoint):
             raise RedditModelError(
                 self.config,
                 message_pre=(f"Menu widget {self._object!r} "
-                             "missing attribute {attribute_name!r}"),
+                             f"missing attribute {attribute_name!r}"),
                 )
         return menu_data
 
@@ -804,14 +814,14 @@ class WidgetSyncEndpoint(SyncEndpoint):
                 raise WidgetTypeError(
                     self.config,
                     message_pre=(f"Widget {self.config.endpoint_name!r} "
-                                 "has unsupported type {type(widget)!r}"),
+                                 f"has unsupported type {type(widget)!r}"),
                     message_post=(
-                        "Only text-content widgets are currently supported"),
+                        "Only text-content widgets are currently supported."),
                     )
         raise RedditObjectNotFoundError(
             self.config,
-            message_pre=f"No widget {self.config.endpoint_name!r} found",
-            message_post="If this is not a typo, please create it first",
+            message_pre=f"Sidebar widget {self.config.endpoint_name!r}",
+            message_post="If this is not a typo, please create it first.",
             )
 
     @property
@@ -869,10 +879,11 @@ SYNC_ENDPOINT_TYPES: Final[Mapping[EndpointType, type[SyncEndpoint]]] = {
 def create_sync_endpoint_from_config(
         config: EndpointTypeConfig,
         reddit: praw.reddit.Reddit,
+        validate: bool = False,
         ) -> SyncEndpoint:
     """Create a new sync endpoint given a particular config and Reddit obj."""
     sync_endpoint = SYNC_ENDPOINT_TYPES[config.endpoint_type](
-        config=config, reddit=reddit)
+        config=config, reddit=reddit, validate=validate)
     return sync_endpoint
 
 
@@ -937,7 +948,7 @@ class ErrorWithConfigItem(ErrorFillable):
 
     def __init__(
             self,
-            config_item: pydantic.BaseModel,
+            config_item: EndpointConfig | SyncPairConfig | ThreadConfig,
             message_pre: str | None = None,
             message_post: str | BaseException | None = None,
             **extra_fillables: str,
@@ -946,7 +957,7 @@ class ErrorWithConfigItem(ErrorFillable):
         super().__init__(
             message_pre=message_pre,
             message_post=message_post,
-            config=repr(self.config_item),
+            config=f"{config_item.uid} - {config_item.description!r}",
             **extra_fillables)
 
 
@@ -1780,15 +1791,15 @@ def handle_refresh_tokens(
 
 
 def check_reddit_auth_valid(
-        reddit: praw.reddit.Reddit, suppress_exceptions: bool = True) -> bool:
+        reddit: praw.reddit.Reddit, raise_error: bool = False) -> bool:
     """Check if the Reddit account associated with the object is authorized."""
     if reddit.read_only:
-        if suppress_exceptions:
+        if not raise_error:
             return False
         raise praw.exceptions.ReadOnlyException("Reddit instance is read-only")
     scopes: Collection[str] = reddit.auth.scopes()
     if not scopes:
-        if suppress_exceptions:
+        if not raise_error:
             return False
         raise NoAuthorizedScopesError("The user has no authorized scopes")
     if "*" in scopes or "identity" in scopes:
@@ -1796,7 +1807,7 @@ def check_reddit_auth_valid(
             reddit.user.me()
         except (praw.exceptions.PRAWException,
                 prawcore.exceptions.PrawcoreException) as error:
-            if suppress_exceptions:
+            if not raise_error:
                 return False
             raise IdentityCheckError(
                 "Checking the user's identity failed with error:",
@@ -1828,7 +1839,7 @@ def setup_accounts(
             raise ConfigPRAWError(account_key, message_post=error) from error
         reddit.validate_on_submit = True
         try:
-            check_reddit_auth_valid(reddit, suppress_exceptions=False)
+            check_reddit_auth_valid(reddit, raise_error=True)
         except (praw.exceptions.PRAWException,
                 prawcore.exceptions.PrawcoreException,
                 AuthError,
@@ -1869,6 +1880,42 @@ def setup_config_accounts(
     return static_config, dynamic_config, accounts
 
 
+def validate_endpoint(
+        config: FullEndpointConfig, accounts: AccountsMap) -> None:
+    """Validate that the sync endpoint points to a valid Reddit object."""
+    if config.enabled:
+        reddit = accounts[config.context.account]
+        create_sync_endpoint_from_config(
+            config=config, reddit=reddit, validate=True)
+
+
+def validate_endpoints(
+        static_config: StaticConfig, accounts: AccountsMap) -> None:
+    """Validate all the endpoints defined in the config."""
+    if static_config.sync.enabled:
+        for sync_pair in static_config.sync.pairs.values():
+            if sync_pair.enabled:
+                validate_endpoint(sync_pair.source, accounts=accounts)
+                for target_config in sync_pair.targets.values():
+                    validate_endpoint(target_config, accounts=accounts)
+    if static_config.megathread.enabled:
+        for thread in static_config.megathread.megathreads.values():
+            if thread.enabled:
+                validate_endpoint(thread.source, accounts=accounts)
+
+
+def run_initial_setup(
+        config_paths: ConfigPaths | None = None,
+        ) -> tuple[StaticConfig, AccountsMap]:
+    """Run initial run-time setup for each time the application is started."""
+    __: Any
+    validate_config(config_paths=config_paths)
+    static_config, __, accounts = setup_config_accounts(config_paths)
+    return static_config, accounts
+
+
+# ---- High level command code ----
+
 def generate_static_config(
         config_path: PathLikeStr = CONFIG_PATH_STATIC,
         force: bool = False,
@@ -1888,8 +1935,6 @@ def generate_static_config(
     return config_exists
 
 
-# ---- High level command code ----
-
 def generate_config(
         config_paths: ConfigPaths | None = None,
         force: bool = False,
@@ -1900,7 +1945,7 @@ def generate_config(
     config_exists = generate_static_config(
         config_path=config_paths.static, force=force, exist_ok=exist_ok)
 
-    message = f"Config {{action}} at {config_paths.static.as_posix()}"
+    message = f"Config {{action}} at {config_paths.static.as_posix()!r}"
     if not config_exists:
         action = "generated"
     elif force:
@@ -1915,24 +1960,31 @@ def validate_config(
         offline: bool = False,
         ) -> None:
     """Ensure the config is valid, raising an error if it is not."""
+    __: Any
     config_paths = ConfigPaths() if config_paths is None else config_paths
+    print(f"Validating configuration at {config_paths.static.as_posix()!r}")
+
     if offline:
         setup_config(config_paths=config_paths, error_default=True)
     else:
-        setup_config_accounts(config_paths=config_paths, error_default=True)
-    print(f"Config at {config_paths.static.as_posix()} is valid")
+        static_config, __, accounts = setup_config_accounts(
+            config_paths=config_paths, error_default=True)
+        validate_endpoints(static_config=static_config, accounts=accounts)
+    print("Configuration is valid")
 
 
 # ---- Core run code ----
 
-def run_manage(
-        config_paths: ConfigPaths | None = None,
+def run_manage_once(
+        static_config: StaticConfig,
+        accounts: AccountsMap,
+        config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
         ) -> None:
-    """Load the config file and run the thread manager."""
+    """Run the manage loop once, without validation checks."""
     # Load config and set up session
-    config_paths = ConfigPaths() if config_paths is None else config_paths
-    static_config, dynamic_config, accounts = setup_config_accounts(
-        config_paths)
+    print("Running Sub Manager")
+    dynamic_config = load_dynamic_config(
+        static_config=static_config, config_path=config_path_dynamic)
     dynamic_config_active = dynamic_config.copy(deep=True)
 
     # Run the core manager tasks
@@ -1943,7 +1995,21 @@ def run_manage(
 
     # Write out the dynamic config if it changed
     if dynamic_config_active != dynamic_config:
-        write_config(dynamic_config_active, config_path=config_paths.dynamic)
+        write_config(dynamic_config_active, config_path=config_path_dynamic)
+    print("Sub Manager run complete")
+
+
+def run_manage(
+        config_paths: ConfigPaths | None = None,
+        ) -> None:
+    """Load the config file and run the thread manager."""
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    static_config, accounts = run_initial_setup(config_paths)
+    run_manage_once(
+        static_config=static_config,
+        accounts=accounts,
+        config_path_dynamic=config_paths.dynamic,
+        )
 
 
 def start_manage(
@@ -1952,17 +2018,18 @@ def start_manage(
         ) -> None:
     """Run the mainloop of sub-manager, performing each task in sequance."""
     # Load config and set up session
-    __: Any
+    print("Starting Sub Manager")
     config_paths = ConfigPaths() if config_paths is None else config_paths
-    static_config, __ = setup_config(config_paths)
+    static_config, accounts = run_initial_setup(config_paths)
 
     if repeat_interval_s is None:
         repeat_interval_s = static_config.repeat_interval_s
     while True:
-        print("Running megathread manager for config at "
-              f"{config_paths.static.as_posix()}")
-        run_manage(config_paths=config_paths)
-        print("Megathread manager run complete")
+        run_manage_once(
+            static_config=static_config,
+            accounts=accounts,
+            config_path_dynamic=config_paths.dynamic,
+            )
         try:
             time_left_s = repeat_interval_s
             while True:
