@@ -668,17 +668,41 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         """Set up the underlying PRAW object the endpoint will use."""
         raise NotImplementedError
 
+    def _validate_object(self) -> None:
+        """Validate the the object exits and has the needed properties."""
+        try:
+            self.content
+        except PRAW_NOTFOUND_ERRORS as error:
+            raise RedditObjectNotFoundError(
+                self.config,
+                message_pre=f"Reddit object {self._object!r}",
+                message_post=error,
+                ) from error
+
     def __init__(
             self,
             config: EndpointConfig,
             reddit: praw.reddit.Reddit,
+            validate: bool = False,
             ) -> None:
         self.config = config
         self._reddit = reddit
 
         self._subreddit: praw.models.reddit.subreddit.Subreddit = (
             self._reddit.subreddit(self.config.context.subreddit))
+        try:
+            self._subreddit.id
+        except PRAW_NOTFOUND_ERRORS as error:
+            raise SubredditNotFoundError(
+                self.config,
+                message_pre=(
+                    f"Subreddit r/{self.config.context.subreddit!r}"),
+                message_post=error,
+                ) from error
+
         self._object = self._setup_object()
+        if validate:
+            self._validate_object()
 
     @property
     @abc.abstractmethod
@@ -705,9 +729,9 @@ class MenuSyncEndpoint(SyncEndpoint):
         for widget in self._subreddit.widgets.topbar:
             if isinstance(widget, praw.models.reddit.widgets.Menu):
                 return widget
-        raise WidgetNotFoundError(
+        raise RedditObjectNotFoundError(
             self.config,
-            message_pre="No menu widget found",
+            message_pre="Menu widget",
             message_post=(
                 "You may need to create it by adding at least one menu item"),
             )
@@ -719,9 +743,10 @@ class MenuSyncEndpoint(SyncEndpoint):
         menu_data: MenuData | None = getattr(
             self._object, attribute_name, None)
         if menu_data is None:
-            raise WidgetModelError(
+            raise RedditModelError(
                 self.config,
-                message_pre=f"Menuwidget missing attribute {attribute_name!r}",
+                message_pre=(f"Menu widget {self._object!r} "
+                             "missing attribute {attribute_name!r}"),
                 )
         return menu_data
 
@@ -783,9 +808,10 @@ class WidgetSyncEndpoint(SyncEndpoint):
                     message_post=(
                         "Only text-content widgets are currently supported"),
                     )
-        raise WidgetNotFoundError(
+        raise RedditObjectNotFoundError(
             self.config,
             message_pre=f"No widget {self.config.endpoint_name!r} found",
+            message_post="If this is not a typo, please create it first",
             )
 
     @property
@@ -852,6 +878,14 @@ def create_sync_endpoint_from_config(
 
 # ----------------- Error and exceptions -----------------
 
+PRAW_NOTFOUND_ERRORS: Final[tuple[type[Exception], ...]] = (
+    prawcore.exceptions.Forbidden,
+    prawcore.exceptions.NotFound,
+    prawcore.exceptions.Redirect,
+    prawcore.exceptions.UnavailableForLegalReasons,
+    )
+
+
 # ---- Base exception classes
 
 class SubManagerError(Exception):
@@ -859,14 +893,17 @@ class SubManagerError(Exception):
 
     def __init__(
             self,
-            message_pre: str,
+            message: str,
+            message_pre: str | None = None,
             message_post: str | BaseException | None = None,
             ) -> None:
-        message = message_pre.strip(" ")
-        if message_post:
+        message = message.strip(" ")
+        if message_pre:
+            message = f"{message_pre.strip(' ')} {message}"
+        if message_post is not None:
             if isinstance(message_post, BaseException):
                 message_post = format_error(message_post)
-            message += ("\n\n" + message_post.strip(" "))
+            message = f"{message}\n\n{message_post.strip(' ')}"
         super().__init__(message)
 
 
@@ -874,7 +911,7 @@ class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
     """Error with a fillable message."""
 
     _message_pre: ClassVar[str] = "Error"
-    _message_template: ClassVar[str] = "{message_pre} occured"
+    _message_template: ClassVar[str] = "occured"
 
     def __init__(
             self,
@@ -884,66 +921,72 @@ class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
             ) -> None:
         if message_pre is None:
             message_pre = self._message_pre
-        message_pre = self._message_template.format(
-            message_pre=message_pre, **extra_fillables)
-        super().__init__(message_pre=message_pre, message_post=message_post)
+        message = self._message_template.format(**extra_fillables)
+        super().__init__(
+            message=message,
+            message_pre=message_pre,
+            message_post=message_post,
+            )
+
+
+class ErrorWithConfigItem(ErrorFillable):
+    """Something's wrong with an endpoint."""
+
+    _message_pre: ClassVar[str] = "Error"
+    _message_template: ClassVar[str] = "in item {config}"
+
+    def __init__(
+            self,
+            config_item: pydantic.BaseModel,
+            message_pre: str | None = None,
+            message_post: str | BaseException | None = None,
+            **extra_fillables: str,
+            ) -> None:
+        self.config_item = config_item
+        super().__init__(
+            message_pre=message_pre,
+            message_post=message_post,
+            config=repr(self.config_item),
+            **extra_fillables)
 
 
 class SubManagerValueError(SubManagerError, ValueError):
     """General programmer errors related to values not being as expected."""
 
 
-class SubManagerUserError(SubManagerError, RuntimeError):
+class SubManagerUserError(SubManagerError):
     """Errors at runtime that should be correctable via user action."""
 
 
 # ---- Reddit-related exceptions ----
 
 class RedditError(SubManagerError):
-    """Errors with the data returned from the Reddit API."""
+    """Something went wrong with the data returned from the Reddit API."""
 
 
-class EndpointError(ErrorFillable, RedditError):
-    """Something's wrong with an endpoint."""
+class RedditObjectNotFoundError(
+        ErrorWithConfigItem, RedditError, SubManagerUserError):
+    """An object is not found or unavailible on Reddit."""
 
-    _message_pre: ClassVar[str] = "Endpoint error"
-    _message_template: ClassVar[str] = (
-        "{message_pre} for sync endpoint {config}")
-
-    def __init__(
-            self,
-            config: EndpointConfig,
-            message_pre: str | None = None,
-            message_post: str | BaseException | None = None,
-            **extra_fillables: str,
-            ) -> None:
-        self.endpoint_config = config
-        super().__init__(
-            message_pre=message_pre,
-            message_post=message_post,
-            config=repr(self.endpoint_config),
-            **extra_fillables)
+    _message_pre: ClassVar[str] = "Reddit object"
+    _message_template: ClassVar[str] = "not found or inaccessable in {config}"
 
 
-class WidgetError(EndpointError):
-    """Errors that occur with a subreddit's sidebar and topbar widgets."""
+class SubredditNotFoundError(RedditObjectNotFoundError):
+    """Could not access subreddit due to name being not found or blocked."""
 
 
-class WidgetModelError(WidgetError):
-    """The sidebar/topbar widget's data model didn't match that required."""
+class RedditModelError(ErrorWithConfigItem, RedditError):
+    """The object's data model didn't match that required."""
 
 
-class WidgetTypeError(WidgetError, SubManagerUserError):
-    """A widget was found with the given name, but is of the wrong type."""
-
-
-class WidgetNotFoundError(WidgetError, SubManagerUserError):
-    """Missing New Reddit sidebar widget or menu, try creating it."""
+class WidgetTypeError(ErrorWithConfigItem, RedditError, SubManagerUserError):
+    """A widget was found with the given name, but is of unsupported type."""
 
 
 # ---- Authorization-related exceptions ----
 
-class AuthError(SubManagerUserError):
+class AuthError(RedditError, SubManagerUserError):
     """Errors related to user authentication."""
 
 
@@ -966,7 +1009,7 @@ class ConfigErrorWithPath(ConfigError, ErrorFillable):
 
     _message_pre: ClassVar[str] = "Error"
     _message_template: ClassVar[str] = (
-        "{message_pre} for config file at path {config_path!r}")
+        "for config file at path {config_path!r}")
 
     def __init__(
             self,
@@ -1024,7 +1067,7 @@ class ConfigErrorWithAccount(ConfigError, ErrorFillable):
 
     _message_pre: ClassVar[str] = "Configuration error"
     _message_template: ClassVar[str] = (
-        "{message_pre} for Reddit account {account_key!r}")
+        "for Reddit account {account_key!r}")
 
     def __init__(
             self,
@@ -1044,13 +1087,13 @@ class ConfigErrorWithAccount(ConfigError, ErrorFillable):
 class ConfigPRAWError(ConfigErrorWithAccount):
     """PRAW error loading the Reddit account configuration."""
 
-    _message_template_sub: ClassVar[str] = "PRAW error on initialization"
+    _message_pre: ClassVar[str] = "PRAW error on initialization"
 
 
 class ConfigAuthError(ConfigErrorWithAccount, AuthError):
     """PRAW error loading the Reddit account configuration."""
 
-    _message_template_sub: ClassVar[str] = "Account authorization failure"
+    _message_pre: ClassVar[str] = "Account authorization failure"
 
 
 # ----------------- Config handling -----------------
