@@ -1633,8 +1633,9 @@ def setup_accounts(
 def setup_config(
         config_paths: ConfigPaths | None = None,
         error_default: bool = True,
-        ) -> tuple[StaticConfig, DynamicConfig, AccountsMap]:
+        ) -> tuple[StaticConfig, DynamicConfig]:
     """Load the config and set up the accounts mapping."""
+    # Load the configuration
     config_paths = ConfigPaths() if config_paths is None else config_paths
     static_config = load_static_config(config_paths.static)
     dynamic_config = load_dynamic_config(
@@ -1644,6 +1645,17 @@ def setup_config(
     if error_default and static_config.accounts == EXAMPLE_ACCOUNTS:
         raise ConfigDefaultError(config_paths.static)
 
+    return static_config, dynamic_config
+
+
+def setup_config_accounts(
+        config_paths: ConfigPaths | None = None,
+        error_default: bool = True,
+        ) -> tuple[StaticConfig, DynamicConfig, AccountsMap]:
+    """Load the config and set up the accounts mapping."""
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    static_config, dynamic_config = setup_config(
+        config_paths=config_paths, error_default=error_default)
     accounts = setup_accounts(
         static_config.accounts, config_path_refresh=config_paths.refresh)
     return static_config, dynamic_config, accounts
@@ -1690,10 +1702,16 @@ def generate_config(
     print(message.format(action=action))
 
 
-def validate_config(config_paths: ConfigPaths | None = None) -> None:
+def validate_config(
+        config_paths: ConfigPaths | None = None,
+        offline: bool = False,
+        ) -> None:
     """Ensure the config is valid, raising an error if it is not."""
     config_paths = ConfigPaths() if config_paths is None else config_paths
-    setup_config(config_paths=config_paths)
+    if offline:
+        setup_config(config_paths=config_paths, error_default=True)
+    else:
+        setup_config_accounts(config_paths=config_paths, error_default=True)
     print(f"Config at {config_paths.static.as_posix()} is valid")
 
 
@@ -1705,7 +1723,8 @@ def run_manage(
     """Load the config file and run the thread manager."""
     # Load config and set up session
     config_paths = ConfigPaths() if config_paths is None else config_paths
-    static_config, dynamic_config, accounts = setup_config(config_paths)
+    static_config, dynamic_config, accounts = setup_config_accounts(
+        config_paths)
     dynamic_config_active = dynamic_config.copy(deep=True)
 
     # Run the core manager tasks
@@ -1727,7 +1746,7 @@ def start_manage(
     # Load config and set up session
     __: Any
     config_paths = ConfigPaths() if config_paths is None else config_paths
-    static_config, __, __ = setup_config(config_paths)
+    static_config, __ = setup_config(config_paths)
 
     if repeat_interval_s is None:
         repeat_interval_s = static_config.repeat_interval_s
@@ -1822,6 +1841,11 @@ def create_arg_parser() -> argparse.ArgumentParser:
         argument_default=argparse.SUPPRESS,
         )
     parser_validate.set_defaults(func=validate_config)
+    parser_validate.add_argument(
+        "--offline",
+        action="store_true",
+        help="Just validate the config locally, don't call out to Reddit",
+        )
 
     # Run the bot once
     run_desc = "Run the bot through one cycle and exit"
