@@ -27,7 +27,6 @@ from typing import (
     List,  # Not needed in Python 3.9
     Mapping,  # Import from collections.abc in Python 3.9
     MutableMapping,  # Import from collections.abc in Python 3.9
-    NoReturn,
     Pattern,  # Import from re in Python 3.9
     Sequence,  # Import from collections.abc in Python 3.9
     TYPE_CHECKING,
@@ -681,8 +680,10 @@ def extract_text(
 class EditableTextWidgetModeration(Protocol):
     """Widget moderation object with editable text."""
 
+    @abc.abstractmethod
     def update(self, text: str) -> None:
         """Update method that takes a string."""
+        raise NotImplementedError
 
 
 @runtime_checkable
@@ -693,6 +694,17 @@ class EditableTextWidget(Protocol):
     text: str
 
 
+@runtime_checkable
+class RevisionDateCheckable(Protocol):
+    """An object with a retrievable revision date."""
+
+    @property
+    @abc.abstractmethod
+    def revision_date(self) -> int:
+        """Get the date the sync endpoint was last updated."""
+        raise NotImplementedError
+
+
 class SyncEndpoint(metaclass=abc.ABCMeta):
     """Abstraction of a source or target for a Reddit sync action."""
 
@@ -701,7 +713,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         """Set up the underlying PRAW object the endpoint will use."""
         raise NotImplementedError
 
-    def _validate_object(self) -> None:
+    def _validate_object(self) -> bool:
         """Validate the the object exits and has the needed properties."""
         try:
             self.content
@@ -711,15 +723,19 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
                 message_pre=f"Reddit object {self._object!r}",
                 message_post=error,
                 ) from error
+        else:
+            return True
 
     def __init__(
             self,
             config: EndpointConfig,
             reddit: praw.reddit.Reddit,
             validate: bool = False,
+            raise_error: bool = True,
             ) -> None:
         self.config = config
         self._reddit = reddit
+        self._validated: bool | None = None
 
         self._subreddit: praw.models.reddit.subreddit.Subreddit = (
             self._reddit.subreddit(self.config.context.subreddit))
@@ -735,41 +751,95 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
 
         self._object = self._setup_object()
         if validate:
-            self._validate_object()
+            self._validated = self.validate(raise_error=raise_error)
 
     @property
     @abc.abstractmethod
     def content(self) -> str | MenuData:
         """Get the current content of the sync endpoint."""
+        raise NotImplementedError
 
     @abc.abstractmethod
     def edit(self, new_content: object, reason: str = "") -> None:
         """Update the sync endpoint with the given content."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _check_is_editable(self, raise_error: bool = True) -> bool:
+        """Check if the object can be edited by the user, w/o validation."""
+
+    def check_is_editable(self, raise_error: bool = True) -> bool | None:
+        """Check if the object can be edited by the user, with validation."""
+        if self._validated is None or (
+                self._validated is False and raise_error):
+            self.validate(raise_error=raise_error)
+        if not self.is_valid:
+            return None
+        return self._check_is_editable(raise_error=raise_error)
 
     @property
-    @abc.abstractmethod
-    def revision_date(self) -> int | NoReturn:
-        """Get the date the sync endpoint was last updated, if supported."""
+    def is_editable(self) -> bool | None:
+        """Is True if the object is editable by the user, False otherwise."""
+        return self.check_is_editable(raise_error=False)
+
+    @property
+    def is_valid(self) -> bool:
+        """Is true if the object is validated, false if not."""
+        if self._validated is None:
+            return self.validate(raise_error=False)
+        return self._validated
 
     def validate(self, raise_error: bool = True) -> bool:
         """Validate that the sync endpoint points to a valid Reddit object."""
         try:
             self._validate_object()
         except RedditObjectNotFoundError:
+            self._validated = False
             if not raise_error:
                 return False
             raise
-        return True
+        else:
+            self._validated = True
+            return True
 
 
-class MenuSyncEndpoint(SyncEndpoint):
+class WidgetSyncEndpoint(SyncEndpoint, metaclass=abc.ABCMeta):
+    """Sync endpoint reprisenting a generic New Reddit widget."""
+
+    _object: praw.models.reddit.widgets.Widget | EditableTextWidget
+
+    @abc.abstractmethod
+    def _setup_object(
+            self) -> praw.models.reddit.widgets.Widget | EditableTextWidget:
+        """Set up the underlying PRAW object the endpoint will use."""
+        raise NotImplementedError
+
+    def _check_is_editable(self, raise_error: bool = True) -> bool:
+        """Is True if the widget is editable, False otherwise."""
+        try:
+            self._object.mod.update()  # type: ignore[call-arg]
+        except prawcore.exceptions.Forbidden as error:
+            if not raise_error:
+                return False
+            raise NotAModError(
+                self.config,
+                message_pre=(f"Account {self.config.context.account!r} must "
+                             "be a moderator to update widgets"),
+                message_post=error,
+                ) from error
+        else:
+            return True
+
+
+class MenuSyncEndpoint(WidgetSyncEndpoint):
     """Sync endpoint reprisenting a New Reddit top bar menu widget."""
 
     _object: praw.models.reddit.widgets.Menu
 
     def _setup_object(self) -> praw.models.reddit.widgets.Menu:
         """Set up the menu widget object for syncing to a menu."""
-        for widget in self._subreddit.widgets.topbar:
+        widgets = self._subreddit.widgets.topbar
+        for widget in widgets:
             if isinstance(widget, praw.models.reddit.widgets.Menu):
                 return widget
         raise RedditObjectNotFoundError(
@@ -797,13 +867,8 @@ class MenuSyncEndpoint(SyncEndpoint):
         """Update the menu with the given structured data."""
         self._object.mod.update(data=new_content)
 
-    @property
-    def revision_date(self) -> NoReturn:
-        """Get the date the endpoint was updated; not supported for menus."""
-        raise NotImplementedError
 
-
-class ThreadSyncEndpoint(SyncEndpoint):
+class ThreadSyncEndpoint(SyncEndpoint, RevisionDateCheckable):
     """Sync endpoint reprisenting a Reddit thread (selfpost submission)."""
 
     _object: praw.models.reddit.submission.Submission
@@ -824,6 +889,37 @@ class ThreadSyncEndpoint(SyncEndpoint):
         """Update the thread's text to be that passed."""
         self._object.edit(str(new_content))
 
+    def _check_is_editable(self, raise_error: bool = True) -> bool:
+        """Is True if the thread is editable, False otherwise."""
+        try:
+            self.edit(self.content)
+        except prawcore.exceptions.Forbidden as error:
+            if not raise_error:
+                return False
+            raise NotOPError(
+                self.config,
+                message_pre=(
+                    f"Account {self.config.context.account!r} used to edit "
+                    f"the post {self._object.title!r} ({self._object.id}) "
+                    f"must be the OP {self._object.author.name!r}"),
+                message_post=error,
+                ) from error
+        except praw.exceptions.RedditAPIException as error:
+            for reddit_error in error.items:
+                if reddit_error.error_type.lower().strip() == "placeholder":
+                    if not raise_error:
+                        return False
+                    raise PostTypeError(
+                        self.config,
+                        message_pre=(
+                            f"Cannot edit link post {self._object.title!r} "
+                            f"({self._object.id}); must be a selfpost"),
+                        message_post=error,
+                        ) from error
+            raise
+        else:
+            return True
+
     @property
     def revision_date(self) -> int:
         """Get the date the thread was last edited."""
@@ -833,14 +929,15 @@ class ThreadSyncEndpoint(SyncEndpoint):
         return edited_date
 
 
-class WidgetSyncEndpoint(SyncEndpoint):
+class SidebarWidgetSyncEndpoint(WidgetSyncEndpoint):
     """Sync endpoint reprisenting a New Reddit sidebar text content widget."""
 
     _object: EditableTextWidget
 
     def _setup_object(self) -> EditableTextWidget:
         """Set up the widget object for syncing to a sidebar widget."""
-        for widget in self._subreddit.widgets.sidebar:
+        widgets = self._subreddit.widgets.sidebar
+        for widget in widgets:
             if getattr(widget, "shortName", None) == self.config.endpoint_name:
                 if isinstance(widget, EditableTextWidget):
                     return widget
@@ -867,13 +964,8 @@ class WidgetSyncEndpoint(SyncEndpoint):
         """Update the sidebar widget with the given text content."""
         self._object.mod.update(text=str(new_content))
 
-    @property
-    def revision_date(self) -> NoReturn:
-        """Get the date the endpoint was updated; not supported for widgets."""
-        raise NotImplementedError
 
-
-class WikiSyncEndpoint(SyncEndpoint):
+class WikiSyncEndpoint(SyncEndpoint, RevisionDateCheckable):
     """Sync endpoint reprisenting a Reddit wiki page."""
 
     _object: praw.models.reddit.wikipage.WikiPage
@@ -894,6 +986,30 @@ class WikiSyncEndpoint(SyncEndpoint):
         """Update the wiki page with the given text."""
         self._object.edit(str(new_content), reason=reason)
 
+    def _check_is_editable(self, raise_error: bool = True) -> bool:
+        """Is True if the wiki page is editable, False otherwise."""
+        try:
+            self.edit(self.content, reason="Validation edit from Sub Manager")
+        except (prawcore.exceptions.Forbidden,
+                praw.exceptions.RedditAPIException) as error:
+            if isinstance(error, praw.exceptions.RedditAPIException):
+                for reddit_error in error.items:
+                    if reddit_error.error_type.upper() == "WIKI_CREATE_ERROR":
+                        break
+                else:
+                    raise
+            if not raise_error:
+                return False
+            raise WikiPageAuthError(
+                self.config,
+                message_pre=(f"Account {self.config.context.account!r} "
+                             "must be authorized to access wiki page "
+                             f"{self.config.endpoint_name!r}"),
+                message_post=error,
+                ) from error
+        else:
+            return True
+
     @property
     def revision_date(self) -> int:
         """Get the date the wiki page was last updated."""
@@ -904,7 +1020,7 @@ class WikiSyncEndpoint(SyncEndpoint):
 SYNC_ENDPOINT_TYPES: Final[Mapping[EndpointType, type[SyncEndpoint]]] = {
     EndpointType.MENU: MenuSyncEndpoint,
     EndpointType.THREAD: ThreadSyncEndpoint,
-    EndpointType.WIDGET: WidgetSyncEndpoint,
+    EndpointType.WIDGET: SidebarWidgetSyncEndpoint,
     EndpointType.WIKI_PAGE: WikiSyncEndpoint,
     }
 
@@ -913,10 +1029,15 @@ def create_sync_endpoint_from_config(
         config: EndpointTypeConfig,
         reddit: praw.reddit.Reddit,
         validate: bool = False,
+        raise_error: bool = True,
         ) -> SyncEndpoint:
     """Create a new sync endpoint given a particular config and Reddit obj."""
     sync_endpoint = SYNC_ENDPOINT_TYPES[config.endpoint_type](
-        config=config, reddit=reddit, validate=validate)
+        config=config,
+        reddit=reddit,
+        validate=validate,
+        raise_error=raise_error,
+        )
     return sync_endpoint
 
 
@@ -1024,6 +1145,10 @@ class RedditModelError(ErrorWithConfigItem, RedditError):
     """The object's data model didn't match that required."""
 
 
+class PostTypeError(ErrorWithConfigItem, RedditError, SubManagerUserError):
+    """The post was found, but it was of the wrong type (link/self)."""
+
+
 class WidgetTypeError(ErrorWithConfigItem, RedditError, SubManagerUserError):
     """A widget was found with the given name, but is of unsupported type."""
 
@@ -1032,6 +1157,22 @@ class WidgetTypeError(ErrorWithConfigItem, RedditError, SubManagerUserError):
 
 class AuthError(RedditError, SubManagerUserError):
     """Errors related to user authentication."""
+
+
+class NotAModError(AuthError, ErrorWithConfigItem):
+    """The user needs to be a moderator to perform the requested action."""
+
+
+class NotOPError(AuthError, ErrorWithConfigItem):
+    """The user needs to be the post OP to perform the requested action."""
+
+
+class WikiPageAuthError(AuthError, ErrorWithConfigItem):
+    """The user is not authorized to edit the given wiki page."""
+
+
+class InsufficientScopeError(AuthError, ErrorWithConfigItem):
+    """The token needs a particular OAUTH scope it wasn't authorized for."""
 
 
 class NoAuthorizedScopesError(AuthError):
@@ -1697,11 +1838,9 @@ def process_source_endpoint(
         dynamic_config: DynamicSyncConfig,
         ) -> str | MenuData | Literal[False]:
     """Get and preprocess the text from a source if its out of date."""
-    try:
+    # If source has revision date, check it and skip if unchanged
+    if isinstance(source_obj, RevisionDateCheckable):
         source_timestamp = source_obj.revision_date
-    except NotImplementedError:  # Always update if source has no timestamp
-        pass
-    else:
         source_updated = (
             source_timestamp > dynamic_config.source_timestamp)
         if not source_updated:
@@ -1942,11 +2081,35 @@ def setup_config(
 
 
 def validate_endpoint(
-        config: EndpointTypeConfig, accounts: AccountsMap) -> None:
+        config: EndpointTypeConfig,
+        accounts: AccountsMap,
+        check_editable: bool | None = None,
+        ) -> None:
     """Validate that the sync endpoint points to a valid Reddit object."""
+    if check_editable is None:
+        check_editable = "target" in config.uid
     reddit = accounts[config.context.account]
-    create_sync_endpoint_from_config(
-        config=config, reddit=reddit, validate=True)
+    detail_urls = [
+        "https://www.reddit.com/dev/api/oauth",
+        "https://praw.readthedocs.io/en/stable/tutorials/refresh_token.html",
+        ]
+    endpoint = None
+    try:
+        endpoint = create_sync_endpoint_from_config(
+            config=config, reddit=reddit, validate=True, raise_error=True)
+        if check_editable:
+            endpoint.check_is_editable(raise_error=True)
+    except prawcore.exceptions.InsufficientScope as error:
+        raise InsufficientScopeError(
+            config,
+            message_pre=(
+                f"Could not {'edit' if endpoint else 'retrieve'} "
+                f"{config.endpoint_type!s} due to "
+                f"the refresh token for account {config.context.account!r} "
+                "not including the required OAUTH scope for this operation "
+                f"(see {' or '.join(detail_urls)!s} for details)"),
+            message_post=error,
+            ) from error
 
 
 def get_all_endpoints(
