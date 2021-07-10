@@ -111,6 +111,39 @@ def print_error(error: BaseException) -> None:
     print(format_error(error))
 
 
+def wrap_text(
+        text: str,
+        level: int | None = None,
+        char: str = "#",
+        step: int = 6,
+        ) -> str:
+    """Wrap the text in the specific characters."""
+    if level and level > 0:
+        wrapping = char * (level * step)
+        text = f"{wrapping} {text} {wrapping}"
+    return text
+
+
+class VerbosePrinter:
+    """Simple wrapper that only prints if verbose is set."""
+
+    def __init__(
+            self,
+            verbose: bool = False,
+            char: str = "#",
+            step: int = 6,
+            ) -> None:
+        self.verbose = verbose
+        self.char = char
+        self.step = step
+
+    def __call__(self, *text: str, level: int | None = None) -> None:
+        """If verbose is set, print the text."""
+        if self.verbose:
+            print(wrap_text(
+                " ".join(text), level=level, char=self.char, step=self.step))
+
+
 # Replace with StrEnum in Python 3.10
 class StrValueEnum(enum.Enum):
     """Enum whose repr and str and just the values, for easy serialization."""
@@ -718,7 +751,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
     def revision_date(self) -> int | NoReturn:
         """Get the date the sync endpoint was last updated, if supported."""
 
-    def validate(self, raise_error: bool = False) -> bool:
+    def validate(self, raise_error: bool = True) -> bool:
         """Validate that the sync endpoint points to a valid Reddit object."""
         try:
             self._validate_object()
@@ -1189,7 +1222,7 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
         for target_key, target_config in sync_pair.get("targets", {}).items():
             target_config.update(
                 update_dict_recursive(sync_defaults_item, target_config))
-            target_config["uid"] = sync_pair["uid"] + f"targets.{target_key}"
+            target_config["uid"] = sync_pair["uid"] + f".targets.{target_key}"
 
     thread_defaults: StrMap = update_dict_recursive(
         {"context": context_default},
@@ -1260,6 +1293,25 @@ def load_static_config(
             config_path, message_post=error) from error
 
     return static_config
+
+
+def generate_static_config(
+        config_path: PathLikeStr = CONFIG_PATH_STATIC,
+        force: bool = False,
+        exist_ok: bool = False,
+        ) -> bool:
+    """Generate a static config file with the default example settings."""
+    config_path = Path(config_path)
+    config_exists = config_path.exists()
+    if config_exists:
+        if exist_ok:
+            return config_exists
+        if not force:
+            raise ConfigExistsError(config_path)
+
+    example_config = EXAMPLE_STATIC_CONFIG.dict(exclude=EXAMPLE_EXCLUDE_FIELDS)
+    write_config(config=example_config, config_path=config_path)
+    return config_exists
 
 
 # ---- Dynamic config ----
@@ -1791,7 +1843,7 @@ def handle_refresh_tokens(
 
 
 def check_reddit_auth_valid(
-        reddit: praw.reddit.Reddit, raise_error: bool = False) -> bool:
+        reddit: praw.reddit.Reddit, raise_error: bool = True) -> bool:
     """Check if the Reddit account associated with the object is authorized."""
     if reddit.read_only:
         if not raise_error:
@@ -1820,12 +1872,20 @@ def check_reddit_auth_valid(
 def setup_accounts(
         accounts_config: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        validate: bool = True,
+        verbose: bool = False,
         ) -> AccountsMap:
     """Set up the PRAW Reddit objects for each account in the config."""
+    vprint = VerbosePrinter(verbose)
+
+    vprint("Processing refresh tokens at path "
+           f"{Path(config_path_refresh).as_posix()!r}")
     accounts_config_processed = handle_refresh_tokens(
         accounts_config, config_path_refresh=config_path_refresh)
+
     accounts = {}
     for account_key, account_kwargs in accounts_config_processed.items():
+        vprint(f"Setting up account {account_key!r}")
         try:
             reddit = praw.reddit.Reddit(
                 user_agent=USER_AGENT,
@@ -1838,13 +1898,18 @@ def setup_accounts(
                 ) as error:
             raise ConfigPRAWError(account_key, message_post=error) from error
         reddit.validate_on_submit = True
-        try:
-            check_reddit_auth_valid(reddit, raise_error=True)
-        except (praw.exceptions.PRAWException,
-                prawcore.exceptions.PrawcoreException,
-                AuthError,
-                ) as error:
-            raise ConfigAuthError(account_key, message_post=error) from error
+
+        if validate:
+            vprint(f"Validating account {account_key!r}")
+            try:
+                check_reddit_auth_valid(reddit, raise_error=True)
+            except (praw.exceptions.PRAWException,
+                    prawcore.exceptions.PrawcoreException,
+                    AuthError,
+                    ) as error:
+                raise ConfigAuthError(
+                    account_key, message_post=error) from error
+
         accounts[account_key] = reddit
     return accounts
 
@@ -1852,90 +1917,143 @@ def setup_accounts(
 def setup_config(
         config_paths: ConfigPaths | None = None,
         error_default: bool = True,
+        verbose: bool = False,
         ) -> tuple[StaticConfig, DynamicConfig]:
     """Load the config and set up the accounts mapping."""
-    # Load the configuration
+    vprint = VerbosePrinter(verbose)
     config_paths = ConfigPaths() if config_paths is None else config_paths
+
+    # Load the configuration
+    vprint("Loading static configuration at path "
+           f"{config_paths.static.as_posix()!r}")
     static_config = load_static_config(config_paths.static)
+    vprint("Loading dynamic configuration at path "
+           f"{config_paths.dynamic.as_posix()!r}")
     dynamic_config = load_dynamic_config(
         static_config=static_config, config_path=config_paths.dynamic)
 
     # If default config was generated and is unmodified, raise an error
-    if error_default and static_config.accounts == EXAMPLE_ACCOUNTS:
-        raise ConfigDefaultError(config_paths.static)
+    if error_default:
+        vprint("Checking that config has been set up")
+        if static_config.accounts == EXAMPLE_ACCOUNTS:
+            raise ConfigDefaultError(config_paths.static)
 
     return static_config, dynamic_config
 
 
-def setup_config_accounts(
-        config_paths: ConfigPaths | None = None,
-        error_default: bool = True,
-        ) -> tuple[StaticConfig, DynamicConfig, AccountsMap]:
-    """Load the config and set up the accounts mapping."""
-    config_paths = ConfigPaths() if config_paths is None else config_paths
-    static_config, dynamic_config = setup_config(
-        config_paths=config_paths, error_default=error_default)
-    accounts = setup_accounts(
-        static_config.accounts, config_path_refresh=config_paths.refresh)
-    return static_config, dynamic_config, accounts
-
-
 def validate_endpoint(
-        config: FullEndpointConfig, accounts: AccountsMap) -> None:
+        config: EndpointTypeConfig, accounts: AccountsMap) -> None:
     """Validate that the sync endpoint points to a valid Reddit object."""
-    if config.enabled:
-        reddit = accounts[config.context.account]
-        create_sync_endpoint_from_config(
-            config=config, reddit=reddit, validate=True)
+    reddit = accounts[config.context.account]
+    create_sync_endpoint_from_config(
+        config=config, reddit=reddit, validate=True)
+
+
+def get_all_endpoints(
+        static_config: StaticConfig,
+        include_disabled: bool = False,
+        ) -> list[FullEndpointConfig]:
+    """Get all sync endpoints defined in the current static config."""
+    all_endpoints: list[FullEndpointConfig] = []
+    if include_disabled or static_config.sync.enabled:
+        for sync_pair in static_config.sync.pairs.values():
+            if include_disabled or sync_pair.enabled:
+                all_endpoints.append(sync_pair.source)
+                all_endpoints += list(sync_pair.targets.values())
+    if include_disabled or static_config.megathread.enabled:
+        for thread in static_config.megathread.megathreads.values():
+            if include_disabled or thread.enabled:
+                all_endpoints.append(thread.source)
+    if not include_disabled:
+        all_endpoints = [
+            endpoint for endpoint in all_endpoints if endpoint.enabled]
+    return all_endpoints
 
 
 def validate_endpoints(
-        static_config: StaticConfig, accounts: AccountsMap) -> None:
+        static_config: StaticConfig,
+        accounts: AccountsMap,
+        include_disabled: bool = False,
+        verbose: bool = False,
+        ) -> None:
     """Validate all the endpoints defined in the config."""
-    if static_config.sync.enabled:
-        for sync_pair in static_config.sync.pairs.values():
-            if sync_pair.enabled:
-                validate_endpoint(sync_pair.source, accounts=accounts)
-                for target_config in sync_pair.targets.values():
-                    validate_endpoint(target_config, accounts=accounts)
-    if static_config.megathread.enabled:
-        for thread in static_config.megathread.megathreads.values():
-            if thread.enabled:
-                validate_endpoint(thread.source, accounts=accounts)
+    vprint = VerbosePrinter(verbose)
+    vprint("Extracting all endpoints from config")
+    all_endpoints = get_all_endpoints(
+        static_config=static_config, include_disabled=include_disabled)
+
+    for endpoint in all_endpoints:
+        vprint(f"Validating endpoint {endpoint.uid!r}")
+        validate_endpoint(config=endpoint, accounts=accounts)
+
+
+def validate_all_config(
+        config_paths: ConfigPaths | None = None,
+        offline: bool = False,
+        raise_error: bool = True,
+        verbose: bool = False,
+        ) -> bool:
+    """Check if the config is valid."""
+    __: Any
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    vprint = VerbosePrinter(verbose)
+    vprint("Validating configuration in "
+           f"{'offline' if offline else 'online'} mode", level=2)
+
+    try:
+        vprint("Checking offline config", level=1)
+        static_config, __ = setup_config(
+            config_paths=config_paths, error_default=True, verbose=verbose)
+        if not offline:
+            vprint("Checking accounts", level=1)
+            accounts = setup_accounts(
+                static_config.accounts,
+                config_path_refresh=config_paths.refresh,
+                verbose=verbose,
+                )
+            vprint("Checking endpoints", level=1)
+            validate_endpoints(
+                static_config=static_config,
+                accounts=accounts,
+                verbose=verbose,
+                )
+    except SubManagerUserError:
+        vprint("Config validation FAILED", level=2)
+        if not raise_error:
+            return False
+        raise
+    except Exception:
+        vprint("Unexpected error occured during config validation!", level=2)
+        raise
+    else:
+        vprint("Config validation SUCCEEDED", level=2)
+        return True
 
 
 def run_initial_setup(
         config_paths: ConfigPaths | None = None,
+        validate: bool = True,
         ) -> tuple[StaticConfig, AccountsMap]:
     """Run initial run-time setup for each time the application is started."""
     __: Any
-    validate_config(config_paths=config_paths)
-    static_config, __, accounts = setup_config_accounts(config_paths)
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    if validate:
+        validate_all_config(
+            config_paths=config_paths,
+            offline=False,
+            raise_error=True,
+            verbose=True,
+            )
+    static_config, __ = setup_config(
+        config_paths=config_paths, error_default=True)
+    accounts = setup_accounts(
+        static_config.accounts, config_path_refresh=config_paths.refresh)
     return static_config, accounts
 
 
 # ---- High level command code ----
 
-def generate_static_config(
-        config_path: PathLikeStr = CONFIG_PATH_STATIC,
-        force: bool = False,
-        exist_ok: bool = False,
-        ) -> bool:
-    """Generate a static config file with the default example settings."""
-    config_path = Path(config_path)
-    config_exists = config_path.exists()
-    if config_exists:
-        if exist_ok:
-            return config_exists
-        if not force:
-            raise ConfigExistsError(config_path)
-
-    example_config = EXAMPLE_STATIC_CONFIG.dict(exclude=EXAMPLE_EXCLUDE_FIELDS)
-    write_config(config=example_config, config_path=config_path)
-    return config_exists
-
-
-def generate_config(
+def run_generate_config(
         config_paths: ConfigPaths | None = None,
         force: bool = False,
         exist_ok: bool = False,
@@ -1955,22 +2073,17 @@ def generate_config(
     print(message.format(action=action))
 
 
-def validate_config(
+def run_validate_config(
         config_paths: ConfigPaths | None = None,
         offline: bool = False,
         ) -> None:
-    """Ensure the config is valid, raising an error if it is not."""
-    __: Any
-    config_paths = ConfigPaths() if config_paths is None else config_paths
-    print(f"Validating configuration at {config_paths.static.as_posix()!r}")
-
-    if offline:
-        setup_config(config_paths=config_paths, error_default=True)
-    else:
-        static_config, __, accounts = setup_config_accounts(
-            config_paths=config_paths, error_default=True)
-        validate_endpoints(static_config=static_config, accounts=accounts)
-    print("Configuration is valid")
+    """Check if the config is valid, raising an error if it is not."""
+    validate_all_config(
+        config_paths=config_paths,
+        offline=offline,
+        raise_error=True,
+        verbose=True,
+        )
 
 
 # ---- Core run code ----
@@ -2065,11 +2178,10 @@ def create_arg_parser() -> argparse.ArgumentParser:
         help="Print the version number and exit",
         )
     parser_main.add_argument(
-        "-v",
-        "--verbose",
+        "--debug",
         action="store_true",
         default=False,
-        help="Print more information about errors and other issues",
+        help="Print full debug output instead of just user-friendly text",
         )
     parser_main.add_argument(
         "--config-path",
@@ -2095,7 +2207,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         help=generate_desc,
         argument_default=argparse.SUPPRESS,
         )
-    parser_generate.set_defaults(func=generate_config)
+    parser_generate.set_defaults(func=run_generate_config)
     parser_generate.add_argument(
         "--force",
         action="store_true",
@@ -2115,7 +2227,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         help=validate_desc,
         argument_default=argparse.SUPPRESS,
         )
-    parser_validate.set_defaults(func=validate_config)
+    parser_validate.set_defaults(func=run_validate_config)
     parser_validate.add_argument(
         "--offline",
         action="store_true",
@@ -2189,13 +2301,14 @@ def main(sys_argv: list[str] | None = None) -> None:
     """Run the main function for the Megathread Manager CLI and dispatch."""
     parser_main = create_arg_parser()
     parsed_args = parser_main.parse_args(sys_argv)
-    verbose: bool = vars(parsed_args).pop("verbose")
+    debug: bool = vars(parsed_args).pop("debug")
     try:
         handle_parsed_args(parsed_args)
     except SubManagerUserError as error:
-        if verbose:
+        if debug:
             raise
-        sys.exit("\n" + format_error(error) + "\n")
+        error_text = f"\n{'v' * 70}\n{format_error(error)}\n{'^' * 70}\n"
+        sys.exit(error_text)
 
 
 if __name__ == "__main__":
