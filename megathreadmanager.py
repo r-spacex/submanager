@@ -2259,6 +2259,7 @@ def validate_config(
             accounts = setup_accounts(
                 static_config.accounts,
                 config_path_refresh=config_paths.refresh,
+                validate=True,
                 verbose=verbose,
                 )
             vprint("Checking endpoints", level=1)
@@ -2292,7 +2293,10 @@ def run_initial_setup(
     static_config, __ = setup_config(
         config_paths=config_paths, error_default=True)
     accounts = setup_accounts(
-        static_config.accounts, config_path_refresh=config_paths.refresh)
+        static_config.accounts,
+        config_path_refresh=config_paths.refresh,
+        validate=False,
+        )
     return static_config, accounts
 
 
@@ -2371,10 +2375,12 @@ def run_manage_once(
 
 def run_manage(
         config_paths: ConfigPaths | None = None,
+        skip_validate: bool = False,
         ) -> None:
     """Load the config file and run the thread manager."""
     config_paths = ConfigPaths() if config_paths is None else config_paths
-    static_config, accounts = run_initial_setup(config_paths)
+    static_config, accounts = run_initial_setup(
+        config_paths, validate=not skip_validate)
     run_manage_once(
         static_config=static_config,
         accounts=accounts,
@@ -2385,12 +2391,14 @@ def run_manage(
 def start_manage(
         config_paths: ConfigPaths | None = None,
         repeat_interval_s: float | None = None,
+        skip_validate: bool = False,
         ) -> None:
     """Run the mainloop of sub-manager, performing each task in sequance."""
     # Load config and set up session
     print("Starting Sub Manager")
     config_paths = ConfigPaths() if config_paths is None else config_paths
-    static_config, accounts = run_initial_setup(config_paths)
+    static_config, accounts = run_initial_setup(
+        config_paths, validate=not skip_validate)
 
     if repeat_interval_s is None:
         repeat_interval_s = static_config.repeat_interval_s
@@ -2500,6 +2508,11 @@ def create_arg_parser() -> argparse.ArgumentParser:
         argument_default=argparse.SUPPRESS,
         )
     parser_run.set_defaults(func=run_manage)
+    parser_run.add_argument(
+        "--skip-validate",
+        action="store_true",
+        help="Don't validate the config against Reddit prior to executing it",
+        )
 
     # Start the bot running
     start_desc = "Start the bot running continously until stopped or errored"
@@ -2516,6 +2529,11 @@ def create_arg_parser() -> argparse.ArgumentParser:
         metavar="N",
         help=("Run every N seconds, or the value from the config file "
               "variable repeat_interval_s if N isn't specified"),
+        )
+    parser_start.add_argument(
+        "--skip-validate",
+        action="store_true",
+        help="Don't validate the config against Reddit prior to executing it",
         )
 
     return parser_main
