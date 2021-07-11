@@ -350,6 +350,14 @@ class ConfigPaths(CustomBaseModel):
     static: Path = CONFIG_PATH_STATIC
 
 
+class ItemConfig(CustomBaseModel):
+    """Base class for an atomic unit in the config hiearchy."""
+
+    description: pydantic.StrictStr = ""
+    enabled: bool = True
+    uid: ItemIDStr
+
+
 class MenuConfig(CustomBaseModel):
     """Configuration to parse the menu data from Markdown text."""
 
@@ -395,13 +403,11 @@ class ContextConfig(CustomBaseModel):
         return value
 
 
-class EndpointConfig(CustomBaseModel):
+class EndpointConfig(ItemConfig):
     """Config params specific to sync endpoint setup."""
 
     context: ContextConfig
-    description: pydantic.StrictStr = ""
     endpoint_name: StripStr
-    uid: ItemIDStr
 
 
 class EndpointTypeConfig(EndpointConfig):
@@ -418,14 +424,11 @@ class FullEndpointConfig(EndpointTypeConfig, PatternConfig):
     replace_patterns: Mapping[NonEmptyStr, pydantic.StrictStr] = {}
 
 
-class SyncPairConfig(CustomBaseModel):
+class SyncPairConfig(ItemConfig):
     """Configuration object for a sync pair of a source and target(s)."""
 
-    description: pydantic.StrictStr = ""
-    enabled: bool = True
     source: FullEndpointConfig
     targets: Mapping[StripStr, FullEndpointConfig]
-    uid: ItemIDStr
 
     @pydantic.validator("targets")
     def check_targets(  # pylint: disable = no-self-use, no-self-argument
@@ -451,12 +454,10 @@ class InitialThreadConfig(CustomBaseModel):
     thread_number: pydantic.NonNegativeInt = 0
 
 
-class ThreadConfig(CustomBaseModel):
+class ThreadConfig(ItemConfig):
     """Configuration for a managed thread item."""
 
     context: ContextConfig
-    description: pydantic.StrictStr = ""
-    enabled: bool = True
     initial: InitialThreadConfig = InitialThreadConfig()
     link_update_pages: List[StripStr] = []
     new_thread_interval: Union[NonEmptyStr, Literal[False]] = "monthly"
@@ -467,7 +468,6 @@ class ThreadConfig(CustomBaseModel):
     post_title_template: StripStr = "{subreddit} Megathread (#{thread_number})"
     source: FullEndpointConfig
     target_context: ContextConfig
-    uid: ItemIDStr
 
     @pydantic.validator("new_thread_interval")
     def check_interval(  # pylint: disable = no-self-use, no-self-argument
@@ -1119,7 +1119,7 @@ class ErrorWithConfigItem(ErrorFillable):
 
     def __init__(
             self,
-            config_item: EndpointConfig | SyncPairConfig | ThreadConfig,
+            config_item: ItemConfig,
             message_pre: str | None = None,
             message_post: str | BaseException | None = None,
             **extra_fillables: str,
