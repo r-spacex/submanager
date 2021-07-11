@@ -738,7 +738,15 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         except PRAW_NOTFOUND_ERRORS as error:
             raise RedditObjectNotFoundError(
                 self.config,
-                message_pre=f"Reddit object {self._object!r}",
+                message_pre=(f"Reddit object {self._object!r} not found"),
+                message_post=error,
+                ) from error
+        except PRAW_FORBIDDEN_ERRORS as error:
+            raise RedditObjectNotAccessibleError(
+                self.config,
+                message_pre=(
+                    f"Reddit object {self._object!r} found but not accessible "
+                    f"from account {self.config.context.account!r}"),
                 message_post=error,
                 ) from error
         else:
@@ -762,7 +770,17 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         except PRAW_NOTFOUND_ERRORS as error:
             raise SubredditNotFoundError(
                 self.config,
-                message_pre=f"Subreddit 'r/{self.config.context.subreddit}'",
+                message_pre=(
+                    f"Sub 'r/{self.config.context.subreddit}' not found"),
+                message_post=error,
+                ) from error
+        except PRAW_FORBIDDEN_ERRORS as error:
+            raise SubredditNotAccessibleError(
+                self.config,
+                message_pre=(
+                    f"Sub 'r/{self.config.context.subreddit}' found but not "
+                    f"accessible from current account "
+                    f"{self.config.context.account!r}"),
                 message_post=error,
                 ) from error
 
@@ -810,7 +828,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         """Validate that the sync endpoint points to a valid Reddit object."""
         try:
             self._validate_object()
-        except RedditObjectNotFoundError:
+        except RedditError:
             self._validated = False
             if not raise_error:
                 return False
@@ -861,9 +879,10 @@ class MenuSyncEndpoint(WidgetSyncEndpoint):
                 return widget
         raise RedditObjectNotFoundError(
             self.config,
-            message_pre="Menu widget",
+            message_pre=("Menu widget not found in "
+                         f"'r/{self.config.context.subreddit}'"),
             message_post=(
-                "You may need to create it by adding at least one menu item"),
+                "You may need to create it by adding at least one menu item."),
             )
 
     @property
@@ -954,8 +973,12 @@ class SidebarWidgetSyncEndpoint(WidgetSyncEndpoint):
     def _setup_object(self) -> EditableTextWidget:
         """Set up the widget object for syncing to a sidebar widget."""
         widgets = self._subreddit.widgets.sidebar
+        names: list[str] = []
         for widget in widgets:
-            if getattr(widget, "shortName", None) == self.config.endpoint_name:
+            widget_name: str | None = getattr(widget, "shortName", None)
+            if not widget_name:
+                continue
+            if widget_name == self.config.endpoint_name:
                 if isinstance(widget, EditableTextWidget):
                     return widget
                 raise WidgetTypeError(
@@ -965,9 +988,12 @@ class SidebarWidgetSyncEndpoint(WidgetSyncEndpoint):
                     message_post=(
                         "Only text-content widgets are currently supported."),
                     )
+            names.append(widget_name)
         raise RedditObjectNotFoundError(
             self.config,
-            message_pre=f"Sidebar widget {self.config.endpoint_name!r}",
+            message_pre=(f"Sidebar widget {self.config.endpoint_name!r} "
+                         f"not found in 'r/{self.config.context.subreddit}' "
+                         f"(found widgets: {names if names else 'None'!s})"),
             message_post="If this is not a typo, please create it first.",
             )
 
@@ -1017,7 +1043,7 @@ class WikiSyncEndpoint(SyncEndpoint, RevisionDateCheckable):
                     raise
             if not raise_error:
                 return False
-            raise WikiPageAuthError(
+            raise WikiPagePermissionError(
                 self.config,
                 message_pre=(f"Account {self.config.context.account!r} "
                              "must be authorized to access wiki page "
@@ -1061,10 +1087,18 @@ def create_sync_endpoint_from_config(
 # ----------------- Error and exceptions -----------------
 
 PRAW_NOTFOUND_ERRORS: Final[tuple[type[Exception], ...]] = (
-    prawcore.exceptions.Forbidden,
     prawcore.exceptions.NotFound,
     prawcore.exceptions.Redirect,
+    )
+
+PRAW_FORBIDDEN_ERRORS: Final[tuple[type[Exception], ...]] = (
+    prawcore.exceptions.Forbidden,
     prawcore.exceptions.UnavailableForLegalReasons,
+    )
+
+PRAW_RETRIVAL_ERRORS: Final[tuple[type[Exception], ...]] = (
+    *PRAW_NOTFOUND_ERRORS,
+    *PRAW_FORBIDDEN_ERRORS,
     )
 
 
@@ -1148,10 +1182,7 @@ class RedditError(SubManagerError):
 
 class RedditObjectNotFoundError(
         ErrorWithConfigItem, RedditError, SubManagerUserError):
-    """An object is not found or unavailible on Reddit."""
-
-    _message_pre: ClassVar[str] = "Reddit object"
-    _message_template: ClassVar[str] = "not found or inaccessable in {config}"
+    """Could not find the object on Reddit."""
 
 
 class SubredditNotFoundError(RedditObjectNotFoundError):
@@ -1170,25 +1201,44 @@ class WidgetTypeError(ErrorWithConfigItem, RedditError, SubManagerUserError):
     """A widget was found with the given name, but is of unsupported type."""
 
 
+# ---- Permissions exceptions ----
+
+class RedditPermissionError(RedditError, SubManagerUserError):
+    """Errors related to not having Reddit permissions to perform an action."""
+
+
+class RedditObjectNotAccessibleError(
+        ErrorWithConfigItem, RedditPermissionError):
+    """Found the object but could not access it with the current account."""
+
+
+class SubredditNotAccessibleError(RedditObjectNotAccessibleError):
+    """Found the subreddit but it was private, quarentined or banned."""
+
+
+class NotAModError(ErrorWithConfigItem, RedditPermissionError):
+    """The user needs to be a moderator to perform the requested action."""
+
+
+class NotOPError(ErrorWithConfigItem, RedditPermissionError):
+    """The user needs to be the post OP to perform the requested action."""
+
+
+class WikiPagePermissionError(ErrorWithConfigItem, RedditPermissionError):
+    """The user is not authorized to edit the given wiki page."""
+
+
 # ---- Authorization-related exceptions ----
+
+class IdentityCheckError(RedditError):
+    """Cannot get the user's identity when it should be in scope."""
+
 
 class AuthError(RedditError, SubManagerUserError):
     """Errors related to user authentication."""
 
 
-class NotAModError(AuthError, ErrorWithConfigItem):
-    """The user needs to be a moderator to perform the requested action."""
-
-
-class NotOPError(AuthError, ErrorWithConfigItem):
-    """The user needs to be the post OP to perform the requested action."""
-
-
-class WikiPageAuthError(AuthError, ErrorWithConfigItem):
-    """The user is not authorized to edit the given wiki page."""
-
-
-class InsufficientScopeError(AuthError, ErrorWithConfigItem):
+class InsufficientScopeError(ErrorWithConfigItem, AuthError):
     """The token needs a particular OAUTH scope it wasn't authorized for."""
 
 
@@ -1196,8 +1246,8 @@ class NoAuthorizedScopesError(AuthError):
     """The user has no authorized scopes."""
 
 
-class IdentityCheckError(AuthError):
-    """Cannot get the user's identity when it should be in scope."""
+class IdentityCheckAuthError(IdentityCheckError, AuthError):
+    """Authorization error occured getting the user's identity."""
 
 
 # ---- Config-related exceptions ----
@@ -1206,7 +1256,7 @@ class ConfigError(SubManagerUserError):
     """There is a problem with the Sub Manager configuration."""
 
 
-class ConfigErrorWithPath(ConfigError, ErrorFillable):
+class ConfigErrorWithPath(ErrorFillable, ConfigError):
     """Config errors that involve a config file at a specific path."""
 
     _message_pre: ClassVar[str] = "Error"
@@ -1264,7 +1314,7 @@ class ConfigDefaultError(ConfigErrorWithPath):
     _message_pre: ClassVar[str] = "Unconfigured defaults"
 
 
-class ConfigErrorWithAccount(ConfigError, ErrorFillable):
+class ConfigErrorWithAccount(ErrorFillable, ConfigError):
     """Something's wrong with the Reddit account configuration."""
 
     _message_pre: ClassVar[str] = "Configuration error"
@@ -1634,8 +1684,8 @@ def create_new_thread(
         if sticky_to_keep:
             sticky_to_keep.mod.sticky(state=True)
 
-    # Update links to point to new thread
     if current_thread and current_thread_mod:
+        # Update links to point to new thread
         links = {
             getattr(current_thread, link_type).strip("/"): (
                 getattr(new_thread, link_type).strip("/"))
@@ -1999,7 +2049,10 @@ def handle_refresh_tokens(
 
 
 def check_reddit_auth_valid(
-        reddit: praw.reddit.Reddit, raise_error: bool = True) -> bool:
+        reddit: praw.reddit.Reddit,
+        account_key: str,
+        raise_error: bool = True,
+        ) -> bool:
     """Check if the Reddit account associated with the object is authorized."""
     if reddit.read_only:
         if not raise_error:
@@ -2013,12 +2066,28 @@ def check_reddit_auth_valid(
     if "*" in scopes or "identity" in scopes:
         try:
             reddit.user.me()
-        except (praw.exceptions.PRAWException,
-                prawcore.exceptions.PrawcoreException) as error:
+        except (
+                praw.exceptions.InvalidImplicitAuth,
+                praw.exceptions.ReadOnlyException,
+                prawcore.exceptions.Forbidden,
+                prawcore.exceptions.InsufficientScope,
+                prawcore.exceptions.InvalidToken,
+                prawcore.exceptions.OAuthException,
+                ) as error:
+            if not raise_error:
+                return False
+            raise IdentityCheckAuthError(
+                "Authorization error when checking identity for account "
+                f"{account_key!r}",
+                message_post=error,
+                ) from error
+        except (praw.exceptions.RedditAPIException,
+                prawcore.exceptions.ResponseException) as error:
             if not raise_error:
                 return False
             raise IdentityCheckError(
-                "Checking the user's identity failed with error:",
+                "Non-authorization error when checking identity for account "
+                f"{account_key!r}; maybe Reddit's having problems?",
                 message_post=error,
                 ) from error
 
@@ -2058,7 +2127,8 @@ def setup_accounts(
         if validate:
             vprint(f"Validating account {account_key!r}")
             try:
-                check_reddit_auth_valid(reddit, raise_error=True)
+                check_reddit_auth_valid(
+                    reddit, account_key=account_key, raise_error=True)
             except (praw.exceptions.PRAWException,
                     prawcore.exceptions.PrawcoreException,
                     AuthError,
@@ -2106,7 +2176,7 @@ def validate_endpoint(
     if check_editable is None:
         check_editable = "target" in config.uid
     reddit = accounts[config.context.account]
-    detail_urls = [
+    details_urls = [
         "https://www.reddit.com/dev/api/oauth",
         "https://praw.readthedocs.io/en/stable/tutorials/refresh_token.html",
         ]
@@ -2117,14 +2187,16 @@ def validate_endpoint(
         if check_editable:
             endpoint.check_is_editable(raise_error=True)
     except prawcore.exceptions.InsufficientScope as error:
+        urls_formatted = " or ".join([f"<{url}>" for url in details_urls])
         raise InsufficientScopeError(
             config,
             message_pre=(
                 f"Could not {'edit' if endpoint else 'retrieve'} "
-                f"{config.endpoint_type!s} due to "
-                f"the refresh token for account {config.context.account!r} "
-                "not including the required OAUTH scope for this operation "
-                f"(see {' or '.join(detail_urls)!s} for details)"),
+                f"{config.endpoint_type!s} due to the OAUTH scopes "
+                f"{reddit.auth.scopes()!r} "
+                f"of the refresh token for account {config.context.account!r} "
+                "not including the scope required for this operation "
+                f"(see {urls_formatted!s} for details)"),
             message_post=error,
             ) from error
 
