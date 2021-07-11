@@ -62,6 +62,10 @@ import toml.decoder
 
 __version__: Final = "0.6.0dev0"
 
+# General constants
+SUPPORTED_CONFIG_FORMATS: Final = frozenset({"json", "toml"})
+USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
+
 # Path constants
 CONFIG_DIRECTORY: Final = Path("~/.config/megathread-manager").expanduser()
 TOKEN_DIRECTORY: Final = CONFIG_DIRECTORY / "refresh_tokens"
@@ -69,9 +73,9 @@ CONFIG_PATH_STATIC: Final = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC: Final = CONFIG_DIRECTORY / "config_dynamic.json"
 CONFIG_PATH_REFRESH: Final = TOKEN_DIRECTORY / "refresh_token_{key}.txt"
 
-# General constants
-SUPPORTED_CONFIG_FORMATS: Final = frozenset({"json", "toml"})
-USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
+# Exit codes
+EXIT_CODE_UNHANDLED_ERROR: Final = 1
+EXIT_CODE_USER_ERROR: Final = 3
 
 
 # ---- Type aliases ----
@@ -110,37 +114,51 @@ def print_error(error: BaseException) -> None:
     print(format_error(error))
 
 
-def wrap_text(
-        text: str,
-        level: int | None = None,
-        char: str = "#",
-        step: int = 6,
-        ) -> str:
-    """Wrap the text in the specific characters."""
-    if level and level > 0:
-        wrapping = char * (level * step)
-        text = f"{wrapping} {text} {wrapping}"
-    return text
+class FancyPrinter:
+    """Simple print wrapper with a few extra features."""
+
+    def __init__(
+            self,
+            enable: bool = True,
+            char: str = "#",
+            step: int = 6,
+            level: int | None = None,
+            sep: str = " ",
+            before: str = "",
+            after: str = "",
+            ) -> None:
+        self.enable = enable
+        self.char = char
+        self.step = step
+        self.level = level
+        self.sep = sep
+        self.before = before
+        self.after = after
+
+    def wrap_text(self, *text: str, level: int | None) -> str:
+        """Wrap the text in the configured char, up to the specified level."""
+        text_joined = self.sep.join(text)
+        if level and level > 0:
+            wrapping = self.char * (level * self.step)
+            text_joined = f"{wrapping} {text_joined} {wrapping}"
+        text_joined = f"{self.before}{text_joined}{self.after}"
+        return text_joined
+
+    def __call__(self, *text: str, level: int | None = None) -> None:
+        """Wrap the text at a certain level given the defaults."""
+        print(self.wrap_text(*text, level=level))
 
 
 class VerbosePrinter:
     """Simple wrapper that only prints if verbose is set."""
 
-    def __init__(
-            self,
-            verbose: bool = False,
-            char: str = "#",
-            step: int = 6,
-            ) -> None:
+    def __init__(self, verbose: bool = True) -> None:
         self.verbose = verbose
-        self.char = char
-        self.step = step
 
-    def __call__(self, *text: str, level: int | None = None) -> None:
+    def __call__(self, *text: str) -> None:
         """If verbose is set, print the text."""
         if self.verbose:
-            print(wrap_text(
-                " ".join(text), level=level, char=self.char, step=self.step))
+            print(*text)
 
 
 # Replace with StrEnum in Python 3.10
@@ -744,8 +762,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         except PRAW_NOTFOUND_ERRORS as error:
             raise SubredditNotFoundError(
                 self.config,
-                message_pre=(
-                    f"Subreddit r/{self.config.context.subreddit!r}"),
+                message_pre=f"Subreddit 'r/{self.config.context.subreddit}'",
                 message_post=error,
                 ) from error
 
@@ -2150,7 +2167,7 @@ def validate_endpoints(
         validate_endpoint(config=endpoint, accounts=accounts)
 
 
-def validate_all_config(
+def validate_config(
         config_paths: ConfigPaths | None = None,
         offline: bool = False,
         raise_error: bool = True,
@@ -2159,9 +2176,7 @@ def validate_all_config(
     """Check if the config is valid."""
     __: Any
     config_paths = ConfigPaths() if config_paths is None else config_paths
-    vprint = VerbosePrinter(verbose)
-    vprint("Validating configuration in "
-           f"{'offline' if offline else 'online'} mode", level=2)
+    vprint = FancyPrinter(enable=verbose)
 
     try:
         vprint("Checking offline config", level=1)
@@ -2181,15 +2196,10 @@ def validate_all_config(
                 verbose=verbose,
                 )
     except SubManagerUserError:
-        vprint("Config validation FAILED", level=2)
         if not raise_error:
             return False
         raise
-    except Exception:
-        vprint("Unexpected error occured during config validation!", level=2)
-        raise
     else:
-        vprint("Config validation SUCCEEDED", level=2)
         return True
 
 
@@ -2201,7 +2211,7 @@ def run_initial_setup(
     __: Any
     config_paths = ConfigPaths() if config_paths is None else config_paths
     if validate:
-        validate_all_config(
+        validate_config(
             config_paths=config_paths,
             offline=False,
             raise_error=True,
@@ -2241,12 +2251,24 @@ def run_validate_config(
         offline: bool = False,
         ) -> None:
     """Check if the config is valid, raising an error if it is not."""
-    validate_all_config(
-        config_paths=config_paths,
-        offline=offline,
-        raise_error=True,
-        verbose=True,
-        )
+    wprint = FancyPrinter()
+    wprint("Validating configuration in "
+           f"{'offline' if offline else 'online'} mode", level=2)
+    try:
+        validate_config(
+            config_paths=config_paths,
+            offline=offline,
+            raise_error=True,
+            verbose=True,
+            )
+    except SubManagerUserError:
+        wprint("Config validation FAILED", level=2)
+        raise
+    except Exception:
+        wprint("Unexpected error occured during config validation:", level=2)
+        raise
+    else:
+        wprint("Config validation SUCCEEDED", level=2)
 
 
 # ---- Core run code ----
@@ -2470,8 +2492,9 @@ def main(sys_argv: list[str] | None = None) -> None:
     except SubManagerUserError as error:
         if debug:
             raise
-        error_text = f"\n{'v' * 70}\n{format_error(error)}\n{'^' * 70}\n"
-        sys.exit(error_text)
+        print(f"\n{'v' * 70}\n{format_error(error)}\n{'^' * 70}\n",
+              file=sys.stderr)
+        sys.exit(EXIT_CODE_USER_ERROR)
 
 
 if __name__ == "__main__":
