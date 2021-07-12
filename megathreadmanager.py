@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import (
     Any,
@@ -1254,6 +1255,14 @@ class WikiPagePermissionError(ErrorWithConfigItem, RedditPermissionError):
 
 # ---- Authorization-related exceptions ----
 
+class TestPageNotFoundWarning(DeprecationWarning):
+    """A sub/page checked for account authorization was not found."""
+
+
+class NoTestableScopesWarning(DeprecationWarning):
+    """The account didn't have any scopes that could be tested for access."""
+
+
 class ErrorWithAccount(ErrorFillable):
     """Something's wrong with the Reddit account configuration."""
 
@@ -2070,6 +2079,84 @@ def handle_refresh_tokens(
     return accounts_config_processed
 
 
+def perform_test_request(
+        reddit: praw.reddit.Reddit,
+        account_key: str,
+        raise_error: bool = True,
+        ) -> bool:
+    """Perform a test Reddit request based on the scope to confirm access."""
+    scopes: set[str] = reddit.auth.scopes()
+    if not scopes:
+        if not raise_error:
+            return False
+        raise NoAuthorizedScopesError(
+            account_key=account_key,
+            message_pre="The OAUTH token has no authorized scope ({scopes!r})",
+            )
+
+    try:
+        scope_check = ""
+        testable_scopes = {"*", "identity", "read", "wikiread"}
+        warning_message = (f"Error finding {{test_item}} testing {{scope}} "
+                           f"with account {account_key!r} ({{error}})")
+        if "*" in scopes or "identity" in scopes:
+            scope_check = "identity"
+            reddit.user.me()
+        elif "read" in scopes:
+            scope_check = "read"
+            test_sub = "all"
+            try:
+                list(reddit.subreddit(test_sub).hot(limit=1))[0].id
+            except PRAW_NOTFOUND_ERRORS as error:
+                warning_message = warning_message.format(
+                    scope=scope_check,
+                    test_item=f"sub 'r/{test_sub}'",
+                    error=format_error(error),
+                    )
+                warnings.warn(
+                    warning_message, TestPageNotFoundWarning, stacklevel=2)
+        elif "wikiread" in scopes:
+            scope_check = "wiki read"
+            test_sub = "help"
+            test_page = "index"
+            try:
+                reddit.subreddit(test_sub).wiki[test_page].content_md
+            except PRAW_NOTFOUND_ERRORS as error:
+                warning_message = warning_message.format(
+                    scope=scope_check,
+                    test_item=f"sub 'r/{test_sub}', wiki page {test_page!r}",
+                    error=format_error(error),
+                    )
+                warnings.warn(
+                    warning_message, TestPageNotFoundWarning, stacklevel=2)
+        else:
+            warning_message = (
+                f"Account {account_key!r} scopes ({scopes!r}) did not include"
+                f"any that could be tested for access ({testable_scopes!r})")
+            warnings.warn(
+                warning_message, NoTestableScopesWarning, stacklevel=2)
+
+    except PRAW_AUTHORIZATION_ERRORS as error:
+        if not raise_error:
+            return False
+        raise AccountCheckAuthError(
+            account_key=account_key,
+            message_pre=f"Authorization error when testing {scope_check}",
+            message_post=error,
+            ) from error
+    except PRAW_REDDIT_ERRORS as error:
+        if not raise_error:
+            return False
+        raise AccountCheckError(
+            account_key=account_key,
+            message_pre=(f"Non-authorization error when testing {scope_check} "
+                         "(maybe Reddit's having problems?)"),
+            message_post=error,
+            ) from error
+
+    return True
+
+
 def validate_account(
         reddit: praw.reddit.Reddit,
         account_key: str,
@@ -2085,36 +2172,10 @@ def validate_account(
             message_pre="Reddit instance is read-only",
             message_post="Account authorization failed; check credentials.",
             )
-    scopes: Collection[str] = reddit.auth.scopes()
-    if not scopes:
-        if not raise_error:
-            return False
-        raise NoAuthorizedScopesError(
-            account_key=account_key,
-            message_pre="The OAUTH token has no authorized scope ({scopes!r})",
-            )
-    try:
-        if "*" in scopes or "identity" in scopes:
-            reddit.user.me()
-    except PRAW_AUTHORIZATION_ERRORS as error:
-        if not raise_error:
-            return False
-        raise AccountCheckAuthError(
-            account_key=account_key,
-            message_pre="Authorization error when testing identity",
-            message_post=error,
-            ) from error
-    except PRAW_REDDIT_ERRORS as error:
-        if not raise_error:
-            return False
-        raise AccountCheckError(
-            account_key=account_key,
-            message_pre=("Non-authorization error when testing identity "
-                         "(maybe Reddit's having problems?)"),
-            message_post=error,
-            ) from error
 
-    return True
+    test_succeeded = perform_test_request(
+        reddit=reddit, account_key=account_key, raise_error=raise_error)
+    return test_succeeded
 
 
 def validate_accounts(
