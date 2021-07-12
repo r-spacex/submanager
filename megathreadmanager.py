@@ -736,7 +736,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         """Set up the underlying PRAW object the endpoint will use."""
         raise NotImplementedError
 
-    def _validate_object(self) -> bool:
+    def _validate_object(self) -> None:
         """Validate the the object exits and has the needed properties."""
         try:
             self.content
@@ -754,8 +754,6 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
                     f"from account {self.config.context.account!r}"),
                 message_post=error,
                 ) from error
-        else:
-            return True
 
     def __init__(
             self,
@@ -2180,14 +2178,19 @@ def validate_account(
 
 def validate_accounts(
         accounts: AccountsMap,
+        raise_error: bool = True,
         verbose: bool = False,
-        ) -> None:
+        ) -> dict[str, bool]:
     """Validate that the passed accounts are authenticated and work."""
     vprint = VerbosePrinter(verbose)
 
+    accounts_valid = {}
     for account_key, reddit in accounts.items():
         vprint(f"Validating account {account_key!r}")
-        validate_account(reddit, account_key=account_key, raise_error=True)
+        account_valid = validate_account(
+            reddit, account_key=account_key, raise_error=raise_error)
+        accounts_valid[account_key] = account_valid
+    return accounts_valid
 
 
 def setup_accounts(
@@ -2250,7 +2253,8 @@ def validate_endpoint(
         config: EndpointTypeConfig,
         accounts: AccountsMap,
         check_editable: bool | None = None,
-        ) -> None:
+        raise_error: bool = True,
+        ) -> bool:
     """Validate that the sync endpoint points to a valid Reddit object."""
     if check_editable is None:
         check_editable = "target" in config.uid
@@ -2259,18 +2263,23 @@ def validate_endpoint(
         "https://www.reddit.com/dev/api/oauth",
         "https://praw.readthedocs.io/en/stable/tutorials/refresh_token.html",
         ]
-    endpoint = None
+    endpoint_valid = False
+
     try:
         endpoint = create_sync_endpoint_from_config(
-            config=config, reddit=reddit, validate=True, raise_error=True)
-        if check_editable:
-            endpoint.check_is_editable(raise_error=True)
+            config=config, reddit=reddit, validate=False)
+        endpoint_valid = endpoint.validate(raise_error=raise_error)
+        if endpoint_valid and check_editable:
+            endpoint_valid = bool(endpoint.check_is_editable(
+                raise_error=raise_error))
     except prawcore.exceptions.InsufficientScope as error:
+        if not raise_error:
+            return False
         urls_formatted = " or ".join([f"<{url}>" for url in details_urls])
         raise InsufficientScopeError(
             config,
             message_pre=(
-                f"Could not {'edit' if endpoint else 'retrieve'} "
+                f"Could not {'edit' if endpoint_valid else 'retrieve'} "
                 f"{config.endpoint_type!s} due to the OAUTH scopes "
                 f"{reddit.auth.scopes()!r} "
                 f"of the refresh token for account {config.context.account!r} "
@@ -2278,6 +2287,8 @@ def validate_endpoint(
                 f"(see {urls_formatted!s} for details)"),
             message_post=error,
             ) from error
+
+    return endpoint_valid
 
 
 def get_all_endpoints(
@@ -2305,17 +2316,23 @@ def validate_endpoints(
         static_config: StaticConfig,
         accounts: AccountsMap,
         include_disabled: bool = False,
+        raise_error: bool = True,
         verbose: bool = False,
-        ) -> None:
+        ) -> dict[str, bool]:
     """Validate all the endpoints defined in the config."""
     vprint = VerbosePrinter(verbose)
     vprint("Extracting all endpoints from config")
     all_endpoints = get_all_endpoints(
         static_config=static_config, include_disabled=include_disabled)
 
+    endpoints_valid = {}
     for endpoint in all_endpoints:
         vprint(f"Validating endpoint {endpoint.uid!r}")
-        validate_endpoint(config=endpoint, accounts=accounts)
+        endpoint_valid = validate_endpoint(
+            config=endpoint, accounts=accounts, raise_error=raise_error)
+        endpoints_valid[endpoint.uid] = endpoint_valid
+
+    return endpoints_valid
 
 
 def validate_config(
@@ -2331,7 +2348,10 @@ def validate_config(
     try:
         vprint("Checking offline config", level=1)
         static_config, __ = setup_config(
-            config_paths=config_paths, error_default=True, verbose=verbose)
+            config_paths=config_paths,
+            error_default=True,
+            verbose=verbose,
+            )
         if not offline:
             vprint("Checking accounts", level=1)
             accounts = setup_accounts(
@@ -2339,13 +2359,20 @@ def validate_config(
                 config_path_refresh=config_paths.refresh,
                 verbose=verbose,
                 )
-            validate_accounts(accounts=accounts, verbose=verbose)
+            validate_accounts(
+                accounts=accounts,
+                raise_error=True,
+                verbose=verbose,
+                )
+
             vprint("Checking endpoints", level=1)
             validate_endpoints(
                 static_config=static_config,
                 accounts=accounts,
+                raise_error=True,
                 verbose=verbose,
                 )
+
     except SubManagerUserError:
         if not raise_error:
             return False
