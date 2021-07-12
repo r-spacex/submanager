@@ -2226,7 +2226,6 @@ def setup_accounts(
 
 def setup_config(
         config_paths: ConfigPaths | None = None,
-        error_default: bool = True,
         verbose: bool = False,
         ) -> tuple[StaticConfig, DynamicConfig]:
     """Load the config and set up the accounts mapping."""
@@ -2242,13 +2241,29 @@ def setup_config(
     dynamic_config = load_dynamic_config(
         static_config=static_config, config_path=config_paths.dynamic)
 
+    return static_config, dynamic_config
+
+
+def validate_config_offline(
+        static_config: StaticConfig,
+        config_paths: ConfigPaths | None = None,
+        error_default: bool = True,
+        raise_error: bool = True,
+        verbose: bool = False
+        ) -> bool:
+    """Validate config locally without connecting to Reddit."""
+    vprint = VerbosePrinter(verbose)
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+
     # If default config was generated and is unmodified, raise an error
     if error_default:
         vprint("Checking that config has been set up")
         if static_config.accounts == EXAMPLE_ACCOUNTS:
+            if not raise_error:
+                return False
             raise ConfigDefaultError(config_paths.static)
 
-    return static_config, dynamic_config
+    return True
 
 
 def validate_endpoint(
@@ -2344,14 +2359,19 @@ def validate_config(
         verbose: bool = False,
         ) -> bool:
     """Check if the config is valid."""
-    config_paths = ConfigPaths() if config_paths is None else config_paths
     vprint = FancyPrinter(enable=verbose)
+    config_paths = ConfigPaths() if config_paths is None else config_paths
 
     try:
         vprint("Checking offline config", level=1)
         static_config, __ = setup_config(
             config_paths=config_paths,
-            error_default=True,
+            verbose=verbose,
+            )
+        validate_config_offline(
+            static_config=static_config,
+            config_paths=config_paths,
+            raise_error=True,
             verbose=verbose,
             )
         if not offline:
@@ -2396,8 +2416,7 @@ def run_initial_setup(
             raise_error=True,
             verbose=True,
             )
-    static_config, __ = setup_config(
-        config_paths=config_paths, error_default=True)
+    static_config, __ = setup_config(config_paths=config_paths)
     accounts = setup_accounts(
         static_config.accounts, config_path_refresh=config_paths.refresh)
     return static_config, accounts
