@@ -29,6 +29,8 @@ from typing import (
     MutableMapping,  # Import from collections.abc in Python 3.9
     Pattern,  # Import from re in Python 3.9
     Sequence,  # Import from collections.abc in Python 3.9
+    Tuple,  # Not needed in Python 3.9
+    Type,  # Not needed in Python 3.9
     TYPE_CHECKING,
     TypeVar,
     Union,  # Not needed in Python 3.9
@@ -85,6 +87,9 @@ if TYPE_CHECKING:
 else:
     PathLikeStr = Union[os.PathLike, str]
 
+StrMap = MutableMapping[str, Any]
+ExceptTuple = Tuple[Type[Exception], ...]
+
 ChildrenData = List[MutableMapping[str, str]]
 SectionData = MutableMapping[str, Union[str, ChildrenData]]
 MenuData = List[SectionData]
@@ -97,7 +102,6 @@ AccountsConfigProcessed = Mapping[str, AccountConfigProcessed]
 AccountsMap = Mapping[str, praw.reddit.Reddit]
 ConfigDict = Mapping[str, Any]
 ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
-StrMap = MutableMapping[str, Any]
 
 
 # ----------------- General utility boilerplate -----------------
@@ -1084,21 +1088,41 @@ def create_sync_endpoint_from_config(
     return sync_endpoint
 
 
-# ----------------- Error and exceptions -----------------
+# ----------------- Errors and exceptions -----------------
 
-PRAW_NOTFOUND_ERRORS: Final[tuple[type[Exception], ...]] = (
+PRAW_NOTFOUND_ERRORS: Final[ExceptTuple] = (
     prawcore.exceptions.NotFound,
     prawcore.exceptions.Redirect,
     )
 
-PRAW_FORBIDDEN_ERRORS: Final[tuple[type[Exception], ...]] = (
+PRAW_FORBIDDEN_ERRORS: Final[ExceptTuple] = (
     prawcore.exceptions.Forbidden,
     prawcore.exceptions.UnavailableForLegalReasons,
     )
 
-PRAW_RETRIVAL_ERRORS: Final[tuple[type[Exception], ...]] = (
+PRAW_RETRIVAL_ERRORS: Final[ExceptTuple] = (
     *PRAW_NOTFOUND_ERRORS,
     *PRAW_FORBIDDEN_ERRORS,
+    )
+
+PRAW_AUTHORIZATION_ERRORS: Final[ExceptTuple] = (
+    praw.exceptions.InvalidImplicitAuth,
+    praw.exceptions.ReadOnlyException,
+    prawcore.exceptions.Forbidden,
+    prawcore.exceptions.InsufficientScope,
+    prawcore.exceptions.InvalidToken,
+    prawcore.exceptions.OAuthException,
+    )
+
+PRAW_REDDIT_ERRORS: Final[ExceptTuple] = (
+    praw.exceptions.RedditAPIException,
+    prawcore.exceptions.ResponseException,
+    )
+
+PRAW_ALL_ERRORS: Final[ExceptTuple] = (
+    praw.exceptions.PRAWException,
+    prawcore.exceptions.PrawcoreException,
+    configparser.Error,
     )
 
 
@@ -1230,24 +1254,50 @@ class WikiPagePermissionError(ErrorWithConfigItem, RedditPermissionError):
 
 # ---- Authorization-related exceptions ----
 
-class IdentityCheckError(RedditError):
-    """Cannot get the user's identity when it should be in scope."""
+class ErrorWithAccount(ErrorFillable):
+    """Something's wrong with the Reddit account configuration."""
+
+    _message_pre: ClassVar[str] = "Error"
+    _message_template: ClassVar[str] = (
+        "with account {account_key!r}")
+
+    def __init__(
+            self,
+            account_key: str,
+            message_pre: str | None = None,
+            message_post: str | BaseException | None = None,
+            **extra_fillables: str,
+            ) -> None:
+        self.account_key = account_key
+        super().__init__(
+            message_pre=message_pre,
+            message_post=message_post,
+            account_key=account_key,
+            **extra_fillables)
 
 
 class AuthError(RedditError, SubManagerUserError):
     """Errors related to user authentication."""
 
 
-class InsufficientScopeError(ErrorWithConfigItem, AuthError):
-    """The token needs a particular OAUTH scope it wasn't authorized for."""
+class AccountCheckError(ErrorWithAccount, RedditError, SubManagerUserError):
+    """Cannot perform an operation checking that the account is authorized."""
 
 
-class NoAuthorizedScopesError(AuthError):
+class AccountCheckAuthError(AccountCheckError, AuthError):
+    """Authorization error occured when checking the user account."""
+
+
+class RedditReadOnlyError(ErrorWithAccount, AuthError):
+    """The Reddit instance is not authorized and is thus read-only."""
+
+
+class NoAuthorizedScopesError(ErrorWithAccount, AuthError):
     """The user has no authorized scopes."""
 
 
-class IdentityCheckAuthError(IdentityCheckError, AuthError):
-    """Authorization error occured getting the user's identity."""
+class InsufficientScopeError(ErrorWithConfigItem, AuthError):
+    """The token needs a particular OAUTH scope it wasn't authorized for."""
 
 
 # ---- Config-related exceptions ----
@@ -1314,38 +1364,10 @@ class ConfigDefaultError(ConfigErrorWithPath):
     _message_pre: ClassVar[str] = "Unconfigured defaults"
 
 
-class ConfigErrorWithAccount(ErrorFillable, ConfigError):
-    """Something's wrong with the Reddit account configuration."""
-
-    _message_pre: ClassVar[str] = "Configuration error"
-    _message_template: ClassVar[str] = (
-        "for Reddit account {account_key!r}")
-
-    def __init__(
-            self,
-            account_key: str,
-            message_pre: str | None = None,
-            message_post: str | BaseException | None = None,
-            **extra_fillables: str,
-            ) -> None:
-        self.account_key = account_key
-        super().__init__(
-            message_pre=message_pre,
-            message_post=message_post,
-            account_key=account_key,
-            **extra_fillables)
-
-
-class ConfigPRAWError(ConfigErrorWithAccount):
+class AccountConfigError(ErrorWithAccount, ConfigError):
     """PRAW error loading the Reddit account configuration."""
 
     _message_pre: ClassVar[str] = "PRAW error on initialization"
-
-
-class ConfigAuthError(ConfigErrorWithAccount, AuthError):
-    """PRAW error loading the Reddit account configuration."""
-
-    _message_pre: ClassVar[str] = "Account authorization failure"
 
 
 # ----------------- Config handling -----------------
@@ -2048,56 +2070,68 @@ def handle_refresh_tokens(
     return accounts_config_processed
 
 
-def check_reddit_auth_valid(
+def validate_account(
         reddit: praw.reddit.Reddit,
         account_key: str,
         raise_error: bool = True,
         ) -> bool:
     """Check if the Reddit account associated with the object is authorized."""
-    if reddit.read_only:
+    read_only = reddit.read_only
+    if read_only or read_only is None:
         if not raise_error:
             return False
-        raise praw.exceptions.ReadOnlyException("Reddit instance is read-only")
+        raise RedditReadOnlyError(
+            account_key=account_key,
+            message_pre="Reddit instance is read-only",
+            message_post="Account authorization failed; check credentials.",
+            )
     scopes: Collection[str] = reddit.auth.scopes()
     if not scopes:
         if not raise_error:
             return False
-        raise NoAuthorizedScopesError("The user has no authorized scopes")
-    if "*" in scopes or "identity" in scopes:
-        try:
+        raise NoAuthorizedScopesError(
+            account_key=account_key,
+            message_pre="The OAUTH token has no authorized scope ({scopes!r})",
+            )
+    try:
+        if "*" in scopes or "identity" in scopes:
             reddit.user.me()
-        except (
-                praw.exceptions.InvalidImplicitAuth,
-                praw.exceptions.ReadOnlyException,
-                prawcore.exceptions.Forbidden,
-                prawcore.exceptions.InsufficientScope,
-                prawcore.exceptions.InvalidToken,
-                prawcore.exceptions.OAuthException,
-                ) as error:
-            if not raise_error:
-                return False
-            raise IdentityCheckAuthError(
-                "Authorization error when checking identity for account "
-                f"{account_key!r}",
-                message_post=error,
-                ) from error
-        except (praw.exceptions.RedditAPIException,
-                prawcore.exceptions.ResponseException) as error:
-            if not raise_error:
-                return False
-            raise IdentityCheckError(
-                "Non-authorization error when checking identity for account "
-                f"{account_key!r}; maybe Reddit's having problems?",
-                message_post=error,
-                ) from error
+    except PRAW_AUTHORIZATION_ERRORS as error:
+        if not raise_error:
+            return False
+        raise AccountCheckAuthError(
+            account_key=account_key,
+            message_pre="Authorization error when testing identity",
+            message_post=error,
+            ) from error
+    except PRAW_REDDIT_ERRORS as error:
+        if not raise_error:
+            return False
+        raise AccountCheckError(
+            account_key=account_key,
+            message_pre=("Non-authorization error when testing identity "
+                         "(maybe Reddit's having problems?)"),
+            message_post=error,
+            ) from error
 
     return True
+
+
+def validate_accounts(
+        accounts: AccountsMap,
+        verbose: bool = False,
+        ) -> None:
+    """Validate that the passed accounts are authenticated and work."""
+    vprint = VerbosePrinter(verbose)
+
+    for account_key, reddit in accounts.items():
+        vprint(f"Validating account {account_key!r}")
+        validate_account(reddit, account_key=account_key, raise_error=True)
 
 
 def setup_accounts(
         accounts_config: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        validate: bool = True,
         verbose: bool = False,
         ) -> AccountsMap:
     """Set up the PRAW Reddit objects for each account in the config."""
@@ -2116,26 +2150,10 @@ def setup_accounts(
                 user_agent=USER_AGENT,
                 praw8_raise_exception_on_me=True,
                 **account_kwargs)
-        except (
-                praw.exceptions.PRAWException,
-                prawcore.exceptions.PrawcoreException,
-                configparser.Error,
-                ) as error:
-            raise ConfigPRAWError(account_key, message_post=error) from error
+        except PRAW_ALL_ERRORS as error:
+            raise AccountConfigError(
+                account_key=account_key, message_post=error) from error
         reddit.validate_on_submit = True
-
-        if validate:
-            vprint(f"Validating account {account_key!r}")
-            try:
-                check_reddit_auth_valid(
-                    reddit, account_key=account_key, raise_error=True)
-            except (praw.exceptions.PRAWException,
-                    prawcore.exceptions.PrawcoreException,
-                    AuthError,
-                    ) as error:
-                raise ConfigAuthError(
-                    account_key, message_post=error) from error
-
         accounts[account_key] = reddit
     return accounts
 
@@ -2246,7 +2264,6 @@ def validate_config(
         verbose: bool = False,
         ) -> bool:
     """Check if the config is valid."""
-    __: Any
     config_paths = ConfigPaths() if config_paths is None else config_paths
     vprint = FancyPrinter(enable=verbose)
 
@@ -2259,9 +2276,9 @@ def validate_config(
             accounts = setup_accounts(
                 static_config.accounts,
                 config_path_refresh=config_paths.refresh,
-                validate=True,
                 verbose=verbose,
                 )
+            validate_accounts(accounts=accounts, verbose=verbose)
             vprint("Checking endpoints", level=1)
             validate_endpoints(
                 static_config=static_config,
@@ -2281,7 +2298,6 @@ def run_initial_setup(
         validate: bool = True,
         ) -> tuple[StaticConfig, AccountsMap]:
     """Run initial run-time setup for each time the application is started."""
-    __: Any
     config_paths = ConfigPaths() if config_paths is None else config_paths
     if validate:
         validate_config(
@@ -2293,10 +2309,7 @@ def run_initial_setup(
     static_config, __ = setup_config(
         config_paths=config_paths, error_default=True)
     accounts = setup_accounts(
-        static_config.accounts,
-        config_path_refresh=config_paths.refresh,
-        validate=False,
-        )
+        static_config.accounts, config_path_refresh=config_paths.refresh)
     return static_config, accounts
 
 
