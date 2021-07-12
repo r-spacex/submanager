@@ -119,7 +119,19 @@ def print_error(error: BaseException) -> None:
     print(format_error(error))
 
 
-class FancyPrinter:
+class VerbosePrinter:
+    """Simple wrapper that only prints if verbose is set."""
+
+    def __init__(self, enable: bool = True) -> None:
+        self.enable = enable
+
+    def __call__(self, *text: str) -> None:
+        """If verbose is set, print the text."""
+        if self.enable:
+            print(*text)
+
+
+class FancyPrinter(VerbosePrinter):
     """Simple print wrapper with a few extra features."""
 
     def __init__(
@@ -132,7 +144,7 @@ class FancyPrinter:
             before: str = "",
             after: str = "",
             ) -> None:
-        self.enable = enable
+        super().__init__(enable=enable)
         self.char = char
         self.step = step
         self.level = level
@@ -152,18 +164,6 @@ class FancyPrinter:
     def __call__(self, *text: str, level: int | None = None) -> None:
         """Wrap the text at a certain level given the defaults."""
         print(self.wrap_text(*text, level=level))
-
-
-class VerbosePrinter:
-    """Simple wrapper that only prints if verbose is set."""
-
-    def __init__(self, verbose: bool = True) -> None:
-        self.verbose = verbose
-
-    def __call__(self, *text: str) -> None:
-        """If verbose is set, print the text."""
-        if self.verbose:
-            print(*text)
 
 
 # Replace with StrEnum in Python 3.10
