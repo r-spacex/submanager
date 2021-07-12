@@ -462,6 +462,7 @@ class InitialThreadConfig(CustomBaseModel):
 class ThreadConfig(ItemConfig):
     """Configuration for a managed thread item."""
 
+    approve_new: bool = True
     context: ContextConfig
     initial: InitialThreadConfig = InitialThreadConfig()
     link_update_pages: List[StripStr] = []
@@ -1689,7 +1690,8 @@ def create_new_thread(
     new_thread.disable_inbox_replies()  # type: ignore[no-untyped-call]
     new_thread_mod: praw.models.reddit.submission.Submission = (
         reddit_mod.submission(id=new_thread.id))
-    new_thread_mod.mod.approve()
+    if thread_config.approve_new:
+        new_thread_mod.mod.approve()
     for attribute in ["id", "url", "permalink", "shortlink"]:
         template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
 
