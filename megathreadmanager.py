@@ -1150,8 +1150,9 @@ class SubManagerError(Exception):
 class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
     """Error with a fillable message."""
 
-    _message_pre: ClassVar[str] = "Error"
+    _message_pre: ClassVar[str | None] = "Error"
     _message_template: ClassVar[str] = "occured"
+    _message_post: ClassVar[str | None] = None
 
     def __init__(
             self,
@@ -1161,6 +1162,8 @@ class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
             ) -> None:
         if message_pre is None:
             message_pre = self._message_pre
+        if message_post is None:
+            message_post = self._message_post
         message = self._message_template.format(**extra_fillables)
         super().__init__(
             message=message,
@@ -1370,6 +1373,7 @@ class ConfigDefaultError(ConfigErrorWithPath):
     """The Sub Manager configuration file has not been configured."""
 
     _message_pre: ClassVar[str] = "Unconfigured defaults"
+    _message_post: ClassVar[str] = "Make sure to replace all EXAMPLE values."
 
 
 class AccountConfigError(ErrorWithAccount, ConfigError):
@@ -2244,7 +2248,7 @@ def setup_config(
     return static_config, dynamic_config
 
 
-def validate_config_offline(
+def validate_offline_config(
         static_config: StaticConfig,
         config_paths: ConfigPaths | None = None,
         error_default: bool = True,
@@ -2355,6 +2359,7 @@ def validate_endpoints(
 def validate_config(
         config_paths: ConfigPaths | None = None,
         offline: bool = False,
+        minimal: bool = False,
         raise_error: bool = True,
         verbose: bool = False,
         ) -> bool:
@@ -2363,37 +2368,41 @@ def validate_config(
     config_paths = ConfigPaths() if config_paths is None else config_paths
 
     try:
-        vprint("Checking offline config", level=1)
+        vprint("Loading offline config", level=1)
         static_config, __ = setup_config(
             config_paths=config_paths,
             verbose=verbose,
             )
-        validate_config_offline(
-            static_config=static_config,
-            config_paths=config_paths,
-            raise_error=True,
-            verbose=verbose,
-            )
+        if not minimal:
+            vprint("Checking offline config", level=1)
+            validate_offline_config(
+                static_config=static_config,
+                config_paths=config_paths,
+                raise_error=True,
+                verbose=verbose,
+                )
         if not offline:
-            vprint("Checking accounts", level=1)
+            vprint("Loading accounts", level=1)
             accounts = setup_accounts(
                 static_config.accounts,
                 config_path_refresh=config_paths.refresh,
                 verbose=verbose,
                 )
-            validate_accounts(
-                accounts=accounts,
-                raise_error=True,
-                verbose=verbose,
-                )
+            if not minimal:
+                vprint("Checking accounts", level=1)
+                validate_accounts(
+                    accounts=accounts,
+                    raise_error=True,
+                    verbose=verbose,
+                    )
 
-            vprint("Checking endpoints", level=1)
-            validate_endpoints(
-                static_config=static_config,
-                accounts=accounts,
-                raise_error=True,
-                verbose=verbose,
-                )
+                vprint("Checking endpoints", level=1)
+                validate_endpoints(
+                    static_config=static_config,
+                    accounts=accounts,
+                    raise_error=True,
+                    verbose=verbose,
+                    )
 
     except SubManagerUserError:
         if not raise_error:
@@ -2447,6 +2456,7 @@ def run_generate_config(
 def run_validate_config(
         config_paths: ConfigPaths | None = None,
         offline: bool = False,
+        minimal: bool = False,
         ) -> None:
     """Check if the config is valid, raising an error if it is not."""
     wprint = FancyPrinter()
@@ -2456,6 +2466,7 @@ def run_validate_config(
         validate_config(
             config_paths=config_paths,
             offline=offline,
+            minimal=minimal,
             raise_error=True,
             verbose=True,
             )
@@ -2618,7 +2629,12 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser_validate.add_argument(
         "--offline",
         action="store_true",
-        help="Just validate the config locally, don't call out to Reddit",
+        help="Only validate the config locally; don't call out to Reddit",
+        )
+    parser_validate.add_argument(
+        "--minimal",
+        action="store_true",
+        help="Only perform the checks absolutely required for startup",
         )
 
     # Run the bot once
