@@ -1,5 +1,6 @@
 python-dateutil
 praw>=7.2.0
 pydantic
+requests
 toml
 typing-extensions

@@ -57,6 +57,8 @@ import praw.reddit
 import praw.util.token_manager
 import prawcore.exceptions
 import pydantic
+import requests
+import requests.exceptions
 import toml
 import toml.decoder
 
@@ -79,6 +81,9 @@ CONFIG_PATH_REFRESH: Final = TOKEN_DIRECTORY / "refresh_token_{key}.txt"
 # Exit codes
 EXIT_CODE_UNHANDLED_ERROR: Final = 1
 EXIT_CODE_USER_ERROR: Final = 3
+
+# URL constants
+REDDIT_BASE_URL: Final = "https://www.reddit.com"
 
 
 # ---- Type aliases ----
@@ -516,6 +521,7 @@ class ThreadsConfig(CustomBaseModel):
 class StaticConfig(CustomBaseModel):
     """Model reprisenting the bot's static configuration."""
 
+    check_readonly: bool = True
     repeat_interval_s: pydantic.NonNegativeFloat = 60
     accounts: AccountsConfig
     context_default: ContextConfig
@@ -1147,6 +1153,10 @@ class SubManagerError(Exception):
         super().__init__(message)
 
 
+class SubManagerUserError(SubManagerError):
+    """Errors at runtime that should be correctable via user action."""
+
+
 class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
     """Error with a fillable message."""
 
@@ -1197,14 +1207,22 @@ class SubManagerValueError(SubManagerError, ValueError):
     """General programmer errors related to values not being as expected."""
 
 
-class SubManagerUserError(SubManagerError):
-    """Errors at runtime that should be correctable via user action."""
-
-
 # ---- Reddit-related exceptions ----
 
 class RedditError(SubManagerError):
     """Something went wrong with the data returned from the Reddit API."""
+
+
+class RedditConnectionError(RedditError, SubManagerUserError):
+    """Could not connect to Reddit."""
+
+
+class RedditNetworkError(RedditConnectionError):
+    """Cannot connect to Reddit at all due to lack of a network connection."""
+
+
+class RedditHTTPError(RedditConnectionError):
+    """Got a HTTP error when testing connectivity to Reddit."""
 
 
 class RedditObjectNotFoundError(
@@ -1255,13 +1273,13 @@ class WikiPagePermissionError(ErrorWithConfigItem, RedditPermissionError):
     """The user is not authorized to edit the given wiki page."""
 
 
-# ---- Authorization-related exceptions ----
+# ---- Account and authorization-related exceptions ----
 
 class TestPageNotFoundWarning(DeprecationWarning):
     """A sub/page checked for account authorization was not found."""
 
 
-class NoTestableScopesWarning(DeprecationWarning):
+class NoCommonScopesWarning(DeprecationWarning):
     """The account didn't have any scopes that could be tested for access."""
 
 
@@ -1287,12 +1305,16 @@ class ErrorWithAccount(ErrorFillable):
             **extra_fillables)
 
 
-class AuthError(RedditError, SubManagerUserError):
-    """Errors related to user authentication."""
+class ScopeCheckError(ErrorWithAccount, RedditError, SubManagerUserError):
+    """Error attempting to get authorized scopes for the account token."""
 
 
 class AccountCheckError(ErrorWithAccount, RedditError, SubManagerUserError):
     """Cannot perform an operation checking that the account is authorized."""
+
+
+class AuthError(RedditError, SubManagerUserError):
+    """Errors related to user authentication."""
 
 
 class AccountCheckAuthError(AccountCheckError, AuthError):
@@ -1300,7 +1322,7 @@ class AccountCheckAuthError(AccountCheckError, AuthError):
 
 
 class RedditReadOnlyError(ErrorWithAccount, AuthError):
-    """The Reddit instance is not authorized and is thus read-only."""
+    """The Reddit instance was not authorized properly ."""
 
 
 class NoAuthorizedScopesError(ErrorWithAccount, AuthError):
@@ -2086,20 +2108,14 @@ def handle_refresh_tokens(
 def perform_test_request(
         reddit: praw.reddit.Reddit,
         account_key: str,
+        scopes: Collection[str] | None = None,
         raise_error: bool = True,
         ) -> bool:
     """Perform a test Reddit request based on the scope to confirm access."""
-    scopes: set[str] = reddit.auth.scopes()
-    if not scopes:
-        if not raise_error:
-            return False
-        raise NoAuthorizedScopesError(
-            account_key=account_key,
-            message_pre="The OAUTH token has no authorized scope ({scopes!r})",
-            )
-
     try:
-        scope_check = ""
+        if scopes is None:
+            scopes = reddit.auth.scopes()
+
         testable_scopes = {"*", "identity", "read", "wikiread"}
         warning_message = (f"Error finding {{test_item}} testing {{scope}} "
                            f"with account {account_key!r} ({{error}})")
@@ -2136,9 +2152,14 @@ def perform_test_request(
         else:
             warning_message = (
                 f"Account {account_key!r} scopes ({scopes!r}) did not include"
-                f"any that could be tested for access ({testable_scopes!r})")
+                f"any typically used for access ({testable_scopes!r})")
             warnings.warn(
-                warning_message, NoTestableScopesWarning, stacklevel=2)
+                warning_message, NoCommonScopesWarning, stacklevel=2)
+
+            # Test username, availible to all scopes
+            scope_check = "username"
+            test_username = "spez"
+            reddit.username_available(test_username)
 
     except PRAW_AUTHORIZATION_ERRORS as error:
         if not raise_error:
@@ -2153,37 +2174,132 @@ def perform_test_request(
             return False
         raise AccountCheckError(
             account_key=account_key,
-            message_pre=(f"Non-authorization error when testing {scope_check} "
-                         "(maybe Reddit's having problems?)"),
+            message_pre=(f"Error when testing {scope_check} "
+                         "(check Reddit's status and your credentials')"),
             message_post=error,
             ) from error
 
     return True
 
 
+def get_reddit_oauth_scopes(
+        scopes: Collection[str] | None = None) -> dict[str, dict[str, str]]:
+    """Get metadata on the OAUTH scopes offered by the Reddit API."""
+    scopes_endpoint = "/api/v1/scopes"
+    scopes_endpoint_url = REDDIT_BASE_URL + scopes_endpoint
+    headers = {"User-Agent": USER_AGENT}
+    query_params = {}
+    if scopes:
+        query_params["scopes"] = scopes
+
+    response = requests.get(
+        scopes_endpoint_url, params=query_params, headers=headers)
+    response.raise_for_status()
+    response_json: dict[str, dict[str, str]] = response.json()
+    return response_json
+
+
+def check_reddit_connectivity(raise_error: bool = True) -> bool:
+    """Check if Sub Manager is able to contact Reddit at all."""
+    try:
+        get_reddit_oauth_scopes()
+    except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            ) as error:
+        if not raise_error:
+            return False
+        raise RedditNetworkError(
+            message=("Couldn't connect to Reddit at all; "
+                     "check your internet connection"),
+            message_post=error,
+            ) from error
+    except requests.exceptions.HTTPError as error:
+        if not raise_error:
+            return False
+        raise RedditHTTPError(
+            message=("Recieved a HTTP error attempting to test connectivity "
+                     "with Reddit; check if their servers are down"),
+            message_post=error,
+            ) from error
+
+    return True
+
+
+def validate_account_offline(
+        reddit: praw.reddit.Reddit,
+        account_key: str,
+        check_readonly: bool = True,
+        raise_error: bool = True,
+        ) -> bool:
+    """Validate the passed account without connecting to Reddit."""
+    if check_readonly:
+        read_only = reddit.read_only
+        if read_only or read_only is None:
+            if not raise_error:
+                return False
+            raise RedditReadOnlyError(
+                account_key=account_key,
+                message_pre="Reddit is read-only due to missing credentials",
+                message_post=("If this is intentional, disable "
+                              "`check_readonly` in the config file to skip."),
+                )
+    return True
+
+
 def validate_account(
         reddit: praw.reddit.Reddit,
         account_key: str,
+        offline_only: bool = False,
+        check_readonly: bool = True,
         raise_error: bool = True,
         ) -> bool:
     """Check if the Reddit account associated with the object is authorized."""
-    read_only = reddit.read_only
-    if read_only or read_only is None:
+    account_valid = validate_account_offline(
+        reddit=reddit,
+        account_key=account_key,
+        check_readonly=check_readonly,
+        raise_error=raise_error,
+        )
+
+    if not account_valid:
+        return False
+    if offline_only:
+        return True
+
+    try:
+        scopes: set[str] = reddit.auth.scopes()
+    except PRAW_REDDIT_ERRORS as error:
         if not raise_error:
             return False
-        raise RedditReadOnlyError(
+        raise ScopeCheckError(
             account_key=account_key,
-            message_pre="Reddit instance is read-only",
-            message_post="Account authorization failed; check credentials.",
+            message_pre=("Error attempting to get scopes due to bad auth "
+                         "credentials or Reddit server issues"),
+            message_post=error,
+            ) from error
+    if not scopes:
+        if not raise_error:
+            return False
+        raise NoAuthorizedScopesError(
+            account_key=account_key,
+            message_pre="The OAUTH token has no authorized scope ({scopes!r})",
             )
 
-    test_succeeded = perform_test_request(
-        reddit=reddit, account_key=account_key, raise_error=raise_error)
-    return test_succeeded
+    account_valid = perform_test_request(
+        reddit=reddit,
+        account_key=account_key,
+        scopes=scopes,
+        raise_error=raise_error,
+        )
+
+    return account_valid
 
 
 def validate_accounts(
         accounts: AccountsMap,
+        offline_only: bool = False,
+        check_readonly: bool = True,
         raise_error: bool = True,
         verbose: bool = False,
         ) -> dict[str, bool]:
@@ -2193,8 +2309,15 @@ def validate_accounts(
     accounts_valid = {}
     for account_key, reddit in accounts.items():
         vprint(f"Validating account {account_key!r}")
-        account_valid = validate_account(
-            reddit, account_key=account_key, raise_error=raise_error)
+        account_valid = validate_account_offline(
+            reddit=reddit,
+            account_key=account_key,
+            check_readonly=check_readonly,
+            raise_error=raise_error,
+            )
+        if account_valid and not offline_only:
+            account_valid = validate_account(
+                reddit, account_key=account_key, raise_error=raise_error)
         accounts_valid[account_key] = account_valid
     return accounts_valid
 
@@ -2358,7 +2481,7 @@ def validate_endpoints(
 
 def validate_config(
         config_paths: ConfigPaths | None = None,
-        offline: bool = False,
+        offline_only: bool = False,
         minimal: bool = False,
         raise_error: bool = True,
         verbose: bool = False,
@@ -2373,6 +2496,13 @@ def validate_config(
             config_paths=config_paths,
             verbose=verbose,
             )
+        vprint("Loading accounts", level=1)
+        accounts = setup_accounts(
+            static_config.accounts,
+            config_path_refresh=config_paths.refresh,
+            verbose=verbose,
+            )
+
         if not minimal:
             vprint("Checking offline config", level=1)
             validate_offline_config(
@@ -2381,21 +2511,21 @@ def validate_config(
                 raise_error=True,
                 verbose=verbose,
                 )
-        if not offline:
-            vprint("Loading accounts", level=1)
-            accounts = setup_accounts(
-                static_config.accounts,
-                config_path_refresh=config_paths.refresh,
+
+            if not offline_only:
+                vprint("Checking Reddit connectivity", level=1)
+                check_reddit_connectivity(raise_error=True)
+
+            vprint("Checking accounts", level=1)
+            validate_accounts(
+                accounts=accounts,
+                offline_only=offline_only,
+                check_readonly=static_config.check_readonly,
+                raise_error=True,
                 verbose=verbose,
                 )
-            if not minimal:
-                vprint("Checking accounts", level=1)
-                validate_accounts(
-                    accounts=accounts,
-                    raise_error=True,
-                    verbose=verbose,
-                    )
 
+            if not offline_only:
                 vprint("Checking endpoints", level=1)
                 validate_endpoints(
                     static_config=static_config,
@@ -2421,7 +2551,7 @@ def run_initial_setup(
     if validate:
         validate_config(
             config_paths=config_paths,
-            offline=False,
+            offline_only=False,
             raise_error=True,
             verbose=True,
             )
@@ -2455,17 +2585,17 @@ def run_generate_config(
 
 def run_validate_config(
         config_paths: ConfigPaths | None = None,
-        offline: bool = False,
+        offline_only: bool = False,
         minimal: bool = False,
         ) -> None:
     """Check if the config is valid, raising an error if it is not."""
     wprint = FancyPrinter()
     wprint("Validating configuration in "
-           f"{'offline' if offline else 'online'} mode", level=2)
+           f"{'offline' if offline_only else 'online'} mode", level=2)
     try:
         validate_config(
             config_paths=config_paths,
-            offline=offline,
+            offline_only=offline_only,
             minimal=minimal,
             raise_error=True,
             verbose=True,
@@ -2627,7 +2757,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         )
     parser_validate.set_defaults(func=run_validate_config)
     parser_validate.add_argument(
-        "--offline",
+        "--offline-only",
         action="store_true",
         help="Only validate the config locally; don't call out to Reddit",
         )
