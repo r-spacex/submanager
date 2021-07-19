@@ -142,6 +142,7 @@ class FancyPrinter(VerbosePrinter):
     def __init__(
             self,
             enable: bool = True,
+            *,
             char: str = "#",
             step: int = 6,
             level: int | None = None,
@@ -190,6 +191,7 @@ KeyType = TypeVar("KeyType")
 def process_dict_items_recursive(
         dict_toprocess: MutableMapping[KeyType, Any],
         fn_torun: Callable[..., Any],
+        *,
         fn_kwargs: dict[str, Any] | None = None,
         keys_match: Collection[str] | None = None,
         inplace: bool = False,
@@ -227,6 +229,7 @@ def process_dict_items_recursive(
 def update_dict_recursive(
         base: MutableMapping[KeyType, Any],
         update: MutableMapping[KeyType, Any],
+        *,
         inplace: bool = False,
         ) -> MutableMapping[KeyType, Any]:
     """Recursively update the given base dict from another dict."""
@@ -482,7 +485,8 @@ class ThreadConfig(ItemConfig):
 
     @pydantic.validator("new_thread_interval")
     def check_interval(  # pylint: disable = no-self-use, no-self-argument
-            cls, raw_interval: str | Literal[False],
+            cls,
+            raw_interval: str | Literal[False],
             ) -> str | Literal[False]:
         """Convert a time interval to the expected form."""
         if not raw_interval:
@@ -766,6 +770,7 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
             self,
             config: EndpointConfig,
             reddit: praw.reddit.Reddit,
+            *,
             validate: bool = False,
             raise_error: bool = True,
             ) -> None:
@@ -1081,6 +1086,7 @@ SYNC_ENDPOINT_TYPES: Final[Mapping[EndpointType, type[SyncEndpoint]]] = {
 def create_sync_endpoint_from_config(
         config: EndpointTypeConfig,
         reddit: praw.reddit.Reddit,
+        *,
         validate: bool = False,
         raise_error: bool = True,
         ) -> SyncEndpoint:
@@ -1140,6 +1146,7 @@ class SubManagerError(Exception):
     def __init__(
             self,
             message: str,
+            *,
             message_pre: str | None = None,
             message_post: str | BaseException | None = None,
             ) -> None:
@@ -1166,6 +1173,7 @@ class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
 
     def __init__(
             self,
+            *,
             message_pre: str | None = None,
             message_post: str | BaseException | None = None,
             **extra_fillables: str,
@@ -1191,6 +1199,7 @@ class ErrorWithConfigItem(ErrorFillable):
     def __init__(
             self,
             config_item: ItemConfig,
+            *,
             message_pre: str | None = None,
             message_post: str | BaseException | None = None,
             **extra_fillables: str,
@@ -1293,6 +1302,7 @@ class ErrorWithAccount(ErrorFillable):
     def __init__(
             self,
             account_key: str,
+            *,
             message_pre: str | None = None,
             message_post: str | BaseException | None = None,
             **extra_fillables: str,
@@ -1349,6 +1359,7 @@ class ConfigErrorWithPath(ErrorFillable, ConfigError):
     def __init__(
             self,
             config_path: PathLikeStr,
+            *,
             message_pre: str | None = None,
             message_post: str | BaseException | None = None,
             **extra_fillables: str,
@@ -1561,6 +1572,7 @@ def load_static_config(
 
 def generate_static_config(
         config_path: PathLikeStr = CONFIG_PATH_STATIC,
+        *,
         force: bool = False,
         exist_ok: bool = False,
         ) -> bool:
@@ -1647,6 +1659,7 @@ def update_page_links(
         links: Mapping[str, str],
         pages_to_update: Sequence[str],
         reddit: praw.reddit.Reddit,
+        *,
         context: ContextConfig,
         uid: str,
         description: str = "",
@@ -1807,7 +1820,8 @@ def sync_thread(
 def should_post_new_thread(
         thread_config: ThreadConfig,
         dynamic_config: DynamicThreadConfig,
-        reddit: praw.reddit.Reddit) -> bool:
+        reddit: praw.reddit.Reddit,
+        ) -> bool:
     """Determine if a new thread should be posted."""
     # Don't create a new thread if disabled, otherwise always create if no prev
     if not thread_config.new_thread_interval:
@@ -2108,6 +2122,7 @@ def handle_refresh_tokens(
 def perform_test_request(
         reddit: praw.reddit.Reddit,
         account_key: str,
+        *,
         scopes: Collection[str] | None = None,
         raise_error: bool = True,
         ) -> bool:
@@ -2229,6 +2244,7 @@ def check_reddit_connectivity(raise_error: bool = True) -> bool:
 def validate_account_offline(
         reddit: praw.reddit.Reddit,
         account_key: str,
+        *,
         check_readonly: bool = True,
         raise_error: bool = True,
         ) -> bool:
@@ -2250,6 +2266,7 @@ def validate_account_offline(
 def validate_account(
         reddit: praw.reddit.Reddit,
         account_key: str,
+        *,
         offline_only: bool = False,
         check_readonly: bool = True,
         raise_error: bool = True,
@@ -2298,6 +2315,7 @@ def validate_account(
 
 def validate_accounts(
         accounts: AccountsMap,
+        *,
         offline_only: bool = False,
         check_readonly: bool = True,
         raise_error: bool = True,
@@ -2325,6 +2343,7 @@ def validate_accounts(
 def setup_accounts(
         accounts_config: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        *,
         verbose: bool = False,
         ) -> AccountsMap:
     """Set up the PRAW Reddit objects for each account in the config."""
@@ -2355,6 +2374,7 @@ def setup_accounts(
 
 def setup_config(
         config_paths: ConfigPaths | None = None,
+        *,
         verbose: bool = False,
         ) -> tuple[StaticConfig, DynamicConfig]:
     """Load the config and set up the accounts mapping."""
@@ -2376,6 +2396,7 @@ def setup_config(
 def validate_offline_config(
         static_config: StaticConfig,
         config_paths: ConfigPaths | None = None,
+        *,
         error_default: bool = True,
         raise_error: bool = True,
         verbose: bool = False
@@ -2398,6 +2419,7 @@ def validate_offline_config(
 def validate_endpoint(
         config: EndpointTypeConfig,
         accounts: AccountsMap,
+        *,
         check_editable: bool | None = None,
         raise_error: bool = True,
         ) -> bool:
@@ -2439,6 +2461,7 @@ def validate_endpoint(
 
 def get_all_endpoints(
         static_config: StaticConfig,
+        *,
         include_disabled: bool = False,
         ) -> list[FullEndpointConfig]:
     """Get all sync endpoints defined in the current static config."""
@@ -2461,6 +2484,7 @@ def get_all_endpoints(
 def validate_endpoints(
         static_config: StaticConfig,
         accounts: AccountsMap,
+        *,
         include_disabled: bool = False,
         raise_error: bool = True,
         verbose: bool = False,
@@ -2483,6 +2507,7 @@ def validate_endpoints(
 
 def validate_config(
         config_paths: ConfigPaths | None = None,
+        *,
         offline_only: bool = False,
         minimal: bool = False,
         raise_error: bool = True,
@@ -2546,6 +2571,7 @@ def validate_config(
 
 def run_initial_setup(
         config_paths: ConfigPaths | None = None,
+        *,
         validate: bool = True,
         ) -> tuple[StaticConfig, AccountsMap]:
     """Run initial run-time setup for each time the application is started."""
@@ -2567,6 +2593,7 @@ def run_initial_setup(
 
 def run_generate_config(
         config_paths: ConfigPaths | None = None,
+        *,
         force: bool = False,
         exist_ok: bool = False,
         ) -> None:
@@ -2587,6 +2614,7 @@ def run_generate_config(
 
 def run_validate_config(
         config_paths: ConfigPaths | None = None,
+        *,
         offline_only: bool = False,
         minimal: bool = False,
         ) -> None:
@@ -2640,6 +2668,7 @@ def run_manage_once(
 
 def run_manage(
         config_paths: ConfigPaths | None = None,
+        *,
         skip_validate: bool = False,
         ) -> None:
     """Load the config file and run the thread manager."""
@@ -2656,6 +2685,7 @@ def run_manage(
 def start_manage(
         config_paths: ConfigPaths | None = None,
         repeat_interval_s: float | None = None,
+        *,
         skip_validate: bool = False,
         ) -> None:
     """Run the mainloop of sub-manager, performing each task in sequance."""
@@ -2811,6 +2841,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
 
 def run_toplevel_function(
         func: Callable[..., None],
+        *,
         config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
         config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
