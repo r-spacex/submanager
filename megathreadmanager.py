@@ -1757,8 +1757,9 @@ def create_new_thread(
         template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
 
     # Unpin old thread and pin new one
-    if thread_config.pin_thread and thread_config.pin_thread != PinType.NONE:
-        bottom_sticky = thread_config.pin_thread != PinType.TOP
+    if thread_config.pin_thread and (
+            thread_config.pin_thread is not PinType.NONE):
+        bottom_sticky = thread_config.pin_thread is not PinType.TOP
         if current_thread_mod:
             current_thread_mod.mod.sticky(state=False)
             time.sleep(10)
