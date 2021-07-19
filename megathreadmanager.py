@@ -2341,8 +2341,10 @@ def setup_accounts(
         try:
             reddit = praw.reddit.Reddit(
                 user_agent=USER_AGENT,
+                check_for_async=False,
                 praw8_raise_exception_on_me=True,
-                **account_kwargs)
+                **account_kwargs,
+                )
         except PRAW_ALL_ERRORS as error:
             raise AccountConfigError(
                 account_key=account_key, message_post=error) from error
