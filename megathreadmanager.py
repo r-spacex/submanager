@@ -78,10 +78,6 @@ CONFIG_PATH_STATIC: Final = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC: Final = CONFIG_DIRECTORY / "config_dynamic.json"
 CONFIG_PATH_REFRESH: Final = TOKEN_DIRECTORY / "refresh_token_{key}.txt"
 
-# Exit codes
-EXIT_CODE_UNHANDLED_ERROR: Final = 1
-EXIT_CODE_USER_ERROR: Final = 3
-
 # URL constants
 REDDIT_BASE_URL: Final = "https://www.reddit.com"
 
@@ -269,6 +265,15 @@ class PinType(StrValueEnum):
     NONE = "NONE"
     BOTTOM = "BOTTOM"
     TOP = "TOP"
+
+
+@enum.unique
+class ExitCode(enum.Enum):
+    """Exit code signalling the type of exit from the program."""
+
+    SUCCESS = 0
+    ERROR_UNHANDLED = 1
+    ERROR_USER = 3
 
 
 # ----------------- Config classes -----------------
@@ -2954,7 +2959,7 @@ def main(sys_argv: list[str] | None = None) -> None:
             raise
         print(f"\n{'v' * 70}\n{format_error(error)}\n{'^' * 70}\n",
               file=sys.stderr)
-        sys.exit(EXIT_CODE_USER_ERROR)
+        sys.exit(ExitCode.ERROR_USER.value)
 
 
 if __name__ == "__main__":
