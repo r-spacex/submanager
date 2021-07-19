@@ -409,7 +409,7 @@ class ContextConfig(CustomBaseModel):
         """Check that the account is present in the global accounts table."""
         if isinstance(value, MissingAccount):
             raise ValueError(
-                f"Account key '{value!s}' not listed in accounts table")
+                f"Account key '{value}' not listed in accounts table")
         return value
 
 
@@ -1003,7 +1003,7 @@ class SidebarWidgetSyncEndpoint(WidgetSyncEndpoint):
             self.config,
             message_pre=(f"Sidebar widget {self.config.endpoint_name!r} "
                          f"not found in 'r/{self.config.context.subreddit}' "
-                         f"(found widgets: {names if names else 'None'!s})"),
+                         f"(found widgets: {names if names else 'None'})"),
             message_post="If this is not a typo, please create it first.",
             )
 
@@ -2426,11 +2426,11 @@ def validate_endpoint(
             config,
             message_pre=(
                 f"Could not {'edit' if endpoint_valid else 'retrieve'} "
-                f"{config.endpoint_type!s} due to the OAUTH scopes "
+                f"{config.endpoint_type} due to the OAUTH scopes "
                 f"{reddit.auth.scopes()!r} "
                 f"of the refresh token for account {config.context.account!r} "
                 "not including the scope required for this operation "
-                f"(see {urls_formatted!s} for details)"),
+                f"(see {urls_formatted} for details)"),
             message_post=error,
             ) from error
 
