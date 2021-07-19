@@ -237,11 +237,14 @@ def update_dict_recursive(
         base = copy.deepcopy(base)
     for update_key, update_value in update.items():
         base_value = base.get(update_key, {})
+        # If the base value is not a dict, simply copy it from the update dict
         if not isinstance(base_value, MutableMapping):
             base[update_key] = update_value
+        # If both the bsae value and update value are dicts, recurse into them
         elif isinstance(update_value, MutableMapping):
             base[update_key] = update_dict_recursive(
                 base_value, update_value)
+        # If the base balue is a dict but the update value is not, replace it
         else:
             base[update_key] = update_value
     return base
@@ -286,16 +289,21 @@ class MissingAccount:
 def process_raw_interval(raw_interval: str) -> tuple[str, int | None]:
     """Convert a time interval expressed as a string into a standard form."""
     interval_split = raw_interval.strip().split()
-    interval_unit = interval_split[-1]
+
+    # Extract the number of time units
     if len(interval_split) == 1:
         interval_n = None
     else:
         interval_n = int(interval_split[0])
+
+    # Extract the time unit
+    interval_unit = interval_split[-1]
     interval_unit = interval_unit.rstrip("s")
     if interval_unit[-2:] == "ly":
         interval_unit = interval_unit[:-2]
     if interval_unit == "week" and not interval_n:
         interval_n = 1
+
     return interval_unit, interval_n
 
 
@@ -376,6 +384,8 @@ class MenuConfig(CustomBaseModel):
 
     split: NonEmptyStr = "\n\n"
     subsplit: NonEmptyStr = "\n"
+
+    # Work around Pydantic bug at runtime subscripting re.Pattern
     if TYPE_CHECKING:
         pattern_title: re.Pattern[str] = re.compile(
             r"\[([^\n\]]*)\]\(")
@@ -444,7 +454,7 @@ class SyncPairConfig(ItemConfig):
     targets: Mapping[StripStr, FullEndpointConfig]
 
     @pydantic.validator("targets")
-    def check_targets(  # pylint: disable = no-self-use, no-self-argument
+    def check_has_targets(  # pylint: disable = no-self-use, no-self-argument
             cls, value: Mapping[StripStr, FullEndpointConfig]
             ) -> Mapping[StripStr, FullEndpointConfig]:
         """Validate that at least one target is defined for each sync pair."""
@@ -493,6 +503,7 @@ class ThreadConfig(ItemConfig):
             return False
         interval_unit, interval_n = process_raw_interval(raw_interval)
         if interval_n is None:
+            # If a fixed interval, check unit against datetime attributes
             try:
                 interval_value: int = getattr(
                     datetime.datetime.now(), interval_unit)
@@ -506,6 +517,7 @@ class ThreadConfig(ItemConfig):
                     f"{interval_unit!r} must be an integer, "
                     f"not {type(interval_value)!r}")
         else:
+            # If an offset interval, check against relativedelta kwargs
             delta_kwargs: dict[str, int] = {f"{interval_unit}s": interval_n}
             dateutil.relativedelta.relativedelta(
                 **delta_kwargs)  # type: ignore[arg-type]
@@ -533,7 +545,7 @@ class StaticConfig(CustomBaseModel):
     sync: SyncConfig = SyncConfig()
 
     @pydantic.validator("accounts")
-    def check_accounts(  # pylint: disable = no-self-use, no-self-argument
+    def check__has_accounts(  # pylint: disable = no-self-use, no-self-argument
             cls, value: AccountsConfig) -> AccountsConfig:
         """Validate that at least one user account is defined."""
         if not value:
@@ -622,6 +634,7 @@ EXAMPLE_STATIC_CONFIG: Final = StaticConfig(
     )
 
 
+# Fields to not output in the generated config, as they are too verbose
 EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
     "megathread": {
         "megathreads": {
@@ -1151,7 +1164,7 @@ class SubManagerError(Exception):
             message_post: str | BaseException | None = None,
             ) -> None:
         message = message.strip(" ")
-        if message_pre:
+        if message_pre is not None:
             message = f"{message_pre.strip(' ')} {message}"
         if message_post is not None:
             if isinstance(message_post, BaseException):
@@ -1485,6 +1498,8 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
         {"context": context_default},
         raw_config.get("sync", {}).pop("defaults", {}))
     sync_pair: StrMap
+
+    # Fill the defaults in each sync pair
     for sync_key, sync_pair in (
             raw_config.get("sync", {}).get("pairs", {}).items()):
         sync_defaults_item: StrMap = update_dict_recursive(
@@ -1503,6 +1518,8 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
         {"context": context_default},
         raw_config.get("megathread", {}).pop("defaults", {}))
     thread: StrMap
+
+    # Fill the defaults in each managed thread
     for thread_key, thread in (
             raw_config.get("megathread", {}).get("megathreads", {}).items()):
         thread.update(
@@ -1550,7 +1567,8 @@ def render_static_config(raw_config: ConfigDict) -> StaticConfig:
 
 def load_static_config(
         config_path: PathLikeStr = CONFIG_PATH_STATIC) -> StaticConfig:
-    """Load manager's static (user) config file, creating it if needed."""
+    """Load and render manager's static (user) config file."""
+    # Load static config
     try:
         raw_config = load_config(config_path)
     except FileNotFoundError as error:
@@ -1561,6 +1579,8 @@ def load_static_config(
             ) as error:
         raise ConfigFormatError(
             config_path, message_post=error) from error
+
+    # Render static config
     try:
         static_config = render_static_config(raw_config)
     except pydantic.ValidationError as error:
@@ -1580,9 +1600,9 @@ def generate_static_config(
     config_path = Path(config_path)
     config_exists = config_path.exists()
     if config_exists:
-        if exist_ok:
-            return config_exists
         if not force:
+            if exist_ok:
+                return True
             raise ConfigExistsError(config_path)
 
     example_config = EXAMPLE_STATIC_CONFIG.dict(exclude=EXAMPLE_EXCLUDE_FIELDS)
@@ -1704,10 +1724,12 @@ def create_new_thread(
     reddit_mod = accounts[thread_config.context.account]
     reddit_post = accounts[thread_config.target_context.account]
 
+    # Create sync endpoint for source
     source_obj = create_sync_endpoint_from_config(
         config=thread_config.source,
         reddit=accounts[thread_config.source.context.account])
 
+    # Generate template variables, title and post text
     template_vars = generate_template_vars(thread_config, dynamic_config)
     post_text = process_source_endpoint(
         thread_config.source, source_obj, dynamic_config)
@@ -1780,7 +1802,7 @@ def create_new_thread(
             redirect_comment = current_thread_mod.reply(redirect_message)
             redirect_comment.mod.distinguish(sticky=True)
 
-    # Update config accordingly
+    # Update dynamic config accordingly
     dynamic_config.thread_id = new_thread.id
 
 
@@ -1872,13 +1894,13 @@ def manage_thread(
         dynamic_config=dynamic_config,
         reddit=accounts[thread_config.context.account])
 
+    # If needed, post a new thread
     if post_new_thread:
-        # If needed post a new thread
         print("Creating new thread for", thread_config.description,
               f"{thread_config.uid}")
         create_new_thread(thread_config, dynamic_config, accounts)
+    # Otherwise, sync the current thread
     else:
-        # Otherwise, sync the current thread
         sync_thread(
             thread_config=thread_config,
             dynamic_config=dynamic_config,
@@ -1911,14 +1933,19 @@ def parse_menu(
     if menu_config is None:
         menu_config = MenuConfig()
 
+    # Cleanup menu source text
     menu_data: MenuData = []
     source_text = source_text.replace("\r\n", "\n")
     menu_sections = split_and_clean_text(
         source_text, menu_config.split)
+
+    # Construct the data for each menu section in the source
     for menu_section in menu_sections:
         section_data: SectionData
         menu_subsections = split_and_clean_text(
             menu_section, menu_config.subsplit)
+
+        # Skip if no title or menu items, otherwise add the title
         if not menu_subsections:
             continue
         title_text = extract_text(
@@ -1926,12 +1953,15 @@ def parse_menu(
         if title_text is False:
             continue
         section_data = {"text": title_text}
+
+        # If menu is a singular item, just add that
         if len(menu_subsections) == 1:
             url_text = extract_text(
                 menu_config.pattern_url, menu_subsections[0])
             if url_text is False:
                 continue
             section_data["url"] = url_text
+        # Otherwise, process each of the child menu items
         else:
             children: ChildrenData = []
             for menu_child in menu_subsections[1:]:
@@ -1944,6 +1974,7 @@ def parse_menu(
                         {"text": title_text, "url": url_text})
             section_data["children"] = children
         menu_data.append(section_data)
+
     return menu_data
 
 
@@ -1959,15 +1990,21 @@ def process_endpoint_text(
         config.pattern_start,
         config.pattern_end,
         )
+
+    # If matched against a block in the endpoint, handle the match obj
     if match_obj is not False:
+        # If the match obj was not found, return immediately
         if not match_obj:
             return False
+        # Otherwise, process the comment-marked portion of the content
         output_text = match_obj.group()
         if replace_text is not None:
             output_text = content.replace(output_text, replace_text)
         return output_text
 
-    return content if replace_text is None else replace_text
+    # Otherwise, replace the current target content with the source
+    output_text = content if replace_text is None else replace_text
+    return output_text
 
 
 def process_source_endpoint(
@@ -1985,6 +2022,7 @@ def process_source_endpoint(
             return False
         dynamic_config.source_timestamp = source_timestamp
 
+    # Otherwise, process the source text
     source_content = source_obj.content
     if isinstance(source_content, str):
         source_content_processed = process_endpoint_text(
@@ -2007,17 +2045,22 @@ def process_target_endpoint(
         menu_config: MenuConfig | None = None,
         ) -> str | MenuData | Literal[False]:
     """Handle text conversions and deployment onto a sync target."""
+    # Perform the target-specific pattern replacements
     if isinstance(source_content, str):
         source_content = replace_patterns(
             source_content, target_config.replace_patterns)
 
+    # If the target is a menu, build the source into one if not already one
     target_content = target_obj.content
-    if (isinstance(target_obj, MenuSyncEndpoint)
-            and isinstance(source_content, str)):
-        target_content = parse_menu(
-            source_text=source_content,
-            menu_config=menu_config,
-            )
+    if isinstance(target_obj, MenuSyncEndpoint):
+        if isinstance(source_content, str):
+            target_content = parse_menu(
+                source_text=source_content,
+                menu_config=menu_config,
+                )
+        else:
+            target_content = source_content
+    # If they're both text, process the replacements
     elif isinstance(source_content, str) and isinstance(target_content, str):
         target_content_processed = process_endpoint_text(
             target_content, target_config, replace_text=source_content)
@@ -2039,6 +2082,7 @@ def sync_one(
     if not (sync_pair.enabled and sync_pair.source.enabled):
         return
 
+    # Create source sync endpoint
     source_obj = create_sync_endpoint_from_config(
         config=sync_pair.source,
         reddit=accounts[sync_pair.source.context.account])
@@ -2047,6 +2091,7 @@ def sync_one(
     if source_content is False:
         return
 
+    # Create target endpoints, process data and sync
     for target_config in sync_pair.targets.values():
         if not target_config.enabled:
             continue
@@ -2097,6 +2142,7 @@ def handle_refresh_tokens(
         accounts_config)  # type: ignore[assignment]
     accounts_config_processed = copy.deepcopy(accounts_config_processed)
 
+    # For each account, get and handle the refresh token
     for account_key, account_kwargs in accounts_config.items():
         refresh_token = account_kwargs.get("refresh_token", None)
         if refresh_token:
@@ -2128,15 +2174,20 @@ def perform_test_request(
         ) -> bool:
     """Perform a test Reddit request based on the scope to confirm access."""
     try:
+        # Use the scopes if passed, otherwise retrieve them
         if scopes is None:
             scopes = reddit.auth.scopes()
 
         testable_scopes = {"*", "identity", "read", "wikiread"}
         warning_message = (f"Error finding {{test_item}} testing {{scope}} "
                            f"with account {account_key!r} ({{error}})")
+
+        # Ideally, simply check the account's identity
         if "*" in scopes or "identity" in scopes:
             scope_check = "identity"
             reddit.user.me()
+
+        # Otherwise, read an arbitrary thread
         elif "read" in scopes:
             scope_check = "read"
             test_sub = "all"
@@ -2150,6 +2201,8 @@ def perform_test_request(
                     )
                 warnings.warn(
                     warning_message, TestPageNotFoundWarning, stacklevel=2)
+
+        # Otherwise, read an arbitrary wiki page
         elif "wikiread" in scopes:
             scope_check = "wiki read"
             test_sub = "help"
@@ -2164,6 +2217,8 @@ def perform_test_request(
                     )
                 warnings.warn(
                     warning_message, TestPageNotFoundWarning, stacklevel=2)
+
+        # Otherwise, if no common scopes are authorized, check the username
         else:
             warning_message = (
                 f"Account {account_key!r} scopes ({scopes!r}) did not include"
@@ -2200,6 +2255,7 @@ def perform_test_request(
 def get_reddit_oauth_scopes(
         scopes: Collection[str] | None = None) -> dict[str, dict[str, str]]:
     """Get metadata on the OAUTH scopes offered by the Reddit API."""
+    # Set up the request for scopes
     scopes_endpoint = "/api/v1/scopes"
     scopes_endpoint_url = REDDIT_BASE_URL + scopes_endpoint
     headers = {"User-Agent": USER_AGENT}
@@ -2207,6 +2263,7 @@ def get_reddit_oauth_scopes(
     if scopes:
         query_params["scopes"] = scopes
 
+    # Make and process the request
     response = requests.get(
         scopes_endpoint_url, params=query_params, headers=headers)
     response.raise_for_status()
@@ -2272,18 +2329,19 @@ def validate_account(
         raise_error: bool = True,
         ) -> bool:
     """Check if the Reddit account associated with the object is authorized."""
+    # First, do offline validation
     account_valid = validate_account_offline(
         reddit=reddit,
         account_key=account_key,
         check_readonly=check_readonly,
         raise_error=raise_error,
         )
-
     if not account_valid:
         return False
     if offline_only:
         return True
 
+    # Then, perform a request to get the authorized scopes
     try:
         scopes: set[str] = reddit.auth.scopes()
     except PRAW_REDDIT_ERRORS as error:
@@ -2303,6 +2361,7 @@ def validate_account(
             message_pre="The OAUTH token has no authorized scope ({scopes!r})",
             )
 
+    # Finally, perform an actual operational test request against a scope
     account_valid = perform_test_request(
         reddit=reddit,
         account_key=account_key,
@@ -2324,6 +2383,7 @@ def validate_accounts(
     """Validate that the passed accounts are authenticated and work."""
     vprint = VerbosePrinter(verbose)
 
+    # For each account, validate it offline and online
     accounts_valid = {}
     for account_key, reddit in accounts.items():
         vprint(f"Validating account {account_key!r}")
@@ -2354,6 +2414,7 @@ def setup_accounts(
     accounts_config_processed = handle_refresh_tokens(
         accounts_config, config_path_refresh=config_path_refresh)
 
+    # For each account, create and set up the Reddit object
     accounts = {}
     for account_key, account_kwargs in accounts_config_processed.items():
         vprint(f"Setting up account {account_key!r}")
@@ -2427,6 +2488,7 @@ def validate_endpoint(
     if check_editable is None:
         check_editable = "target" in config.uid
     reddit = accounts[config.context.account]
+
     details_urls = [
         "https://www.reddit.com/dev/api/oauth",
         "https://praw.readthedocs.io/en/stable/tutorials/refresh_token.html",
@@ -2434,6 +2496,7 @@ def validate_endpoint(
     endpoint_valid = False
 
     try:
+        # Create and validate each endpoint for readn and write status
         endpoint = create_sync_endpoint_from_config(
             config=config, reddit=reddit, validate=False)
         endpoint_valid = endpoint.validate(raise_error=raise_error)
@@ -2466,15 +2529,18 @@ def get_all_endpoints(
         ) -> list[FullEndpointConfig]:
     """Get all sync endpoints defined in the current static config."""
     all_endpoints: list[FullEndpointConfig] = []
+    # Get each sync pair source and target that is enabled
     if include_disabled or static_config.sync.enabled:
         for sync_pair in static_config.sync.pairs.values():
             if include_disabled or sync_pair.enabled:
                 all_endpoints.append(sync_pair.source)
                 all_endpoints += list(sync_pair.targets.values())
+    # Get each thread endpoint that's enabled
     if include_disabled or static_config.megathread.enabled:
         for thread in static_config.megathread.megathreads.values():
             if include_disabled or thread.enabled:
                 all_endpoints.append(thread.source)
+    # Pune the endpoints to just enabled unless told otherwise
     if not include_disabled:
         all_endpoints = [
             endpoint for endpoint in all_endpoints if endpoint.enabled]
@@ -2495,6 +2561,7 @@ def validate_endpoints(
     all_endpoints = get_all_endpoints(
         static_config=static_config, include_disabled=include_disabled)
 
+    # Check if each endpoint is valid
     endpoints_valid = {}
     for endpoint in all_endpoints:
         vprint(f"Validating endpoint {endpoint.uid!r}")
@@ -2602,6 +2669,7 @@ def run_generate_config(
     config_exists = generate_static_config(
         config_path=config_paths.static, force=force, exist_ok=exist_ok)
 
+    # Generate the appropriate message depending on what happened
     message = f"Config {{action}} at {config_paths.static.as_posix()!r}"
     if not config_exists:
         action = "generated"
