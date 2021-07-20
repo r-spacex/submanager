@@ -168,9 +168,9 @@ class FancyPrinter(VerbosePrinter):
         print(self.wrap_text(*text, level=level))
 
 
-# Replace with StrEnum in Python 3.10
+# Replace with StrEnum in Python 3.10 (?)
 class StrValueEnum(enum.Enum):
-    """Enum whose repr and str and just the values, for easy serialization."""
+    """Normalizes input and outputs just value as repr for serialization."""
 
     def __repr__(self) -> str:
         """Convert enum value to repr."""
@@ -179,6 +179,17 @@ class StrValueEnum(enum.Enum):
     def __str__(self) -> str:
         """Convert enum value to string."""
         return str(self.value)
+
+    @classmethod
+    def _missing_(cls, value: object) -> StrValueEnum | None:
+        """Handle case-insensitive lookup of enum values."""
+        if not isinstance(value, str):
+            return None
+        value = value.strip().lower().replace(" ", "_").replace("-", "_")
+        for member in cls:
+            if member.value.lower() == value:
+                return member
+        return None
 
 
 KeyType = TypeVar("KeyType")
@@ -252,19 +263,19 @@ def update_dict_recursive(
 class EndpointType(StrValueEnum):
     """Reprisent the type of sync endpoint on Reddit."""
 
-    MENU = "MENU"
-    THREAD = "THREAD"
-    WIDGET = "WIDGET"
-    WIKI_PAGE = "WIKI_PAGE"
+    MENU = "menu"
+    THREAD = "thread"
+    WIDGET = "widget"
+    WIKI_PAGE = "wiki_page"
 
 
 @enum.unique
 class PinType(StrValueEnum):
     """Reprisent the type of thread pinning behavior on Reddit."""
 
-    NONE = "NONE"
-    BOTTOM = "BOTTOM"
-    TOP = "TOP"
+    NONE = "none"
+    BOTTOM = "bottom"
+    TOP = "top"
 
 
 @enum.unique
