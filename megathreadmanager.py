@@ -65,11 +65,11 @@ import toml.decoder
 
 # ----------------- Constants -----------------
 
-__version__: Final = "0.6.0dev0"
+__version__: Final[str] = "0.6.0dev0"
 
 # General constants
-SUPPORTED_CONFIG_FORMATS: Final = frozenset({"json", "toml"})
-USER_AGENT: Final = f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)"
+USER_AGENT: Final[str] = (
+    f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)")
 
 # Path constants
 CONFIG_DIRECTORY: Final = Path("~/.config/megathread-manager").expanduser()
@@ -79,7 +79,7 @@ CONFIG_PATH_DYNAMIC: Final = CONFIG_DIRECTORY / "config_dynamic.json"
 CONFIG_PATH_REFRESH: Final = TOKEN_DIRECTORY / "refresh_token_{key}.txt"
 
 # URL constants
-REDDIT_BASE_URL: Final = "https://www.reddit.com"
+REDDIT_BASE_URL: Final[str] = "https://www.reddit.com"
 
 
 # ---- Type aliases ----
@@ -358,7 +358,7 @@ else:
 
 # ---- Pydantic models ----
 
-DEFAULT_REDIRECT_TEMPLATE: Final = """
+DEFAULT_REDIRECT_TEMPLATE: Final[str] = """
 This thread is no longer being updated, and has been replaced by:
 
 # [{post_title}]({thread_url})
@@ -593,7 +593,7 @@ class DynamicConfig(CustomMutableBaseModel):
 
 # ---- Example config ----
 
-EXAMPLE_ACCOUNT_NAME: Final = "EXAMPLE_USER"
+EXAMPLE_ACCOUNT_NAME: Final[str] = "EXAMPLE_USER"
 
 EXAMPLE_ACCOUNT_CONFIG: Final[AccountConfig] = {
     "site_name": "EXAMPLE_SITE_NAME",
@@ -1448,6 +1448,9 @@ class AccountConfigError(ErrorWithAccount, ConfigError):
 
 # ---- Config utilities ----
 
+SUPPORTED_CONFIG_FORMATS: Final[frozenset[str]] = frozenset({"json", "toml"})
+
+
 def serialize_config(
         config: ConfigDict | pydantic.BaseModel,
         output_format: str = "json",
@@ -2167,6 +2170,7 @@ class ScopeCheck(enum.Enum):
 
 # ---- Setup routines ----
 
+
 def handle_refresh_tokens(
         accounts_config: AccountsConfig,
         config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
@@ -2199,6 +2203,62 @@ def handle_refresh_tokens(
 
     return accounts_config_processed
 
+
+def setup_accounts(
+        accounts_config: AccountsConfig,
+        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
+        *,
+        verbose: bool = False,
+        ) -> AccountsMap:
+    """Set up the PRAW Reddit objects for each account in the config."""
+    vprint = VerbosePrinter(verbose)
+
+    vprint("Processing refresh tokens at path "
+           f"{Path(config_path_refresh).as_posix()!r}")
+    accounts_config_processed = handle_refresh_tokens(
+        accounts_config, config_path_refresh=config_path_refresh)
+
+    # For each account, create and set up the Reddit object
+    accounts = {}
+    for account_key, account_kwargs in accounts_config_processed.items():
+        vprint(f"Setting up account {account_key!r}")
+        try:
+            reddit = praw.reddit.Reddit(
+                user_agent=USER_AGENT,
+                check_for_async=False,
+                praw8_raise_exception_on_me=True,
+                **account_kwargs,
+                )
+        except PRAW_ALL_ERRORS as error:
+            raise AccountConfigError(
+                account_key=account_key, message_post=error) from error
+        reddit.validate_on_submit = True
+        accounts[account_key] = reddit
+    return accounts
+
+
+def setup_config(
+        config_paths: ConfigPaths | None = None,
+        *,
+        verbose: bool = False,
+        ) -> tuple[StaticConfig, DynamicConfig]:
+    """Load the config and set up the accounts mapping."""
+    vprint = VerbosePrinter(verbose)
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+
+    # Load the configuration
+    vprint("Loading static configuration at path "
+           f"{config_paths.static.as_posix()!r}")
+    static_config = load_static_config(config_paths.static)
+    vprint("Loading dynamic configuration at path "
+           f"{config_paths.dynamic.as_posix()!r}")
+    dynamic_config = load_dynamic_config(
+        static_config=static_config, config_path=config_paths.dynamic)
+
+    return static_config, dynamic_config
+
+
+# ---- Validate config ----
 
 def try_perform_test_request(
         reddit: praw.reddit.Reddit,
@@ -2451,60 +2511,6 @@ def validate_accounts(
     return accounts_valid
 
 
-def setup_accounts(
-        accounts_config: AccountsConfig,
-        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
-        *,
-        verbose: bool = False,
-        ) -> AccountsMap:
-    """Set up the PRAW Reddit objects for each account in the config."""
-    vprint = VerbosePrinter(verbose)
-
-    vprint("Processing refresh tokens at path "
-           f"{Path(config_path_refresh).as_posix()!r}")
-    accounts_config_processed = handle_refresh_tokens(
-        accounts_config, config_path_refresh=config_path_refresh)
-
-    # For each account, create and set up the Reddit object
-    accounts = {}
-    for account_key, account_kwargs in accounts_config_processed.items():
-        vprint(f"Setting up account {account_key!r}")
-        try:
-            reddit = praw.reddit.Reddit(
-                user_agent=USER_AGENT,
-                check_for_async=False,
-                praw8_raise_exception_on_me=True,
-                **account_kwargs,
-                )
-        except PRAW_ALL_ERRORS as error:
-            raise AccountConfigError(
-                account_key=account_key, message_post=error) from error
-        reddit.validate_on_submit = True
-        accounts[account_key] = reddit
-    return accounts
-
-
-def setup_config(
-        config_paths: ConfigPaths | None = None,
-        *,
-        verbose: bool = False,
-        ) -> tuple[StaticConfig, DynamicConfig]:
-    """Load the config and set up the accounts mapping."""
-    vprint = VerbosePrinter(verbose)
-    config_paths = ConfigPaths() if config_paths is None else config_paths
-
-    # Load the configuration
-    vprint("Loading static configuration at path "
-           f"{config_paths.static.as_posix()!r}")
-    static_config = load_static_config(config_paths.static)
-    vprint("Loading dynamic configuration at path "
-           f"{config_paths.dynamic.as_posix()!r}")
-    dynamic_config = load_dynamic_config(
-        static_config=static_config, config_path=config_paths.dynamic)
-
-    return static_config, dynamic_config
-
-
 def validate_offline_config(
         static_config: StaticConfig,
         config_paths: ConfigPaths | None = None,
@@ -2687,26 +2693,6 @@ def validate_config(
         return True
 
 
-def run_initial_setup(
-        config_paths: ConfigPaths | None = None,
-        *,
-        validate: bool = True,
-        ) -> tuple[StaticConfig, AccountsMap]:
-    """Run initial run-time setup for each time the application is started."""
-    config_paths = ConfigPaths() if config_paths is None else config_paths
-    if validate:
-        validate_config(
-            config_paths=config_paths,
-            offline_only=False,
-            raise_error=True,
-            verbose=True,
-            )
-    static_config, __ = setup_config(config_paths=config_paths)
-    accounts = setup_accounts(
-        static_config.accounts, config_path_refresh=config_paths.refresh)
-    return static_config, accounts
-
-
 # ---- High level command code ----
 
 def run_generate_config(
@@ -2760,6 +2746,26 @@ def run_validate_config(
 
 
 # ---- Core run code ----
+
+def run_initial_setup(
+        config_paths: ConfigPaths | None = None,
+        *,
+        validate: bool = True,
+        ) -> tuple[StaticConfig, AccountsMap]:
+    """Run initial run-time setup for each time the application is started."""
+    config_paths = ConfigPaths() if config_paths is None else config_paths
+    if validate:
+        validate_config(
+            config_paths=config_paths,
+            offline_only=False,
+            raise_error=True,
+            verbose=True,
+            )
+    static_config, __ = setup_config(config_paths=config_paths)
+    accounts = setup_accounts(
+        static_config.accounts, config_path_refresh=config_paths.refresh)
+    return static_config, accounts
+
 
 def run_manage_once(
         static_config: StaticConfig,
