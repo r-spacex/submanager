@@ -2147,6 +2147,24 @@ def sync_all(static_config: StaticConfig,
 
 # ----------------- Setup and run -----------------
 
+TESTABLE_SCOPES: Final[frozenset[str]] = frozenset(
+    {"*", "identity", "read", "wikiread"})
+TEST_PAGE_WIKI: Final[str] = "index"
+TEST_SUB_POST: Final[str] = "all"
+TEST_SUB_WIKI: Final[str] = "help"
+TEST_USERNAME: Final[str] = "spez"
+
+
+@enum.unique
+class ScopeCheck(enum.Enum):
+    """The availible scope to test a Reddit request for."""
+
+    IDENTITY = "identity"
+    READ_POST = "read post"
+    READ_WIKI = "read wiki"
+    USERNAME = "any"
+
+
 # ---- Setup routines ----
 
 def handle_refresh_tokens(
@@ -2182,78 +2200,94 @@ def handle_refresh_tokens(
     return accounts_config_processed
 
 
+def try_perform_test_request(
+        reddit: praw.reddit.Reddit,
+        account_key: str,
+        scope_check: ScopeCheck,
+        ) -> None:
+    """Attempt to perform a test Reddit request against a valid scope."""
+    warning_message = (
+        f"Error finding {{test_item}} testing scope {{scope!r}} "
+        f"with account {account_key!r} ({{error}})")
+
+    # Ideally, simply check the account's identity
+    if scope_check is ScopeCheck.IDENTITY:
+        reddit.user.me()
+
+    # Read an arbitrary thread
+    elif scope_check is ScopeCheck.READ_POST:
+        try:
+            list(reddit.subreddit(TEST_SUB_POST).hot(limit=1))[0].id
+        except PRAW_NOTFOUND_ERRORS as error:
+            warning_message = warning_message.format(
+                scope=scope_check.value,
+                test_item=f"sub 'r/{TEST_SUB_POST}'",
+                error=format_error(error),
+                )
+            warnings.warn(
+                warning_message, TestPageNotFoundWarning, stacklevel=2)
+
+    # Read an arbitrary wiki page
+    elif scope_check is ScopeCheck.READ_WIKI:
+        try:
+            reddit.subreddit(TEST_SUB_WIKI).wiki[TEST_PAGE_WIKI].content_md
+        except PRAW_NOTFOUND_ERRORS as error:
+            warning_message = warning_message.format(
+                scope=scope_check.value,
+                test_item=(
+                    f"sub 'r/{TEST_SUB_WIKI}', wiki page {TEST_PAGE_WIKI!r}"),
+                error=format_error(error),
+                )
+            warnings.warn(
+                warning_message, TestPageNotFoundWarning, stacklevel=2)
+
+    # Otherwise, if no common scopes are authorized, check the username
+    else:
+        # Test username, availible to all scopes
+        reddit.username_available(TEST_USERNAME)
+
+
 def perform_test_request(
         reddit: praw.reddit.Reddit,
         account_key: str,
+        scopes: Collection[str],
         *,
-        scopes: Collection[str] | None = None,
         raise_error: bool = True,
         ) -> bool:
     """Perform a test Reddit request based on the scope to confirm access."""
+    # Ideally, simply check the account's identity
+    if "*" in scopes or "identity" in scopes:
+        scope_check = ScopeCheck.IDENTITY
+    # Read an arbitrary thread
+    elif "read" in scopes:
+        scope_check = ScopeCheck.READ_POST
+    # Read an arbitrary wiki page
+    elif "wikiread" in scopes:
+        scope_check = ScopeCheck.READ_WIKI
+    # Otherwise, if no common scopes are authorized, check the username
+    else:
+        # Test username, availible to all scopes
+        warning_message = (
+            f"Account {account_key!r} scopes ({scopes!r}) did not include"
+            f"any typically used for access ({TESTABLE_SCOPES!r})")
+        warnings.warn(
+            warning_message, NoCommonScopesWarning, stacklevel=2)
+
+        scope_check = ScopeCheck.USERNAME
+
     try:
-        # Use the scopes if passed, otherwise retrieve them
-        if scopes is None:
-            scopes = reddit.auth.scopes()
-
-        testable_scopes = {"*", "identity", "read", "wikiread"}
-        warning_message = (f"Error finding {{test_item}} testing {{scope}} "
-                           f"with account {account_key!r} ({{error}})")
-
-        # Ideally, simply check the account's identity
-        if "*" in scopes or "identity" in scopes:
-            scope_check = "identity"
-            reddit.user.me()
-
-        # Otherwise, read an arbitrary thread
-        elif "read" in scopes:
-            scope_check = "read"
-            test_sub = "all"
-            try:
-                list(reddit.subreddit(test_sub).hot(limit=1))[0].id
-            except PRAW_NOTFOUND_ERRORS as error:
-                warning_message = warning_message.format(
-                    scope=scope_check,
-                    test_item=f"sub 'r/{test_sub}'",
-                    error=format_error(error),
-                    )
-                warnings.warn(
-                    warning_message, TestPageNotFoundWarning, stacklevel=2)
-
-        # Otherwise, read an arbitrary wiki page
-        elif "wikiread" in scopes:
-            scope_check = "wiki read"
-            test_sub = "help"
-            test_page = "index"
-            try:
-                reddit.subreddit(test_sub).wiki[test_page].content_md
-            except PRAW_NOTFOUND_ERRORS as error:
-                warning_message = warning_message.format(
-                    scope=scope_check,
-                    test_item=f"sub 'r/{test_sub}', wiki page {test_page!r}",
-                    error=format_error(error),
-                    )
-                warnings.warn(
-                    warning_message, TestPageNotFoundWarning, stacklevel=2)
-
-        # Otherwise, if no common scopes are authorized, check the username
-        else:
-            warning_message = (
-                f"Account {account_key!r} scopes ({scopes!r}) did not include"
-                f"any typically used for access ({testable_scopes!r})")
-            warnings.warn(
-                warning_message, NoCommonScopesWarning, stacklevel=2)
-
-            # Test username, availible to all scopes
-            scope_check = "username"
-            test_username = "spez"
-            reddit.username_available(test_username)
-
+        try_perform_test_request(
+            reddit=reddit,
+            account_key=account_key,
+            scope_check=scope_check,
+            )
     except PRAW_AUTHORIZATION_ERRORS as error:
         if not raise_error:
             return False
         raise AccountCheckAuthError(
             account_key=account_key,
-            message_pre=f"Authorization error when testing {scope_check}",
+            message_pre=(
+                f"Authorization error testing scope {scope_check.value!r}"),
             message_post=error,
             ) from error
     except PRAW_REDDIT_ERRORS as error:
@@ -2261,7 +2295,7 @@ def perform_test_request(
             return False
         raise AccountCheckError(
             account_key=account_key,
-            message_pre=(f"Error when testing {scope_check} "
+            message_pre=(f"Error testing scope {scope_check.value!r} "
                          "(check Reddit's status and your credentials')"),
             message_post=error,
             ) from error
