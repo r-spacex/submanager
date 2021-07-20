@@ -2634,6 +2634,7 @@ def validate_config(
         *,
         offline_only: bool = False,
         minimal: bool = False,
+        include_disabled: bool = False,
         raise_error: bool = True,
         verbose: bool = False,
         ) -> bool:
@@ -2681,6 +2682,7 @@ def validate_config(
                 validate_endpoints(
                     static_config=static_config,
                     accounts=accounts,
+                    include_disabled=include_disabled,
                     raise_error=True,
                     verbose=verbose,
                     )
@@ -2720,6 +2722,7 @@ def run_generate_config(
 def run_validate_config(
         config_paths: ConfigPaths | None = None,
         *,
+        include_disabled: bool = False,
         offline_only: bool = False,
         minimal: bool = False,
         ) -> None:
@@ -2732,6 +2735,7 @@ def run_validate_config(
             config_paths=config_paths,
             offline_only=offline_only,
             minimal=minimal,
+            include_disabled=include_disabled,
             raise_error=True,
             verbose=True,
             )
@@ -2922,6 +2926,11 @@ def create_arg_parser() -> argparse.ArgumentParser:
         "--minimal",
         action="store_true",
         help="Only perform the checks absolutely required for startup",
+        )
+    parser_validate.add_argument(
+        "--include-disabled",
+        action="store_true",
+        help="Validate disabled modules and endpoints as well as enabled ones",
         )
 
     # Run the bot once
