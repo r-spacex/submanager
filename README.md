@@ -1,8 +1,9 @@
 # Megathread Manager
 
-Megathread-Manager is a Reddit bot to automatically generate, create, pin and update megathreads, as well as related tasks.
-Additionally, it can be used alongside or as well as automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
-Includes an installable systemd service unit for real-time operation on modern Linux distributions, which is used in production for the r/SpaceX subreddit, or can be run by any other means you choose on your system.
+Megathread-Manager is a Reddit bot framework to automate a variety of tasks on one or more subreddits, and can be configured and run without writing any code.
+Its initial application was to automatically generate, create, pin and update megathreads, as well as related tasks.
+Additionally, it can be used to automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
+It includes an installable systemd service unit for real-time operation on modern Linux distributions, which is used in production for the r/SpaceX subreddit, or can be run by any other means you choose on your system.
 
 
 
@@ -36,7 +37,7 @@ Alternatively, they can be installed with your systemwide package manager or Pyt
 
 ## Usage
 
-Currently, to run Megathread Manager, you'll need to activate the appropriate environment you created previously, and then run it as a script with Python.
+To run Megathread Manager, you'll need to activate the appropriate environment you created previously, and then run it as a script with Python.
 To see the various command-line options available, pass it the ``--help`` flag.
 
 ```bash
@@ -48,19 +49,20 @@ python megathreadmanager.py --help
 
 ## Configuration
 
-Megathread manager automatically generates its primary user config file (formatted as TOML for humans) on first run.
-By default, the file is located at ``~/.config/megathread_manager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory, as are refresh tokens (if used).
-However, you can specify an alternate config file for one or both with the various ``--config-path`` command line arguments, allowing you to run multiple instances of the bot simultaneously on the same machine (for example, to avoid cramming everything into one big configuration file).
+First, you'll want to generate the primary Megathread Manager user config file, in order to tell it what you want it to do.
+To do so, simply run ``python megathreadmanager.py generate-config`` to generate it at the default path, and a stock config file with some starting examples will be output (formatted as TOML for humans).
+By default, the file is located at ``~/.config/megathread_manager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory, and any refresh tokens saved in the ``refresh_tokens`` subdirectory.
+However, you can specify an alternate config file for one or both with the various ``--config-path`` command line arguments, allowing you to run multiple instances of the bot simultaneously on the same machine (for example, to avoid cramming everything into one big configuration file, or use multiple cores).
 
-All configuration, except for ``repeat_interval_s``, is read and updated for each run while ``megathread-manager`` is active, so settings can be changed on the fly without stopping and restarting it.
-
+To improve robustness and enforce safe maintenance practices, Megathread Manager must now be stopped and restarted to read-in updated config.
 Individual modules, such as ``megathread`` and ``sync``, can be enabled and disabled via their corresponding ``enabled`` options, and can be further configured as described below.
-On first run ``megathread-manager`` will generate a suitable configurable file for you, which you can then edit to tell it what you want it to do.
+To perform a variety of checks that your configuration is valid and will result in a successful run, without actually executing any state-changing Reddit actions, run ``python megathread-manager validate-config``; if an error occurs, informative output will explain the problem and, often, how to fix it.
+
 
 
 ### Configuring credentials
 
-With Megathread Manager v0.5.0, the Reddit account to use for a given action can be specified per module (megathread, sync), per task (megathread, sync pair) and even per source and target, as well as globally.
+Starting with Megathread Manager v0.5.0 and later, the Reddit account to use for a given action can be specified per module (megathread, sync), per task (megathread, sync pair) and even per source and target, as well as globally.
 You'll need to configure and register the account(s) involved for Reddit app access with the Reddit API.
 We recommend you configure your credentials in ``praw.ini`` and simply refer to them via the PRAW ``site_name`` argument of the respective account listed under the ``accounts`` table, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
 However, if you prefer, the various arguments that ``praw.Reddit()`` can accept, e.g. username/password, client id/client secret, refresh token, etc) can be also all be included as subkeys of the named account in the ``accounts`` table.
@@ -78,7 +80,7 @@ For either form, the units can be given with or without `s` or `ly` as suffices.
 There's currently a minor limitation with this as currently implemented: getting it to create a new thread "on-demand" rather than on a schedule (or not at all) is not completely obvious.
 There is a relatively simple workaround, however—just set the ``new_thread_interval`` to ``false``, and then whenever you want a new thread, set it to e.g. ``1 day``, wait `repeat_interval_s` seconds for it to create the new thread (or manually restart it, if you're impatient), and then set it back to ``false``.
 
-We will eventually add a proper feature for this, likely in the form of a new CLI command, e.g. ``megathread-manager new-thread <thread_name>`` to programmatically tell the running manager instance to create a new one on-demand.
+We will soon add a proper feature for this, likely in the form of a new CLI command, e.g. ``megathread-manager new-thread <thread_name>`` to programmatically tell the running manager instance to create a new one on-demand.
 
 
 ### Syncing sections
@@ -95,7 +97,7 @@ Example section content
 
 This allows easily syncing just specific sections between sources and targets.
 
-If any variable (e.g. ``pattern``) is not specified for a ``target``, the value is recursively inherited from the respective ``defaults`` table in the sync pair, and then sync config section, including the ``context`` sub-table in each as well as the ``default context`` in the config.
+If any variable (e.g. ``pattern``) is not specified for a ``target``, the value is recursively inherited from the respective ``defaults`` table in the sync pair, and then sync config section, including the ``context`` sub-table in each as well as the ``default_context`` in the config.
 Conversely, any ``replace_patterns`` for a specific target are applied after (and in addition) to those specified in ``source`` for all targets; note the ``source`` section is *not* actually modified unless it is specified as a ``target``.
 
 

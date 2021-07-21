@@ -3,7 +3,7 @@ Description=Megathread Manager Service
 
 [Service]
 Type=simple
-ExecStart=%h/bots/megathread-manager/env/bin/python -u %h/bots/megathread-manager/megathreadmanager.py --repeat
+ExecStart=%h/bots/megathread-manager/env/bin/python -u %h/bots/megathread-manager/megathreadmanager.py start
 Restart=on-failure
 RestartSec=60
 TimeoutStartSec=60

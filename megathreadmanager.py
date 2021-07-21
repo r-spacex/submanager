@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate, pin and update a regular megathread for a subreddit."""
+"""Manage subreddit threads, wiki pages, widgets, menus and more."""
 
 # Future imports
 from __future__ import annotations
@@ -2855,7 +2855,8 @@ def get_version_str() -> str:
 def create_arg_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the CLI."""
     parser_main = argparse.ArgumentParser(
-        description="Generate, post, update and pin a Reddit megathread",
+        description=(
+            "Manage subreddit threads, wiki pages, widgets, menus and more"),
         argument_default=argparse.SUPPRESS)
     subparsers = parser_main.add_subparsers(
         description="Subcommand to execute")
