@@ -24,7 +24,6 @@ from typing import (
     Callable,  # Import from collections.abc in Python 3.9
     ClassVar,
     Collection,  # Import from collections.abc in Python 3.9
-    Dict,  # Not needed in Python 3.9
     List,  # Not needed in Python 3.9
     Mapping,  # Import from collections.abc in Python 3.9
     MutableMapping,  # Import from collections.abc in Python 3.9
@@ -199,7 +198,7 @@ def process_dict_items_recursive(
         dict_toprocess: MutableMapping[KeyType, Any],
         fn_torun: Callable[..., Any],
         *,
-        fn_kwargs: dict[str, Any] | None = None,
+        fn_kwargs: Mapping[str, Any] | None = None,
         keys_match: Collection[str] | None = None,
         inplace: bool = False,
         ) -> MutableMapping[KeyType, Any]:
@@ -212,10 +211,10 @@ def process_dict_items_recursive(
     def _process_dict_items_inner(
             dict_toprocess: MutableMapping[KeyType, Any],
             fn_torun: Callable[..., Any],
-            fn_kwargs: dict[str, Any],
+            fn_kwargs: Mapping[str, Any],
             ) -> None:
         for key, value in dict_toprocess.items():
-            if isinstance(value, dict):
+            if isinstance(value, MutableMapping):
                 _process_dict_items_inner(
                     dict_toprocess=value,
                     fn_torun=fn_torun,
@@ -371,11 +370,13 @@ class CustomBaseModel(
         extra=pydantic.Extra.forbid,
         allow_mutation=False,
         validate_assignment=True,
+        metaclass=abc.ABCMeta,
         ):
     """Local customized Pydantic BaseModel."""
 
 
-class CustomMutableBaseModel(CustomBaseModel, allow_mutation=True):
+class CustomMutableBaseModel(
+        CustomBaseModel, allow_mutation=True, metaclass=abc.ABCMeta):
     """Custom BaseModel that allows mutation."""
 
 
@@ -387,12 +388,24 @@ class ConfigPaths(CustomBaseModel):
     static: Path = CONFIG_PATH_STATIC
 
 
-class ItemConfig(CustomBaseModel):
+class ItemConfig(CustomBaseModel, metaclass=abc.ABCMeta):
     """Base class for an atomic unit in the config hiearchy."""
 
     description: pydantic.StrictStr = ""
     enabled: bool = True
     uid: ItemIDStr
+
+
+class ManagerConfig(CustomBaseModel, metaclass=abc.ABCMeta):
+    """Base class for manager modules."""
+
+    enabled: bool = True
+
+
+class ItemManagerConfig(ManagerConfig, metaclass=abc.ABCMeta):
+    """Base class for managers that deal with arbitrary discrete items."""
+
+    items: Mapping[StripStr, ItemConfig] = {}
 
 
 class MenuConfig(CustomBaseModel):
@@ -458,12 +471,11 @@ class EndpointTypeConfig(EndpointConfig):
 class FullEndpointConfig(EndpointTypeConfig, PatternConfig):
     """Config params for a sync source/target endpoint."""
 
-    enabled: bool = True
     menu_config: MenuConfig = MenuConfig()
     replace_patterns: Mapping[NonEmptyStr, pydantic.StrictStr] = {}
 
 
-class SyncPairConfig(ItemConfig):
+class SyncItemConfig(ItemConfig):
     """Configuration object for a sync pair of a source and target(s)."""
 
     source: FullEndpointConfig
@@ -475,15 +487,14 @@ class SyncPairConfig(ItemConfig):
             ) -> Mapping[StripStr, FullEndpointConfig]:
         """Validate that at least one target is defined for each sync pair."""
         if not value:
-            raise ValueError("No targets defined for sync pair")
+            raise ValueError("No targets defined for sync item")
         return value
 
 
-class SyncConfig(CustomBaseModel):
+class SyncManagerConfig(ItemManagerConfig):
     """Top-level configuration for the thread management module."""
 
-    enabled: bool = True
-    pairs: Mapping[StripStr, SyncPairConfig] = {}
+    items: Mapping[StripStr, SyncItemConfig] = {}
 
 
 class InitialThreadConfig(CustomBaseModel):
@@ -493,19 +504,20 @@ class InitialThreadConfig(CustomBaseModel):
     thread_number: pydantic.NonNegativeInt = 0
 
 
-class ThreadConfig(ItemConfig):
+class ThreadItemConfig(ItemConfig):
     """Configuration for a managed thread item."""
 
     approve_new: bool = True
     context: ContextConfig
     initial: InitialThreadConfig = InitialThreadConfig()
-    link_update_pages: List[StripStr] = []
+    link_update_pages: Sequence[StripStr] = []
     new_thread_interval: Union[NonEmptyStr, Literal[False]] = "monthly"
     new_thread_redirect_op: bool = True
     new_thread_redirect_sticky: bool = True
     new_thread_redirect_template: NonEmptyStr = DEFAULT_REDIRECT_TEMPLATE
     pin_thread: Union[PinType, pydantic.StrictBool] = PinType.BOTTOM
-    post_title_template: StripStr = "{subreddit} Megathread (#{thread_number})"
+    post_title_template: StripStr = (
+        "{subreddit} Discussion Thread (#{thread_number})")
     source: FullEndpointConfig
     target_context: ContextConfig
 
@@ -543,11 +555,10 @@ class ThreadConfig(ItemConfig):
         return raw_interval
 
 
-class ThreadsConfig(CustomBaseModel):
+class ThreadManagerConfig(ItemManagerConfig):
     """Top-level configuration for the thread management module."""
 
-    enabled: bool = True
-    megathreads: Mapping[StripStr, ThreadConfig] = {}
+    items: Mapping[StripStr, ThreadItemConfig] = {}
 
 
 class StaticConfig(CustomBaseModel):
@@ -557,8 +568,8 @@ class StaticConfig(CustomBaseModel):
     repeat_interval_s: pydantic.NonNegativeFloat = 60
     accounts: AccountsConfig
     context_default: ContextConfig
-    megathread: ThreadsConfig = ThreadsConfig()
-    sync: SyncConfig = SyncConfig()
+    sync_manager: SyncManagerConfig = SyncManagerConfig()
+    thread_manager: ThreadManagerConfig = ThreadManagerConfig()
 
     @pydantic.validator("accounts")
     def check__has_accounts(  # pylint: disable = no-self-use, no-self-argument
@@ -573,22 +584,44 @@ class StaticConfig(CustomBaseModel):
         return value
 
 
-class DynamicSyncConfig(CustomMutableBaseModel):
+class DynamicItemConfig(CustomMutableBaseModel, metaclass=abc.ABCMeta):
+    """Base class for the dynamic configuration of a generic item."""
+
+
+class DynamicItemManagerConfig(CustomMutableBaseModel, metaclass=abc.ABCMeta):
+    """Base class for dynamic config for ItemManagers."""
+
+    items: Mapping[StripStr, DynamicItemConfig] = {}
+
+
+class DynamicSyncItemConfig(DynamicItemConfig):
     """Dynamically-updated configuration for sync pairs."""
 
     source_timestamp: pydantic.NonNegativeFloat = 0
 
 
-class DynamicThreadConfig(
-        DynamicSyncConfig, InitialThreadConfig, allow_mutation=True):
+class DynamicSyncManagerConfig(DynamicItemManagerConfig):
+    """Dynamically updated configuration for the Sync Manager module."""
+
+    items: MutableMapping[StripStr, DynamicSyncItemConfig] = {}
+
+
+class DynamicThreadItemConfig(
+        DynamicSyncItemConfig, InitialThreadConfig, allow_mutation=True):
     """Dynamically-updated configuration for managed threads."""
+
+
+class DynamicThreadManagerConfig(DynamicItemManagerConfig):
+    """Dynamically updated configuration for the Thread Manager module."""
+
+    items: MutableMapping[StripStr, DynamicThreadItemConfig] = {}
 
 
 class DynamicConfig(CustomMutableBaseModel):
     """Model reprisenting the current dynamic configuration."""
 
-    megathread: Dict[StripStr, DynamicThreadConfig] = {}
-    sync: Dict[StripStr, DynamicSyncConfig] = {}
+    sync_manager: DynamicSyncManagerConfig = DynamicSyncManagerConfig()
+    thread_manager: DynamicThreadManagerConfig = DynamicThreadManagerConfig()
 
 
 # ---- Example config ----
@@ -623,16 +656,16 @@ EXAMPLE_TARGET: Final = FullEndpointConfig(
     uid="EXAMPLE_TARGET",
     )
 
-EXAMPLE_SYNC_PAIR: Final = SyncPairConfig(
-    description="Example sync pair",
+EXAMPLE_SYNC_ITEM: Final = SyncItemConfig(
+    description="Example sync item",
     enabled=False,
     source=EXAMPLE_SOURCE,
     targets={"EXAMPLE_TARGET": EXAMPLE_TARGET},
-    uid="EXAMPLE_SYNC_PAIR",
+    uid="EXAMPLE_SYNC_ITEM",
     )
 
 
-EXAMPLE_THREAD: Final = ThreadConfig(
+EXAMPLE_THREAD: Final = ThreadItemConfig(
     context=EXAMPLE_CONTEXT,
     description="Example managed thread",
     enabled=False,
@@ -645,28 +678,30 @@ EXAMPLE_THREAD: Final = ThreadConfig(
 EXAMPLE_STATIC_CONFIG: Final = StaticConfig(
     accounts=EXAMPLE_ACCOUNTS,
     context_default=EXAMPLE_CONTEXT,
-    megathread=ThreadsConfig(megathreads={"EXAMPLE_THREAD": EXAMPLE_THREAD}),
-    sync=SyncConfig(pairs={"EXAMPLE_SYNC_PAIR": EXAMPLE_SYNC_PAIR}),
+    sync_manager=SyncManagerConfig(
+        items={"EXAMPLE_SYNC_ITEM": EXAMPLE_SYNC_ITEM}),
+    thread_manager=ThreadManagerConfig(
+        items={"EXAMPLE_THREAD": EXAMPLE_THREAD}),
     )
 
 
 # Fields to not output in the generated config, as they are too verbose
 EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
-    "megathread": {
-        "megathreads": {
-            "EXAMPLE_THREAD": {
-                "context": ...,
+    "sync_manager": {
+        "items": {
+            "EXAMPLE_SYNC_ITEM": {
                 "source": {"context", "uid"},
-                "target_context": ...,
+                "target": {"context", "uid"},
                 "uid": ...,
                 },
             },
         },
-    "sync": {
-        "pairs": {
-            "EXAMPLE_SYNC_PAIR": {
+    "thread_manager": {
+        "items": {
+            "EXAMPLE_THREAD": {
+                "context": ...,
                 "source": {"context", "uid"},
-                "target": {"context", "uid"},
+                "target_context": ...,
                 "uid": ...,
                 },
             },
@@ -1515,35 +1550,35 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
 
     sync_defaults: StrMap = update_dict_recursive(
         {"context": context_default},
-        raw_config.get("sync", {}).pop("defaults", {}))
-    sync_pair: StrMap
+        raw_config.get("sync_manager", {}).pop("defaults", {}))
+    sync_item: StrMap
 
-    # Fill the defaults in each sync pair
-    for sync_key, sync_pair in (
-            raw_config.get("sync", {}).get("pairs", {}).items()):
+    # Fill the defaults in each sync item
+    for sync_key, sync_item in (
+            raw_config.get("sync_manager", {}).get("items", {}).items()):
         sync_defaults_item: StrMap = update_dict_recursive(
-            sync_defaults, sync_pair.pop("defaults", {}))
-        sync_pair["uid"] = f"sync.pairs.{sync_key}"
-        sync_pair["source"] = update_dict_recursive(
-            sync_defaults_item, sync_pair.get("source", {}))
-        sync_pair["source"]["uid"] = sync_pair["uid"] + ".source"
+            sync_defaults, sync_item.pop("defaults", {}))
+        sync_item["uid"] = f"sync_manager.items.{sync_key}"
+        sync_item["source"] = update_dict_recursive(
+            sync_defaults_item, sync_item.get("source", {}))
+        sync_item["source"]["uid"] = sync_item["uid"] + ".source"
         target_config: StrMap
-        for target_key, target_config in sync_pair.get("targets", {}).items():
+        for target_key, target_config in sync_item.get("targets", {}).items():
             target_config.update(
                 update_dict_recursive(sync_defaults_item, target_config))
-            target_config["uid"] = sync_pair["uid"] + f".targets.{target_key}"
+            target_config["uid"] = sync_item["uid"] + f".targets.{target_key}"
 
     thread_defaults: StrMap = update_dict_recursive(
         {"context": context_default},
-        raw_config.get("megathread", {}).pop("defaults", {}))
+        raw_config.get("thread_manager", {}).pop("defaults", {}))
     thread: StrMap
 
     # Fill the defaults in each managed thread
     for thread_key, thread in (
-            raw_config.get("megathread", {}).get("megathreads", {}).items()):
+            raw_config.get("thread_manager", {}).get("items", {}).items()):
         thread.update(
             update_dict_recursive(thread_defaults, thread))
-        thread["uid"] = f"megathread.megathreads.{thread_key}"
+        thread["uid"] = f"thread_manager.items.{thread_key}"
         thread["source"] = update_dict_recursive(
             {"context": thread.get("context", {})}, thread["source"])
         thread["source"]["uid"] = thread["uid"] + ".source"
@@ -1639,17 +1674,23 @@ def render_dynamic_config(
     dynamic_config_raw = dict(copy.deepcopy(dynamic_config_raw))
 
     # Fill defaults in dynamic config
-    dynamic_config_raw["sync"] = dynamic_config_raw.get("sync", {})
-    for pair_key in static_config.sync.pairs:
-        dynamic_config_raw["sync"][pair_key] = (
-            dynamic_config_raw["sync"].get(pair_key, {}))
+    sync_manager = dynamic_config_raw.get("sync_manager", {})
+    dynamic_config_raw["sync_manager"] = sync_manager
+    sync_manager_items = sync_manager.get("items", {})
+    sync_manager["items"] = sync_manager_items
+    for item_key in static_config.sync_manager.items:
+        sync_manager_items[item_key] = sync_manager_items.get(item_key, {})
 
-    dynamic_config_raw["megathread"] = dynamic_config_raw.get("megathread", {})
+    thread_manager = dynamic_config_raw.get("thread_manager", {})
+    dynamic_config_raw["thread_manager"] = thread_manager
+    thread_manager_items = thread_manager.get("items", {})
+    thread_manager["items"] = thread_manager_items
     for thread_key, thread_config in (
-            static_config.megathread.megathreads.items()):
-        dynamic_config_raw["megathread"][thread_key] = {
+            static_config.thread_manager.items.items()):
+        thread_manager_items[thread_key] = {
             **dict(thread_config.initial),
-            **dynamic_config_raw["megathread"].get(thread_key, {})}
+            **thread_manager_items.get(thread_key, {}),
+            }
 
     dynamic_config = DynamicConfig.parse_obj(dynamic_config_raw)
     return dynamic_config
@@ -1673,11 +1714,11 @@ def load_dynamic_config(
     return dynamic_config
 
 
-# ----------------- Core megathread logic -----------------
+# ----------------- Thread management functionality -----------------
 
 def generate_template_vars(
-        thread_config: ThreadConfig,
-        dynamic_config: DynamicThreadConfig,
+        thread_config: ThreadItemConfig,
+        dynamic_config: DynamicThreadItemConfig,
         ) -> dict[str, str | int | datetime.datetime]:
     """Generate the title and post templates."""
     template_vars: dict[str, str | int | datetime.datetime] = {
@@ -1696,7 +1737,7 @@ def generate_template_vars(
 
 def update_page_links(
         links: Mapping[str, str],
-        pages_to_update: Sequence[str],
+        pages_to_update: Collection[str],
         reddit: praw.reddit.Reddit,
         *,
         context: ContextConfig,
@@ -1708,7 +1749,7 @@ def update_page_links(
     for page_name in pages_to_update:
         page_config = EndpointConfig(
             context=context,
-            description=f"Megathread link page {page_name}",
+            description=f"Thread link page {page_name}",
             endpoint_name=page_name,
             uid=uid + f".{page_name}",
             )
@@ -1726,12 +1767,12 @@ def update_page_links(
                 )
         page.edit(
             new_content, reason=(
-                f"Update {description or uid_base} megathread URLs"))
+                f"Update {description or uid_base} thread URLs"))
 
 
 def create_new_thread(
-        thread_config: ThreadConfig,
-        dynamic_config: DynamicThreadConfig,
+        thread_config: ThreadItemConfig,
+        dynamic_config: DynamicThreadItemConfig,
         accounts: AccountsMap,
         ) -> None:
     """Create a new thread based on the title and post template."""
@@ -1827,8 +1868,8 @@ def create_new_thread(
 
 
 def sync_thread(
-        thread_config: ThreadConfig,
-        dynamic_config: DynamicThreadConfig,
+        thread_config: ThreadItemConfig,
+        dynamic_config: DynamicThreadItemConfig,
         accounts: AccountsMap,
         ) -> None:
     """Sync a managed thread from its source."""
@@ -1841,27 +1882,27 @@ def sync_thread(
     thread_target = FullEndpointConfig(
         context=thread_config.target_context,
         description=(
-            f"{thread_config.description or thread_config.uid} Megathread"),
+            f"{thread_config.description or thread_config.uid} Thread"),
         endpoint_name=dynamic_config.thread_id,
         endpoint_type=EndpointType.THREAD,
         uid=thread_config.uid + ".target"
         )
-    sync_pair = SyncPairConfig(
+    sync_item = SyncItemConfig(
         description=thread_config.description,
         source=thread_config.source,
-        targets={"megathread": thread_target},
-        uid=thread_config.uid + ".sync_pair"
+        targets={"managed_thread": thread_target},
+        uid=thread_config.uid + ".sync_item"
         )
     sync_one(
-        sync_pair=sync_pair,
+        sync_item=sync_item,
         dynamic_config=dynamic_config,
         accounts=accounts,
         )
 
 
 def should_post_new_thread(
-        thread_config: ThreadConfig,
-        dynamic_config: DynamicThreadConfig,
+        thread_config: ThreadItemConfig,
+        dynamic_config: DynamicThreadItemConfig,
         reddit: praw.reddit.Reddit,
         ) -> bool:
     """Determine if a new thread should be posted."""
@@ -1900,8 +1941,8 @@ def should_post_new_thread(
 
 
 def manage_thread(
-        thread_config: ThreadConfig,
-        dynamic_config: DynamicThreadConfig,
+        thread_config: ThreadItemConfig,
+        dynamic_config: DynamicThreadItemConfig,
         accounts: AccountsMap,
         ) -> None:
     """Manage the current thread, creating or updating it as necessary."""
@@ -1929,21 +1970,20 @@ def manage_thread(
 
 
 def manage_threads(
-        static_config: StaticConfig,
-        dynamic_config: DynamicConfig,
+        thread_manager_config: ThreadManagerConfig,
+        dynamic_thread_manager_config: DynamicThreadManagerConfig,
         accounts: AccountsMap,
         ) -> None:
-    """Check and create/update all defined megathreads for a sub."""
-    for thread_key, thread_config in (
-            static_config.megathread.megathreads.items()):
+    """Check and create/update all defined threads for a sub."""
+    for thread_key, thread_config in thread_manager_config.items.items():
         manage_thread(
             thread_config=thread_config,
-            dynamic_config=dynamic_config.megathread[thread_key],
+            dynamic_config=dynamic_thread_manager_config.items[thread_key],
             accounts=accounts,
             )
 
 
-# ----------------- Sync functionality -----------------
+# ----------------- Core sync functionality -----------------
 
 def parse_menu(
         source_text: str,
@@ -2030,7 +2070,7 @@ def process_endpoint_text(
 def process_source_endpoint(
         source_config: FullEndpointConfig,
         source_obj: SyncEndpoint,
-        dynamic_config: DynamicSyncConfig,
+        dynamic_config: DynamicSyncItemConfig,
         ) -> str | MenuData | Literal[False]:
     """Get and preprocess the text from a source if its out of date."""
     # If source has revision date, check it and skip if unchanged
@@ -2094,25 +2134,25 @@ def process_target_endpoint(
 
 
 def sync_one(
-        sync_pair: SyncPairConfig,
-        dynamic_config: DynamicSyncConfig,
+        sync_item: SyncItemConfig,
+        dynamic_config: DynamicSyncItemConfig,
         accounts: AccountsMap,
         ) -> None:
     """Sync one specific pair of sources and targets."""
-    if not (sync_pair.enabled and sync_pair.source.enabled):
+    if not (sync_item.enabled and sync_item.source.enabled):
         return
 
     # Create source sync endpoint
     source_obj = create_sync_endpoint_from_config(
-        config=sync_pair.source,
-        reddit=accounts[sync_pair.source.context.account])
+        config=sync_item.source,
+        reddit=accounts[sync_item.source.context.account])
     source_content = process_source_endpoint(
-        sync_pair.source, source_obj, dynamic_config)
+        sync_item.source, source_obj, dynamic_config)
     if source_content is False:
         return
 
     # Create target endpoints, process data and sync
-    for target_config in sync_pair.targets.values():
+    for target_config in sync_item.targets.values():
         if not target_config.enabled:
             continue
 
@@ -2123,27 +2163,28 @@ def sync_one(
             target_config=target_config,
             target_obj=target_obj,
             source_content=source_content,
-            menu_config=sync_pair.source.menu_config,
+            menu_config=sync_item.source.menu_config,
             )
         if target_content is False:
             continue
 
         target_obj.edit(
             target_content,
-            reason=(f"Auto-sync {sync_pair.description or sync_pair.uid} "
+            reason=(f"Auto-sync {sync_item.description or sync_item.uid} "
                     f"from {target_obj.config.endpoint_name}"),
             )
 
 
-def sync_all(static_config: StaticConfig,
-             dynamic_config: DynamicConfig,
-             accounts: AccountsMap,
-             ) -> None:
+def sync_all(
+        sync_manager_config: SyncManagerConfig,
+        dynamic_sync_manager_config: DynamicSyncManagerConfig,
+        accounts: AccountsMap,
+        ) -> None:
     """Sync all pairs of sources/targets (pages,threads, sections) on a sub."""
-    for sync_pair_id, sync_pair in static_config.sync.pairs.items():
+    for sync_item_id, sync_item in sync_manager_config.items.items():
         sync_one(
-            sync_pair=sync_pair,
-            dynamic_config=dynamic_config.sync[sync_pair_id],
+            sync_item=sync_item,
+            dynamic_config=dynamic_sync_manager_config.items[sync_item_id],
             accounts=accounts,
             )
 
@@ -2587,14 +2628,14 @@ def get_all_endpoints(
     """Get all sync endpoints defined in the current static config."""
     all_endpoints: list[FullEndpointConfig] = []
     # Get each sync pair source and target that is enabled
-    if include_disabled or static_config.sync.enabled:
-        for sync_pair in static_config.sync.pairs.values():
-            if include_disabled or sync_pair.enabled:
-                all_endpoints.append(sync_pair.source)
-                all_endpoints += list(sync_pair.targets.values())
+    if include_disabled or static_config.sync_manager.enabled:
+        for sync_item in static_config.sync_manager.items.values():
+            if include_disabled or sync_item.enabled:
+                all_endpoints.append(sync_item.source)
+                all_endpoints += list(sync_item.targets.values())
     # Get each thread endpoint that's enabled
-    if include_disabled or static_config.megathread.enabled:
-        for thread in static_config.megathread.megathreads.values():
+    if include_disabled or static_config.thread_manager.enabled:
+        for thread in static_config.thread_manager.items.values():
             if include_disabled or thread.enabled:
                 all_endpoints.append(thread.source)
     # Pune the endpoints to just enabled unless told otherwise
@@ -2784,10 +2825,18 @@ def run_manage_once(
     dynamic_config_active = dynamic_config.copy(deep=True)
 
     # Run the core manager tasks
-    if static_config.sync.enabled:
-        sync_all(static_config, dynamic_config_active, accounts)
-    if static_config.megathread.enabled:
-        manage_threads(static_config, dynamic_config_active, accounts)
+    if static_config.sync_manager.enabled:
+        sync_all(
+            static_config.sync_manager,
+            dynamic_config_active.sync_manager,
+            accounts,
+            )
+    if static_config.thread_manager.enabled:
+        manage_threads(
+            static_config.thread_manager,
+            dynamic_config_active.thread_manager,
+            accounts,
+            )
 
     # Write out the dynamic config if it changed
     if dynamic_config_active != dynamic_config:
@@ -3008,7 +3057,7 @@ def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
         run_toplevel_function(**vars(parsed_args))
 
 
-def main(sys_argv: list[str] | None = None) -> None:
+def main(sys_argv: Sequence[str] | None = None) -> None:
     """Run the main function for the Megathread Manager CLI and dispatch."""
     parser_main = create_arg_parser()
     parsed_args = parser_main.parse_args(sys_argv)
