@@ -68,10 +68,10 @@ __version__: Final[str] = "0.6.0dev0"
 
 # General constants
 USER_AGENT: Final[str] = (
-    f"praw:megathreadmanager:v{__version__} (by u/CAM-Gerlach)")
+    f"praw:submanager:v{__version__} (by u/CAM-Gerlach)")
 
 # Path constants
-CONFIG_DIRECTORY: Final = Path("~/.config/megathread-manager").expanduser()
+CONFIG_DIRECTORY: Final = Path("~/.config/submanager").expanduser()
 TOKEN_DIRECTORY: Final = CONFIG_DIRECTORY / "refresh_tokens"
 CONFIG_PATH_STATIC: Final = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC: Final = CONFIG_DIRECTORY / "config_dynamic.json"
@@ -2866,7 +2866,7 @@ def start_manage(
         *,
         skip_validate: bool = False,
         ) -> None:
-    """Run the mainloop of sub-manager, performing each task in sequance."""
+    """Run the mainloop of Sub Manager, performing each task in sequance."""
     # Load config and set up session
     print("Starting Sub Manager")
     config_paths = ConfigPaths() if config_paths is None else config_paths
@@ -2898,7 +2898,7 @@ def start_manage(
 
 def get_version_str() -> str:
     """Get a pretty-printed string of the application's version."""
-    return f"Megathread Manager version {__version__}"
+    return f"Sub Manager version {__version__}"
 
 
 def create_arg_parser() -> argparse.ArgumentParser:
@@ -3058,7 +3058,7 @@ def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
 
 
 def main(sys_argv: Sequence[str] | None = None) -> None:
-    """Run the main function for the Megathread Manager CLI and dispatch."""
+    """Run the main function for the Sub Manager CLI and dispatch."""
     parser_main = create_arg_parser()
     parsed_args = parser_main.parse_args(sys_argv)
     debug: bool = vars(parsed_args).pop("debug")
