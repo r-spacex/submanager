@@ -3,7 +3,7 @@ Description=Sub Manager Service
 
 [Service]
 Type=simple
-ExecStart=%h/bots/submanager/env/bin/python -u %h/bots/submanager/submanager.py start
+ExecStart=%h/bots/submanager/env/bin/python -u -m submanager start
 Restart=on-failure
 RestartSec=60
 TimeoutStartSec=60

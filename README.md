@@ -9,7 +9,6 @@ It includes an installable systemd service unit for real-time operation on moder
 
 ## Installation
 
-Currently, install is manual-only, but refactoring as a proper Python package is imminent.
 To install, first clone the repo to any desired directory with ``git``.
 
 ```
@@ -25,24 +24,28 @@ python3 -m venv env
 source env/bin/activate
 ```
 
-Currently, to install the necessary dependencies using `pip`, you must do so via the ``requirements.txt``:
+Finally, to install the package, simply run
 
 ```bash
-pip install -r requirements.txt
+pip install .
 ```
 
-Alternatively, they can be installed with your systemwide package manager or Python distribution, if you use system Python (not recommended) or ``--system-site-packages`` when creating the venv.
+or to install it in editable ("development") mode, run
+
+```bash
+pip install -e .
+```
 
 
 
 ## Usage
 
-To run Sub Manager, you'll need to activate the appropriate environment you created previously, and then run it as a script with Python.
+To run Sub Manager, you'll need to activate the appropriate environment you created previously, and then run its main entrypoint.
 To see the various command-line options available, pass it the ``--help`` flag.
 
 ```bash
 source env/bin/activate
-python submanager.py --help
+submanager --help
 ```
 
 
@@ -50,13 +53,13 @@ python submanager.py --help
 ## Configuration
 
 First, you'll want to generate the primary Sub Manager user config file, in order to tell it what you want it to do.
-To do so, simply run ``python submanager.py generate-config`` to generate it at the default path, and a stock config file with some starting examples will be output (formatted as TOML for humans).
+To do so, simply run ``submanager generate-config`` to generate it at the default path, and a stock config file with some starting examples will be output (formatted as TOML for humans).
 By default, the file is located at ``~/.config/submanager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory, and any refresh tokens saved in the ``refresh_tokens`` subdirectory.
 However, you can specify an alternate config file for one or both with the various ``--config-path`` command line arguments, allowing you to run multiple instances of the bot simultaneously on the same machine (for example, to avoid cramming everything into one big configuration file, or use multiple cores).
 
 To improve robustness and enforce safe maintenance practices, Sub Manager must now be stopped and restarted to read-in updated config.
 Individual modules, such as ``sync_manager`` and ``thread_manager``, can be enabled and disabled via their corresponding ``enabled`` options, and can be further configured as described below.
-To perform a variety of checks that your configuration is valid and will result in a successful run, without actually executing any state-changing Reddit actions, run ``python submanager.py validate-config``; if an error occurs, informative output will explain the problem and, often, how to fix it.
+To perform a variety of checks that your configuration is valid and will result in a successful run, without actually executing any state-changing Reddit actions, run ``submanager validate-config``; if an error occurs, informative output will explain the problem and, often, how to fix it.
 
 
 
@@ -104,8 +107,8 @@ Conversely, any ``replace_patterns`` for a specific target are applied after (an
 
 ## Running as a service
 
-The provided systemd unit file allows easily running it as a user service; just copy it to the ``~/.config/systemd/user`` directory (creating it if it doesn't already exist).
-It currently assumes the `submanager` directory lives at ``~/bots/submanager`` and the virtual environment also lives at ``env`` in that directory; you can modify it to specify the names and paths on your system.
+The provided systemd unit file, `submanager.service` in the project root, allows easily running it as a user service; just copy it to the ``~/.config/systemd/user`` directory (creating it if it doesn't already exist).
+It currently assumes the virtual environment ``submanager`` is installed in lives at ``~/bots/submanager/env``; you can modify it to specify the names and paths on your system.
 It can be enabled and started in the typical way,
 
 ```bash
