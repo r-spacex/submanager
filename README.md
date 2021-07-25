@@ -30,10 +30,10 @@ Finally, to install the package, simply run
 pip install .
 ```
 
-or to install it in editable ("development") mode, run
+To install it in editable ("development") mode, where updates to the source files will be reflected in the installed package, and install the tools needed for development, run
 
 ```bash
-pip install -e .
+pip install -e .[dev]
 ```
 
 
