@@ -92,7 +92,7 @@ def setup_accounts(
                 account_key=account_key, message_post=error) from error
         reddit.validate_on_submit = True
         accounts[account_key] = reddit
-    return accounts
+    return AccountsMap(accounts)
 
 
 def setup_config(

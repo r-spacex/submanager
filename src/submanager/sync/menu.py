@@ -54,14 +54,13 @@ def parse_menu(
         menu_config = submanager.models.config.MenuConfig()
 
     # Cleanup menu source text
-    menu_data: MenuData = []
+    menu_data = []
     source_text = source_text.replace("\r\n", "\n")
     menu_sections = split_and_clean_text(
         source_text, menu_config.split)
 
     # Construct the data for each menu section in the source
     for menu_section in menu_sections:
-        section_data: SectionData
         menu_subsections = split_and_clean_text(
             menu_section, menu_config.subsplit)
 
@@ -72,7 +71,7 @@ def parse_menu(
             menu_config.pattern_title, menu_subsections[0])
         if title_text is False:
             continue
-        section_data = {"text": title_text}
+        section_data: SectionData = {"text": title_text}
 
         # If menu is a singular item, just add that
         if len(menu_subsections) == 1:
@@ -95,4 +94,4 @@ def parse_menu(
             section_data["children"] = children
         menu_data.append(section_data)
 
-    return menu_data
+    return MenuData(menu_data)

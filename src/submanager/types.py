@@ -10,6 +10,7 @@ from typing import (
     List,  # Not needed in Python 3.9
     Mapping,  # Import from collections.abc in Python 3.9
     MutableMapping,  # Import from collections.abc in Python 3.9
+    NewType,
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
     TYPE_CHECKING,
@@ -29,15 +30,18 @@ else:
 StrMap = MutableMapping[str, Any]
 ExceptTuple = Tuple[Type[Exception], ...]
 
-AccountConfig = MutableMapping[str, str]
-AccountsConfig = Mapping[str, AccountConfig]
-AccountConfigProcessed = MutableMapping[str, Union[
-    str, praw.util.token_manager.FileTokenManager]]
-AccountsConfigProcessed = Mapping[str, AccountConfigProcessed]
-AccountsMap = Mapping[str, praw.reddit.Reddit]
 ConfigDict = Mapping[str, Any]
 ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
 
+AccountConfig = NewType("AccountConfig", MutableMapping[str, str])
+AccountsConfig = NewType("AccountsConfig", Mapping[str, AccountConfig])
+AccountConfigProcessed = NewType(
+    "AccountConfigProcessed",
+    MutableMapping[str, Union[str, praw.util.token_manager.FileTokenManager]])
+AccountsConfigProcessed = NewType(
+    "AccountsConfigProcessed", Mapping[str, AccountConfigProcessed])
+AccountsMap = NewType("AccountsMap", Mapping[str, praw.reddit.Reddit])
+
 ChildrenData = List[MutableMapping[str, str]]
 SectionData = MutableMapping[str, Union[str, ChildrenData]]
-MenuData = List[SectionData]
+MenuData = NewType("MenuData", List[SectionData])

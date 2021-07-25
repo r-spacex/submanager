@@ -52,13 +52,13 @@ EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
 
 EXAMPLE_ACCOUNT_NAME: Final[str] = "EXAMPLE_USER"
 
-EXAMPLE_ACCOUNT_CONFIG: Final[AccountConfig] = {
+EXAMPLE_ACCOUNT_CONFIG: Final = AccountConfig({
     "site_name": "EXAMPLE_SITE_NAME",
-    }
+    })
 
-EXAMPLE_ACCOUNTS: Final[AccountsConfig] = {
+EXAMPLE_ACCOUNTS: Final = AccountsConfig({
     EXAMPLE_ACCOUNT_NAME: EXAMPLE_ACCOUNT_CONFIG,
-    }
+    })
 
 EXAMPLE_CONTEXT: Final = submanager.models.config.ContextConfig(
     account="EXAMPLE_USER",
