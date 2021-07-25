@@ -43,10 +43,7 @@ def check_reddit_connectivity(raise_error: bool = True) -> bool:
     """Check if Sub Manager is able to contact Reddit at all."""
     try:
         get_reddit_oauth_scopes()
-    except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            ) as error:
+    except submanager.exceptions.REQUESTS_CONNECTIVITY_ERROS as error:
         if not raise_error:
             return False
         raise submanager.exceptions.RedditNetworkError(

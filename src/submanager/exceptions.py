@@ -14,6 +14,7 @@ from typing import (
 # Third party imports
 import praw.exceptions
 import prawcore.exceptions
+import requests.exceptions
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
     )
@@ -62,6 +63,11 @@ PRAW_ALL_ERRORS: Final[ExceptTuple] = (
     praw.exceptions.PRAWException,
     prawcore.exceptions.PrawcoreException,
     configparser.Error,
+    )
+
+REQUESTS_CONNECTIVITY_ERROS: Final[ExceptTuple] = (
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
     )
 
 

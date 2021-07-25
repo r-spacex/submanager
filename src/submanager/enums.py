@@ -13,6 +13,8 @@ import enum
 class StrValueEnum(enum.Enum):
     """Normalizes input and outputs just value as repr for serialization."""
 
+    value: str  # pylint: disable = invalid-name
+
     def __repr__(self) -> str:
         """Convert enum value to repr."""
         return str(self.value)
@@ -38,6 +40,8 @@ class StrValueEnum(enum.Enum):
 @enum.unique
 class ExitCode(enum.Enum):
     """Exit code signalling the type of exit from the program."""
+
+    value: int  # pylint: disable = invalid-name
 
     SUCCESS = 0
     ERROR_UNHANDLED = 1
