@@ -5,35 +5,44 @@ Its initial application was to automatically generate, create, pin and update th
 Additionally, it can be used to automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
 It includes an installable systemd service unit for real-time operation on modern Linux distributions, which is used in production for the r/SpaceX subreddit, or can be run by any other means you choose on your system.
 
+**Legal Disclaimer**: For the avoidance of doubt, Sub Manager and the r/SpaceX organization and subreddit have no affiliation with nor are endorsed by [Reddit](https://www.reddit.com) or [SpaceX](https://www.spacex.com), which are trademarks of their respective companies.
+
 
 
 ## Installation
 
-To install, first clone the repo to any desired directory with ``git``.
+To install, first clone the repo to any desired directory with ``git`` (PyPI support coming with the next release).
 
 ```
 git clone <REPO-URL>
 cd submanager
 ```
 
-Then, while it can be installed in your system Python, we highly recommend you create and activate a virtual environment to avoid any conflicts with other packages on your system or causing any other issues
-For example, using venv:
+Then, while it can be installed in your system Python, we highly recommend you create and activate a virtual environment to avoid any conflicts with other packages on your system or causing any other issues.
+Using the standard tool ``venv``, you can create an environment as follows (you'll need to use ``python3`` instead of ``python`` on many Linux distros):
 
 ```bash
-python3 -m venv env
+python -m venv env
+```
+
+And activate it with the following on Linux and macOS
+
+```bash
 source env/bin/activate
 ```
 
-Finally, to install the package, simply run
+or on Windows (cmd),
+
+```cmd
+.\env\Scripts\activate.bat
+```
+
+Of course you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc).
+
+To install the package, with your environment activated, simply run
 
 ```bash
 pip install .
-```
-
-To install it in editable ("development") mode, where updates to the source files will be reflected in the installed package, and install the tools needed for development, run
-
-```bash
-pip install -e .[dev]
 ```
 
 
@@ -41,12 +50,19 @@ pip install -e .[dev]
 ## Usage
 
 To run Sub Manager, you'll need to activate the appropriate environment you created previously, and then run its main entrypoint.
-To see the various command-line options available, pass it the ``--help`` flag.
+For example,
 
 ```bash
 source env/bin/activate
 submanager --help
 ```
+
+To see the various command-line options available, pass it the ``--help`` flag.
+
+
+## Contributing
+
+For information on how to contribute to Sub Manager, including reporting issues, setting up a development environment and contributing code, see the [Contributing Guide](https://github.com/r-spacex/submanager/blob/master/CONTRIBUTING.md).
 
 
 
