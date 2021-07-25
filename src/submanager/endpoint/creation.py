@@ -24,8 +24,8 @@ import submanager.models.config
 
 EndpointClass = Type[submanager.endpoint.base.SyncEndpoint]
 
-SYNC_ENDPOINT_TYPES: Final[Mapping[
-        submanager.enums.EndpointType, EndpointClass]] = {
+SYNC_ENDPOINT_TYPES: Final[Mapping[submanager.enums.EndpointType,
+                                   EndpointClass]] = {
     submanager.enums.EndpointType.MENU: (
         submanager.endpoint.endpoints.MenuSyncEndpoint),
     submanager.enums.EndpointType.THREAD: (

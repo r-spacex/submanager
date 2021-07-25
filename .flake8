@@ -1,0 +1,29 @@
+[flake8]
+hang_closing = True
+max_line_length = 79
+max_doc_length = 79
+max_complexity = 15
+extend_exclude =
+    build,
+    dist,
+    nppBackup,
+    env,
+    .mypy_cache,
+    .pylint.d,
+extend_select =
+    F,
+    E,
+    W,
+    C,
+    B,
+ignore =
+    # W503 Line break before operation mutually exclusive with W504
+    W503,
+    # D107 Ignore missing docstring in __init__
+    D107,
+count = True
+statistics = True
+jobs = 1
+
+# Docstrings options
+docstring_convention = pep257

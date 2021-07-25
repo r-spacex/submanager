@@ -20,7 +20,7 @@ import submanager.utils.output
 from submanager.constants import (
     CONFIG_PATH_REFRESH,
     USER_AGENT,
-)
+    )
 from submanager.types import (
     AccountsConfig,
     AccountsConfigProcessed,
