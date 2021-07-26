@@ -1,4 +1,6 @@
+# static analysis: ignore
 """Core configuration models for the package."""
+
 
 # Future imports
 from __future__ import annotations

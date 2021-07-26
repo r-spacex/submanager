@@ -1,3 +1,4 @@
+# static analysis: ignore
 """Base classes for building the models used by the package."""
 
 # Future imports

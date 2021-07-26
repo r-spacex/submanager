@@ -184,6 +184,7 @@ class WidgetSyncEndpoint(SyncEndpoint, metaclass=abc.ABCMeta):
     def _check_is_editable(self, raise_error: bool = True) -> bool:
         """Is True if the widget is editable, False otherwise."""
         try:
+            # static analysis: ignore[incompatible_call]
             self._object.mod.update()  # type: ignore[call-arg]
         except prawcore.exceptions.Forbidden as error:
             if not raise_error:

@@ -39,8 +39,8 @@ class ScopeCheck(enum.Enum):
     """The availible scope to test a Reddit request for."""
 
     IDENTITY = "identity"
-    READ_POST = "read post"
-    READ_WIKI = "read wiki"
+    READ_POST = "read"
+    READ_WIKI = "readwiki"
     USERNAME = "any"
 
 
@@ -53,7 +53,8 @@ def try_perform_test_request(
         ) -> None:
     """Attempt to perform a test Reddit request against a valid scope."""
     warning_message = (
-        f"Error finding {{test_item}} testing scope {{scope!r}} "
+        # static analysis: ignore[missing_f]
+        f"Error finding {{test_item}} testing scope {scope_check.value!r} "
         f"with account {account_key!r} ({{error}})")
 
     # Ideally, simply check the account's identity
@@ -66,7 +67,6 @@ def try_perform_test_request(
             list(reddit.subreddit(TEST_SUB_POST).hot(limit=1))[0].id
         except submanager.exceptions.PRAW_NOTFOUND_ERRORS as error:
             warning_message = warning_message.format(
-                scope=scope_check.value,
                 test_item=f"sub 'r/{TEST_SUB_POST}'",
                 error=submanager.utils.output.format_error(error),
                 )
@@ -82,7 +82,6 @@ def try_perform_test_request(
             reddit.subreddit(TEST_SUB_WIKI).wiki[TEST_PAGE_WIKI].content_md
         except submanager.exceptions.PRAW_NOTFOUND_ERRORS as error:
             warning_message = warning_message.format(
-                scope=scope_check.value,
                 test_item=(
                     f"sub 'r/{TEST_SUB_WIKI}', wiki page {TEST_PAGE_WIKI!r}"),
                 error=submanager.utils.output.format_error(error),
@@ -220,7 +219,7 @@ def validate_account(
             return False
         raise submanager.exceptions.NoAuthorizedScopesError(
             account_key=account_key,
-            message_pre="The OAUTH token has no authorized scope ({scopes!r})",
+            message_pre=f"The OAUTH token has no authorized scope {scopes!r}",
             )
 
     # Finally, perform an actual operational test request against a scope

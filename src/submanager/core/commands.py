@@ -24,14 +24,14 @@ def run_generate_config(
         config_path=config_paths.static, force=force, exist_ok=exist_ok)
 
     # Generate the appropriate message depending on what happened
-    message = f"Config {{action}} at {config_paths.static.as_posix()!r}"
     if not config_exists:
         action = "generated"
     elif force:
         action = "overwritten"
     else:
         action = "already exists"
-    print(message.format(action=action))
+    message = f"Config {action} at {config_paths.static.as_posix()!r}"
+    print(message)
 
 
 def run_validate_config(
