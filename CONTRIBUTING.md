@@ -62,13 +62,30 @@ Of course you're free to use any environment management tool of your choice (con
 To install the package in editable ("development") mode (where updates to the source files will be reflected in the installed package) and include the dependencies used for development, run
 
 ```bash
-pip install -e .[dev]
+pip install -e .[lint,test]
 ```
 
 You can then run Sub Manager as normal, with the ``submanager`` command.
 When you make changes in your local copy of the git repository, they will be reflecting in your installed copy as soon as you re-run it.
 
-While Windows and macOS are supported for development and use alongside Linux, support for running as a persistent system service is an exercise for the user.
+While Windows and macOS are supported for development and use alongside Linux, running as a persistent system service is an exercise for the user.
+
+
+
+## Running Tests
+
+This package uses the [Pytest]() framework for its unit and integration tests, which are located in the ``tests/`` directory in the root of the project.
+As you might expect, unit tests, which mirror the structure of the package and test individual components, are found in the `unit` subdirectory, while integration tests, which tests the functionality of the package as a whole, like in the `integration` subdirectory.
+We welcome contributions of both kinds of tests to expand our coverage, increase reliability, and ensure we don't experience any regressions.
+If you need help writing tests, please let us know, and we'll be happy to guide you.
+
+To run the tests, simply install the development dependencies as above, and then simply execute
+
+```bash
+pytest
+```
+
+The `pytest.ini` sets up a variety of settings and command line options for you, so you shouldn't need to pass any further options to pytest unless you have a specific use case.
 
 
 
