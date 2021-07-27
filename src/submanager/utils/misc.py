@@ -47,9 +47,8 @@ def process_dict_items_recursive(
                     fn_torun=fn_torun,
                     fn_kwargs=fn_kwargs,
                     )
-            else:
-                if keys_match is None or key in keys_match:
-                    dict_toprocess[key] = fn_torun(value, **fn_kwargs)
+            elif keys_match is None or key in keys_match:
+                dict_toprocess[key] = fn_torun(value, **fn_kwargs)
 
     _process_dict_items_inner(
         dict_toprocess=dict_toprocess,

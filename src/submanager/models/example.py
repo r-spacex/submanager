@@ -25,6 +25,7 @@ from submanager.types import (
 # ---- General constants ----
 
 # Fields to not output in the generated config, as they are too verbose
+# pylint: disable = consider-using-namedtuple-or-dataclass
 EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
     "sync_manager": {
         "items": {

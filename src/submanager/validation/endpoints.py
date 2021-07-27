@@ -34,8 +34,8 @@ def validate_endpoint(
         ]
     endpoint_valid = False
 
-    try:
-        # Create and validate each endpoint for readn and write status
+    try:  # pylint: disable = too-many-try-statements
+        # Create and validate each endpoint for read and write status
         endpoint = (
             submanager.endpoint.creation.create_sync_endpoint_from_config(
                 config=config, reddit=reddit, validate=False)

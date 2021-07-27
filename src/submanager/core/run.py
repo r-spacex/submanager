@@ -118,8 +118,8 @@ def start_manage(
             accounts=accounts,
             config_path_dynamic=config_paths.dynamic,
             )
-        try:
-            time_left_s = repeat_interval_s
+        time_left_s = repeat_interval_s
+        try:  # pylint: disable = too-many-try-statements
             while True:
                 time_to_sleep_s = min((time_left_s, 1))
                 time.sleep(time_to_sleep_s)

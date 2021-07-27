@@ -45,7 +45,19 @@ limit-inference-results=100
 
 # List of plugins (as comma separated values of python module names) to load,
 # usually to register additional checkers.
-load-plugins=
+load-plugins=pylint.extensions.broad_try_clause,
+             pylint.extensions.code_style,
+             pylint.extensions.emptystring,
+             # pylint.extensions.comparetozero,
+             pylint.extensions.confusing_elif,
+             pylint.extensions.bad_builtin,
+             pylint.extensions.docstyle,
+             pylint.extensions.check_elif,
+             pylint.extensions.redefined_variable_type,
+             pylint.extensions.overlapping_exceptions,
+             pylint.extensions.docparams,
+             pylint.extensions.empty_comment,
+             pylint.extensions.typing,
 
 # Pickle collected data for later comparisons.
 persistent=yes
@@ -251,7 +263,7 @@ variable-naming-style=snake_case
 [FORMAT]
 
 # Expected format of line ending, e.g. empty (any line ending), LF or CRLF.
-expected-line-ending-format=
+expected-line-ending-format=LF
 
 # Regexp for a line that is allowed to be longer than the limit.
 ignore-long-lines=^\s*(# )?<?https?://\S+>?$

@@ -108,7 +108,7 @@ def create_new_thread(
         reddit_mod.submission(id=new_thread.id))
     if thread_config.approve_new:
         new_thread_mod.mod.approve()
-    for attribute in ["id", "url", "permalink", "shortlink"]:
+    for attribute in ("id", "url", "permalink", "shortlink"):
         template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
 
     # Unpin old thread and pin new one
@@ -123,12 +123,15 @@ def create_new_thread(
         try:
             sticky_to_keep = reddit_mod.subreddit(
                 thread_config.context.subreddit).sticky(number=1)
-            if (current_thread and sticky_to_keep
-                    and sticky_to_keep.id == current_thread.id):
+        except prawcore.exceptions.NotFound:  # Ignore if no sticky
+            pass
+        if (current_thread and sticky_to_keep
+                and sticky_to_keep.id == current_thread.id):
+            try:
                 sticky_to_keep = reddit_mod.subreddit(
                     thread_config.context.subreddit).sticky(number=2)
-        except prawcore.exceptions.NotFound:  # Ignore if there is no sticky
-            pass
+            except prawcore.exceptions.NotFound:  # Ignore if no sticky
+                pass
         new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
         if sticky_to_keep:
             sticky_to_keep.mod.sticky(state=True)
@@ -138,7 +141,7 @@ def create_new_thread(
         links = {
             getattr(current_thread, link_type).strip("/"): (
                 getattr(new_thread, link_type).strip("/"))
-            for link_type in ["permalink", "shortlink"]}
+            for link_type in ("permalink", "shortlink")}
         update_page_links(
             links=links,
             pages_to_update=thread_config.link_update_pages,

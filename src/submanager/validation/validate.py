@@ -28,7 +28,7 @@ def validate_config(
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
 
-    try:
+    try:  # pylint: disable = too-many-try-statements
         vprint("Loading offline config", level=1)
         static_config, __ = submanager.core.initialization.setup_config(
             config_paths=config_paths,
