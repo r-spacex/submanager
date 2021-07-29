@@ -6,7 +6,7 @@ from __future__ import annotations
 # Standard library imports
 import subprocess
 from typing import (
-    Callable  # Import from collections.abc in Python 3.9
+    Callable,  # Import from collections.abc in Python 3.9
     )
 
 # Third party imports
@@ -14,6 +14,9 @@ import pytest
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
     )
+
+# Local imports
+import submanager.enums
 
 
 # ---- Constants ----
@@ -27,7 +30,6 @@ PARAMS_GOOD: Final[list[str]] = [
 PARAMS_BAD: Final[list[str]] = [
     "--non-existant-flag",
     ]
-PARAMS_BAD_EXIT_CODE = 2
 
 
 # ---- Tests ----
@@ -39,7 +41,9 @@ def test_invocation_good(
         ) -> None:
     """Test that the program is successfully invoked by different means."""
     process_result = invoke_command(command)
-    assert process_result.returncode == 0
+    assert not process_result.returncode
+    assert (process_result.returncode
+            == submanager.enums.ExitCode.SUCCESS.value)
     assert process_result.stdout.strip()
     assert not process_result.stderr.strip()
 
@@ -51,6 +55,8 @@ def test_invocation_bad(
         ) -> None:
     """Test that the program fails when invoked with bad flags/args."""
     process_result = invoke_command(command)
-    assert process_result.returncode == PARAMS_BAD_EXIT_CODE
+    assert process_result.returncode
+    assert (process_result.returncode
+            == submanager.enums.ExitCode.ERROR_PARAMETERS.value)
     assert process_result.stderr.strip()
     assert not process_result.stdout.strip()

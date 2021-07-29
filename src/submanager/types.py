@@ -14,7 +14,7 @@ from typing import (
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
     TYPE_CHECKING,
-    Union,  # Not needed in Python 3.9
+    Union,  # Not needed in Python 3.10
     )
 
 # Third party imports

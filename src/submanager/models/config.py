@@ -13,7 +13,7 @@ from typing import (
     Mapping,  # Import from collections.abc in Python 3.9
     MutableMapping,  # Import from collections.abc in Python 3.9
     Sequence,  # Import from collections.abc in Python 3.9
-    Union,  # Not needed in Python 3.9
+    Union,  # Not needed in Python 3.10
     )
 
 # Third party imports

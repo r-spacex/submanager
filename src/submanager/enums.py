@@ -45,6 +45,7 @@ class ExitCode(enum.Enum):
 
     SUCCESS = 0
     ERROR_UNHANDLED = 1
+    ERROR_PARAMETERS = 2
     ERROR_USER = 3
 
 

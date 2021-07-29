@@ -194,14 +194,16 @@ def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
     # Execute desired subcommand function if passed, otherwise print help
     try:
         parsed_args.func
-    except AttributeError:  # If function is not specified
-        create_arg_parser().print_usage()
+    except AttributeError as error:  # If function is not specified
+        create_arg_parser().print_usage(file=sys.stderr)
+        raise SystemExit(
+            submanager.enums.ExitCode.ERROR_PARAMETERS.value) from error
     else:
         run_toplevel_function(**vars(parsed_args))
 
 
 def cli(sys_argv: Sequence[str] | None = None) -> None:
-    """Run the main function for the Sub Manager CLI and dispatch."""
+    """Perform the CLI parsing and execute dispatch."""
     parser_main = create_arg_parser()
     parsed_args = parser_main.parse_args(sys_argv)
     debug: bool = vars(parsed_args).pop("debug")
@@ -216,9 +218,9 @@ def cli(sys_argv: Sequence[str] | None = None) -> None:
         sys.exit(submanager.enums.ExitCode.ERROR_USER.value)
 
 
-def main() -> None:
+def main(sys_argv: Sequence[str] | None = None) -> None:
     """Run the package though the CLI."""
-    cli()
+    cli(sys_argv)
 
 
 if __name__ == "__main__":
