@@ -23,6 +23,8 @@ from typing_extensions import (
 
 # Local imports
 import submanager.core.initialization
+import submanager.enums
+import submanager.exceptions
 import submanager.models.config
 
 
@@ -47,8 +49,8 @@ def render_generate_args(config_path: Path, *args: str) -> list[str]:
 
 # ---- Tests ----
 
-@pytest.mark.parametrize("force_arg", ["", "--force"])
 @pytest.mark.parametrize("exist_ok_arg", ["", "--exist-ok"])
+@pytest.mark.parametrize("force_arg", ["", "--force"])
 def test_config_doesnt_exist(
         run_cli: RunCLICallable,
         config_paths: submanager.models.config.ConfigPaths,
@@ -61,7 +63,51 @@ def test_config_doesnt_exist(
     captured_output, captured_error = run_cli(cli_args)
     assert not captured_output.err.strip()
     assert not captured_error
-    assert captured_output.out.strip()
     assert "generated" in captured_output.out.lower()
     assert config_paths.static.exists()
     submanager.core.initialization.setup_config(config_paths, verbose=True)
+
+
+@pytest.mark.parametrize("exist_ok_arg", ["", "--exist-ok"])
+def test_config_exists_force(
+        run_cli: RunCLICallable,
+        empty_config: submanager.models.config.ConfigPaths,
+        exist_ok_arg: str,
+        ) -> None:
+    """Test that the config file is generated when one doesn't exist."""
+    cli_args = render_generate_args(
+        empty_config.static, "--force", exist_ok_arg)
+    captured_output, captured_error = run_cli(cli_args)
+    assert not captured_output.err.strip()
+    assert not captured_error
+    assert "overwritten" in captured_output.out.lower()
+    assert empty_config.static.exists()
+    submanager.core.initialization.setup_config(empty_config, verbose=True)
+
+
+def test_config_exists_ok(
+        run_cli: RunCLICallable,
+        empty_config: submanager.models.config.ConfigPaths,
+        ) -> None:
+    """Test that no error occurs when the config exists and ok is passed."""
+    cli_args = render_generate_args(empty_config.static, "--exist-ok")
+    captured_output, captured_error = run_cli(cli_args)
+    assert not captured_output.err.strip()
+    assert "exists" in captured_output.out.lower()
+    assert not captured_error
+
+
+def test_config_exists_error(
+        run_cli: RunCLICallable,
+        empty_config: submanager.models.config.ConfigPaths,
+        ) -> None:
+    """Test that an error occurs when the configuration file exists."""
+    cli_args = render_generate_args(empty_config.static)
+    captured_output, captured_error = run_cli(cli_args)
+    assert not captured_output.out.strip()
+    assert "exists" in captured_output.err.lower()
+    assert captured_error
+    assert captured_error.code
+    assert captured_error.code == submanager.enums.ExitCode.ERROR_USER.value
+    assert isinstance(
+        captured_error.__cause__, submanager.exceptions.ConfigExistsError)

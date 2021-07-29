@@ -106,6 +106,7 @@ def fixture_config_paths(
     return config_paths
 
 
+@pytest.fixture
 def empty_config(
         config_paths: submanager.models.config.ConfigPaths,
         ) -> submanager.models.config.ConfigPaths:
@@ -116,6 +117,7 @@ def empty_config(
     return config_paths
 
 
+@pytest.fixture
 def example_config(
         config_paths: submanager.models.config.ConfigPaths,
         ) -> submanager.models.config.ConfigPaths:

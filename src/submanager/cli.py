@@ -215,7 +215,7 @@ def cli(sys_argv: Sequence[str] | None = None) -> None:
         formatted_error = submanager.utils.output.format_error(error)
         print(f"\n{'v' * 70}\n{formatted_error}\n{'^' * 70}\n",
               file=sys.stderr)
-        sys.exit(submanager.enums.ExitCode.ERROR_USER.value)
+        raise SystemExit(submanager.enums.ExitCode.ERROR_USER.value) from error
 
 
 def main(sys_argv: Sequence[str] | None = None) -> None:
