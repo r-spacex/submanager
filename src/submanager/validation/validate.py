@@ -34,13 +34,6 @@ def validate_config(
             config_paths=config_paths,
             verbose=verbose,
             )
-        vprint("Loading accounts", level=1)
-        accounts = submanager.core.initialization.setup_accounts(
-            static_config.accounts,
-            config_path_refresh=config_paths.refresh,
-            verbose=verbose,
-            )
-
         if not minimal:
             vprint("Checking offline config", level=1)
             submanager.validation.offline.validate_offline_config(
@@ -49,7 +42,14 @@ def validate_config(
                 raise_error=True,
                 verbose=verbose,
                 )
+        vprint("Loading accounts", level=1)
+        accounts = submanager.core.initialization.setup_accounts(
+            static_config.accounts,
+            config_path_refresh=config_paths.refresh,
+            verbose=verbose,
+            )
 
+        if not minimal:
             if not offline_only:
                 vprint("Checking Reddit connectivity", level=1)
                 submanager.validation.connection.check_reddit_connectivity(

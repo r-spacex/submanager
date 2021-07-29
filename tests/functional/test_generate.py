@@ -6,6 +6,7 @@ from __future__ import annotations
 # Standard library imports
 from pathlib import Path
 from typing import (
+    Any,
     Callable,  # Import from collections.abc in Python 3.9
     List,  # Not needed in Python 3.9
     Tuple,  # Not needed in Python 3.9
@@ -23,6 +24,7 @@ from typing_extensions import (
 
 # Local imports
 import submanager.core.initialization
+import submanager.validation.validate
 import submanager.enums
 import submanager.exceptions
 import submanager.models.config
@@ -115,3 +117,30 @@ def test_config_exists_error(
     assert captured_error.code == submanager.enums.ExitCode.ERROR_USER.value
     assert isinstance(
         captured_error.__cause__, submanager.exceptions.ConfigExistsError)
+
+
+def test_generated_config_validates_false(
+        run_cli: RunCLICallable,
+        config_paths: submanager.models.config.ConfigPaths,
+        ) -> None:
+    """Test that the generated config file validates successfully."""
+    __: Any
+    cli_args = render_generate_args(config_paths.static)
+    __, captured_error = run_cli(cli_args)
+
+    assert not captured_error
+    with pytest.raises(submanager.exceptions.ConfigDefaultError):
+        submanager.validation.validate.validate_config(
+            config_paths=config_paths,
+            offline_only=True,
+            raise_error=True,
+            verbose=True,
+            )
+    static_config, __ = submanager.core.initialization.setup_config(
+        config_paths, verbose=True)
+    with pytest.raises(submanager.exceptions.AccountConfigError):
+        submanager.core.initialization.setup_accounts(
+            static_config.accounts,
+            config_path_refresh=config_paths.refresh,
+            verbose=True,
+            )
