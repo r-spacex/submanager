@@ -1,4 +1,4 @@
-"""Test that debug mode correctly suppresses errors in the CLI."""
+"""Test that the generate-config command works as expected in the CLI."""
 
 # Future imports
 from __future__ import annotations
@@ -46,7 +46,7 @@ GENERATE_COMMAND: Final[str] = "generate-config"
 def render_generate_args(config_path: Path, *args: str) -> list[str]:
     """Render the appropriate CLI args for the generate command."""
     args = tuple((arg for arg in args if arg))
-    return ["--config-path", config_path.as_posix(), "generate-config", *args]
+    return ["--config-path", config_path.as_posix(), GENERATE_COMMAND, *args]
 
 
 # ---- Tests ----
@@ -117,6 +117,23 @@ def test_config_exists_error(
     assert captured_error.code == submanager.enums.ExitCode.ERROR_USER.value
     assert isinstance(
         captured_error.__cause__, submanager.exceptions.ConfigExistsError)
+
+
+@pytest.mark.parametrize("config_paths", ["xml", "ini", "txt"], indirect=True)
+def test_generate_unknown_extension_error(
+        run_cli: RunCLICallable,
+        config_paths: submanager.models.config.ConfigPaths,
+        ) -> None:
+    """Test that generating a config file with an unknown extension errors."""
+    cli_args = render_generate_args(config_paths.static)
+    captured_output, captured_error = run_cli(cli_args)
+
+    assert captured_error
+    assert captured_error.code
+    assert captured_error.code == submanager.enums.ExitCode.ERROR_USER.value
+    assert isinstance(
+        captured_error.__cause__, submanager.exceptions.ConfigTypeError)
+    assert "format" in captured_output.err.lower()
 
 
 def test_generated_config_validates_false(

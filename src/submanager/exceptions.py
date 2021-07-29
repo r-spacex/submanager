@@ -321,7 +321,7 @@ class ConfigExistsError(ConfigErrorWithPath):
 class ConfigTypeError(ConfigErrorWithPath):
     """The Sub Manager config file is not in a recognized format."""
 
-    _message_pre: ClassVar[str] = "Config format type not supported"
+    _message_pre: ClassVar[str] = "File format not recognized"
 
 
 class ConfigFormatError(ConfigErrorWithPath):

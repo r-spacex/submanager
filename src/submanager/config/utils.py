@@ -42,7 +42,7 @@ def serialize_config(
     else:
         raise submanager.exceptions.ConfigError(
             f"Output format {output_format!r} must be in "
-            f"{SUPPORTED_CONFIG_FORMATS}")
+            f"{set(SUPPORTED_CONFIG_FORMATS)}")
     return serialized_config
 
 
@@ -79,6 +79,6 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
                 config_path,
                 message_post=submanager.exceptions.ConfigError(
                     f"Input format {config_path.suffix!r} must be in "
-                    f"{SUPPORTED_CONFIG_FORMATS}"),
+                    f"{set(SUPPORTED_CONFIG_FORMATS)}"),
                 )
     return config
