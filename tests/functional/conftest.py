@@ -6,6 +6,7 @@ from __future__ import annotations
 # Standard library imports
 import subprocess
 import sys
+from pathlib import Path
 from typing import (
     Callable,  # Import from collections.abc in Python 3.9
     TypeVar,
@@ -24,6 +25,14 @@ from typing_extensions import (
 
 # Local imports
 import submanager.cli
+import submanager.config.static
+import submanager.models.config
+
+
+# ---- Types ----
+
+ArgType = TypeVar("ArgType")
+RunCLIOutput = Tuple[CaptureResult[str], Optional[SystemExit]]
 
 
 # ---- Constants ----
@@ -42,11 +51,7 @@ INVOCATION_METHODS: Final[list[list[str]]] = [
     INVOCATION_RUNPY,
     ]
 
-
-# ---- Types ----
-
-ArgType = TypeVar("ArgType")
-RunCLIOutput = Tuple[CaptureResult[str], Optional[SystemExit]]
+CONFIG_EXTENSIONS: Final[list[str]] = ["toml"]
 
 
 # ---- Fixtures ----
@@ -84,3 +89,36 @@ def invoke_command(
             )
         return process_result
     return _invoke_command
+
+
+@pytest.fixture(name="config_paths", params=CONFIG_EXTENSIONS)
+def fixture_config_paths(
+        request: pytest.FixtureRequest,
+        tmp_path: Path,
+        ) -> submanager.models.config.ConfigPaths:
+    """Generate a set of temporary ConfigPaths."""
+    config_extension: str = request.param  # type: ignore[attr-defined]
+    config_paths = submanager.models.config.ConfigPaths(
+        static=tmp_path / f"temp_config_static.{config_extension}",
+        dynamic=tmp_path / "temp_config_dynamic.json",
+        refresh=tmp_path / "refresh" / "refresh_token_{key}.txt",
+        )
+    return config_paths
+
+
+def empty_config(
+        config_paths: submanager.models.config.ConfigPaths,
+        ) -> submanager.models.config.ConfigPaths:
+    """Generate an empty config file in a temp directory."""
+    with open(config_paths.static, mode="w",
+              encoding="utf-8", newline="\n") as static_config_file:
+        static_config_file.write("\n")
+    return config_paths
+
+
+def example_config(
+        config_paths: submanager.models.config.ConfigPaths,
+        ) -> submanager.models.config.ConfigPaths:
+    """Generate an example config file in a temp directory."""
+    submanager.config.static.generate_static_config(config_paths.static)
+    return config_paths
