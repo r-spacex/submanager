@@ -61,6 +61,7 @@ def test_config_doesnt_exist(
     cli_args = render_generate_args(
         config_paths.static, force_arg, exist_ok_arg)
     captured_output, captured_error = run_cli(cli_args)
+
     assert not captured_output.err.strip()
     assert not captured_error
     assert "generated" in captured_output.out.lower()
@@ -78,6 +79,7 @@ def test_config_exists_force(
     cli_args = render_generate_args(
         empty_config.static, "--force", exist_ok_arg)
     captured_output, captured_error = run_cli(cli_args)
+
     assert not captured_output.err.strip()
     assert not captured_error
     assert "overwritten" in captured_output.out.lower()
@@ -92,6 +94,7 @@ def test_config_exists_ok(
     """Test that no error occurs when the config exists and ok is passed."""
     cli_args = render_generate_args(empty_config.static, "--exist-ok")
     captured_output, captured_error = run_cli(cli_args)
+
     assert not captured_output.err.strip()
     assert "exists" in captured_output.out.lower()
     assert not captured_error
@@ -104,6 +107,7 @@ def test_config_exists_error(
     """Test that an error occurs when the configuration file exists."""
     cli_args = render_generate_args(empty_config.static)
     captured_output, captured_error = run_cli(cli_args)
+
     assert not captured_output.out.strip()
     assert "exists" in captured_output.err.lower()
     assert captured_error

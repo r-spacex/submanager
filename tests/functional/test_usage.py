@@ -37,6 +37,7 @@ def test_help_usage(
         ) -> None:
     """Test that the program prints help when --help is passed."""
     captured_output, captured_error = run_cli(cli_args)
+
     assert captured_error
     assert not captured_error.code
     assert captured_error.code == submanager.enums.ExitCode.SUCCESS.value
@@ -52,6 +53,7 @@ def test_good_usage(
         ) -> None:
     """Test that the program performs properly when correct args are passed."""
     captured_output, captured_error = run_cli(cli_args)
+
     assert not captured_error
     assert cli_args[0].replace("-", "").strip() in captured_output.out.lower()
     assert not captured_output.err.strip()
@@ -65,6 +67,7 @@ def test_bad_usage(
         ) -> None:
     """Test that the program prints usage when invoked with no args."""
     captured_output, captured_error = run_cli(cli_args)
+
     assert captured_error
     assert (captured_error.code and captured_error.code
             == submanager.enums.ExitCode.ERROR_PARAMETERS.value)

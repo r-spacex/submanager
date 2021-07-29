@@ -35,5 +35,6 @@ def import_submodules_recursive(
 def test_import_all() -> None:
     """Test that all modules in the package import successfully."""
     results = import_submodules_recursive("submanager")
+
     assert results
     assert next(iter(results))

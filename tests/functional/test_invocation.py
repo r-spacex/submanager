@@ -34,6 +34,7 @@ PARAMS_BAD: Final[list[str]] = [
 
 # ---- Tests ----
 
+@pytest.mark.slow
 @pytest.mark.parametrize("command", PARAMS_GOOD)
 def test_invocation_good(
         invoke_command: InvokeCommand,
@@ -41,6 +42,7 @@ def test_invocation_good(
         ) -> None:
     """Test that the program is successfully invoked by different means."""
     process_result = invoke_command(command)
+
     assert not process_result.returncode
     assert (process_result.returncode
             == submanager.enums.ExitCode.SUCCESS.value)
@@ -48,6 +50,7 @@ def test_invocation_good(
     assert not process_result.stderr.strip()
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("command", PARAMS_BAD)
 def test_invocation_bad(
         invoke_command: InvokeCommand,
@@ -55,6 +58,7 @@ def test_invocation_bad(
         ) -> None:
     """Test that the program fails when invoked with bad flags/args."""
     process_result = invoke_command(command)
+
     assert process_result.returncode
     assert (process_result.returncode
             == submanager.enums.ExitCode.ERROR_PARAMETERS.value)
