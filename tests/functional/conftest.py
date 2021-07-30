@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import (
     Callable,  # Import from collections.abc in Python 3.9
+    Sequence,  # Import from collections.abc in Python 3.9
     TypeVar,
     Tuple,  # Not needed in Python 3.9
     Optional,  # Not needed in Python 3.10
@@ -33,6 +34,9 @@ import submanager.models.config
 
 ArgType = TypeVar("ArgType")
 RunCLIOutput = Tuple[CaptureResult[str], Optional[SystemExit]]
+RunCLICallable = Callable[[Sequence[str]], RunCLIOutput]
+RunCLIPathsCallable = Callable[
+    [submanager.models.config.ConfigPaths, Sequence[str]], RunCLIOutput]
 
 
 # ---- Constants ----
@@ -56,13 +60,13 @@ CONFIG_EXTENSIONS: Final[list[str]] = ["toml"]
 
 # ---- Fixtures ----
 
-@pytest.fixture
-def run_cli(
-        capfd: pytest.CaptureFixture[str],
-        ) -> Callable[[list[str]], RunCLIOutput]:
+@pytest.fixture(name="run_cli")
+def fixture_run_cli(capfd: pytest.CaptureFixture[str]) -> RunCLICallable:
     """Run the package CLI with the passed argument(s)."""
     def _run_cli(
-            cli_args: list[str]) -> RunCLIOutput:
+            cli_args: Sequence[str],
+            ) -> RunCLIOutput:
+        cli_args = [arg for arg in cli_args if arg]
         captured_error = None
         try:
             submanager.cli.main(cli_args)
@@ -71,6 +75,26 @@ def run_cli(
         captured_output = capfd.readouterr()
         return captured_output, captured_error
     return _run_cli
+
+
+@pytest.fixture
+def run_cli_paths(run_cli: RunCLICallable) -> RunCLIPathsCallable:
+    """Run the package CLI with the passed argument(s)."""
+    def _run_cli_paths(
+            config_paths_test: submanager.models.config.ConfigPaths,
+            cli_args: Sequence[str],
+            ) -> RunCLIOutput:
+        config_path_args = [
+            "--config-path",
+            config_paths_test.static.as_posix(),
+            "--dynamic-config-path",
+            config_paths_test.dynamic.as_posix(),
+            "--refresh-config-path",
+            config_paths_test.refresh.as_posix(),
+            ]
+        all_cli_args = [*config_path_args, *cli_args]
+        return run_cli(all_cli_args)
+    return _run_cli_paths
 
 
 @pytest.fixture(params=INVOCATION_METHODS, ids=INVOCATION_IDS)

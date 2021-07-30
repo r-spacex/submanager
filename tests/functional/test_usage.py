@@ -6,9 +6,9 @@ from __future__ import annotations
 # Standard library imports
 from typing import (
     Callable,  # Import from collections.abc in Python 3.9
-    List,  # Not needed in Python 3.9
-    Tuple,  # Not needed in Python 3.9
     Optional,  # Not needed in Python 3.10
+    Sequence,  # Not needed in Python 3.9
+    Tuple,  # Not needed in Python 3.9
     )
 
 # Third party imports
@@ -23,8 +23,8 @@ import submanager.enums
 
 # ---- Types ----
 
-RunCLICallable = Callable[
-    [List[str]], Tuple[CaptureResult[str], Optional[SystemExit]]]
+RunCLIOutput = Tuple[CaptureResult[str], Optional[SystemExit]]
+RunCLICallable = Callable[[Sequence[str]], RunCLIOutput]
 
 
 # ---- Tests ----

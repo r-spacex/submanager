@@ -4,13 +4,12 @@
 from __future__ import annotations
 
 # Standard library imports
-from pathlib import Path
 from typing import (
     Any,
     Callable,  # Import from collections.abc in Python 3.9
-    List,  # Not needed in Python 3.9
-    Tuple,  # Not needed in Python 3.9
     Optional,  # Not needed in Python 3.10
+    Sequence,  # Import from collections.abc in Python 3.9
+    Tuple,  # Not needed in Python 3.9
     )
 
 # Third party imports
@@ -32,37 +31,31 @@ import submanager.models.config
 
 # ---- Types ----
 
-RunCLICallable = Callable[
-    [List[str]], Tuple[CaptureResult[str], Optional[SystemExit]]]
+RunCLIOutput = Tuple[CaptureResult[str], Optional[SystemExit]]
+RunCLIPathsCallable = Callable[
+    [submanager.models.config.ConfigPaths, Sequence[str]], RunCLIOutput]
 
 
 # ---- Constants ----
 
 GENERATE_COMMAND: Final[str] = "generate-config"
-
-
-# ---- Helpers ----
-
-def render_generate_args(config_path: Path, *args: str) -> list[str]:
-    """Render the appropriate CLI args for the generate command."""
-    args = tuple((arg for arg in args if arg))
-    return ["--config-path", config_path.as_posix(), GENERATE_COMMAND, *args]
+FORCE_ARGS: Final[list[str]] = ["", "--force"]
+EXIST_OK_ARGS: Final[list[str]] = ["", "--exist-ok"]
 
 
 # ---- Tests ----
 
-@pytest.mark.parametrize("exist_ok_arg", ["", "--exist-ok"])
-@pytest.mark.parametrize("force_arg", ["", "--force"])
+@pytest.mark.parametrize("exist_ok", EXIST_OK_ARGS)
+@pytest.mark.parametrize("force", FORCE_ARGS)
 def test_config_doesnt_exist(
-        run_cli: RunCLICallable,
+        run_cli_paths: RunCLIPathsCallable,
         config_paths: submanager.models.config.ConfigPaths,
-        force_arg: str,
-        exist_ok_arg: str,
+        force: str,
+        exist_ok: str,
         ) -> None:
     """Test that the config file is generated when one doesn't exist."""
-    cli_args = render_generate_args(
-        config_paths.static, force_arg, exist_ok_arg)
-    captured_output, captured_error = run_cli(cli_args)
+    captured_output, captured_error = run_cli_paths(
+        config_paths, [GENERATE_COMMAND, force, exist_ok])
 
     assert not captured_output.err.strip()
     assert not captured_error
@@ -71,62 +64,50 @@ def test_config_doesnt_exist(
     submanager.core.initialization.setup_config(config_paths, verbose=True)
 
 
-@pytest.mark.parametrize("exist_ok_arg", ["", "--exist-ok"])
-def test_config_exists_force(
-        run_cli: RunCLICallable,
+@pytest.mark.parametrize("exist_ok", EXIST_OK_ARGS)
+@pytest.mark.parametrize("force", FORCE_ARGS)
+def test_config_exists(
+        run_cli_paths: RunCLIPathsCallable,
         empty_config: submanager.models.config.ConfigPaths,
-        exist_ok_arg: str,
+        force: str,
+        exist_ok: str,
         ) -> None:
     """Test that the config file is generated when one doesn't exist."""
-    cli_args = render_generate_args(
-        empty_config.static, "--force", exist_ok_arg)
-    captured_output, captured_error = run_cli(cli_args)
+    if force:
+        output_text = "overwritten"
+    else:
+        output_text = "exists"
 
-    assert not captured_output.err.strip()
-    assert not captured_error
-    assert "overwritten" in captured_output.out.lower()
-    assert empty_config.static.exists()
-    submanager.core.initialization.setup_config(empty_config, verbose=True)
+    captured_output, captured_error = run_cli_paths(
+        empty_config, [GENERATE_COMMAND, force, exist_ok])
 
-
-def test_config_exists_ok(
-        run_cli: RunCLICallable,
-        empty_config: submanager.models.config.ConfigPaths,
-        ) -> None:
-    """Test that no error occurs when the config exists and ok is passed."""
-    cli_args = render_generate_args(empty_config.static, "--exist-ok")
-    captured_output, captured_error = run_cli(cli_args)
-
-    assert not captured_output.err.strip()
-    assert "exists" in captured_output.out.lower()
-    assert not captured_error
-
-
-def test_config_exists_error(
-        run_cli: RunCLICallable,
-        empty_config: submanager.models.config.ConfigPaths,
-        ) -> None:
-    """Test that an error occurs when the configuration file exists."""
-    cli_args = render_generate_args(empty_config.static)
-    captured_output, captured_error = run_cli(cli_args)
-
-    assert not captured_output.out.strip()
-    assert "exists" in captured_output.err.lower()
-    assert captured_error
-    assert captured_error.code
-    assert captured_error.code == submanager.enums.ExitCode.ERROR_USER.value
-    assert isinstance(
-        captured_error.__cause__, submanager.exceptions.ConfigExistsError)
+    if force or exist_ok:
+        assert not captured_output.err.strip()
+        assert output_text in captured_output.out.lower()
+        assert not captured_error
+        if force:
+            assert empty_config.static.exists()
+            submanager.core.initialization.setup_config(
+                empty_config, verbose=True)
+    else:
+        assert not captured_output.out.strip()
+        assert output_text in captured_output.err.lower()
+        assert captured_error
+        assert captured_error.code
+        assert (
+            captured_error.code == submanager.enums.ExitCode.ERROR_USER.value)
+        assert isinstance(
+            captured_error.__cause__, submanager.exceptions.ConfigExistsError)
 
 
 @pytest.mark.parametrize("config_paths", ["xml", "ini", "txt"], indirect=True)
 def test_generate_unknown_extension_error(
-        run_cli: RunCLICallable,
+        run_cli_paths: RunCLIPathsCallable,
         config_paths: submanager.models.config.ConfigPaths,
         ) -> None:
     """Test that generating a config file with an unknown extension errors."""
-    cli_args = render_generate_args(config_paths.static)
-    captured_output, captured_error = run_cli(cli_args)
+    captured_output, captured_error = run_cli_paths(
+        config_paths, [GENERATE_COMMAND])
 
     assert captured_error
     assert captured_error.code
@@ -137,13 +118,13 @@ def test_generate_unknown_extension_error(
 
 
 def test_generated_config_validates_false(
-        run_cli: RunCLICallable,
+        run_cli_paths: RunCLIPathsCallable,
         config_paths: submanager.models.config.ConfigPaths,
         ) -> None:
     """Test that the generated config file validates successfully."""
     __: Any
-    cli_args = render_generate_args(config_paths.static)
-    __, captured_error = run_cli(cli_args)
+    __, captured_error = run_cli_paths(
+        config_paths, [GENERATE_COMMAND])
 
     assert not captured_error
     with pytest.raises(submanager.exceptions.ConfigDefaultError):
