@@ -3,73 +3,63 @@
 # Future imports
 from __future__ import annotations
 
-# Standard library imports
-from typing import (
-    Callable,  # Import from collections.abc in Python 3.9
-    Optional,  # Not needed in Python 3.10
-    Sequence,  # Not needed in Python 3.9
-    Tuple,  # Not needed in Python 3.9
-    )
-
 # Third party imports
 import pytest
-from _pytest.capture import (
-    CaptureResult,
+from typing_extensions import (
+    Final,  # Added to typing in Python 3.8
+    Literal,  # Added to typing in Python 3.8
     )
 
 # Local imports
 import submanager.enums
+from tests.functional.conftest import (
+    RunAndCheckCLICallable,
+    )
 
 
-# ---- Types ----
+# ---- Constants ----
 
-RunCLIOutput = Tuple[CaptureResult[str], Optional[SystemExit]]
-RunCLICallable = Callable[[Sequence[str]], RunCLIOutput]
+HELP_COMMANDS: Final[list[str]] = ["-h", "--help"]
+GOOD_COMMANDS: Final[list[str]] = ["--version"]
+BAD_COMMANDS: Final[list[str]] = ["", " ", "--non-existant-cli-flag"]
+
+CUSTOM_CONFIG_PATHS: Final[list[Literal[False] | None]] = [False, None]
+CUSTOM_CONFIG_PATH_IDS: Final[list[str]] = ["default_paths", "custom_paths"]
 
 
 # ---- Tests ----
 
 @pytest.mark.parametrize(
-    "cli_args", [["-h"], ["--help"]], ids=["short", "long"])
-def test_help_usage(
-        run_cli: RunCLICallable,
-        cli_args: list[str],
-        ) -> None:
-    """Test that the program prints help when --help is passed."""
-    captured_output, captured_error = run_cli(cli_args)
-
-    assert captured_error
-    assert not captured_error.code
-    assert captured_error.code == submanager.enums.ExitCode.SUCCESS.value
-    assert ("help" in captured_output.out.lower()
-            or "help" in captured_output.err.lower())
-
-
+    "command", HELP_COMMANDS + GOOD_COMMANDS + BAD_COMMANDS)
 @pytest.mark.parametrize(
-    "cli_args", [["--version"]], ids=["version"])
-def test_good_usage(
-        run_cli: RunCLICallable,
-        cli_args: list[str],
+    "custom_config_paths", CUSTOM_CONFIG_PATHS, ids=CUSTOM_CONFIG_PATH_IDS)
+def test_command_usage(
+        run_and_check_cli: RunAndCheckCLICallable,
+        command: str,
+        custom_config_paths: Literal[False] | None,
         ) -> None:
-    """Test that the program performs properly when correct args are passed."""
-    captured_output, captured_error = run_cli(cli_args)
+    """Test that the program handles good, bad and help commands properly."""
+    check_exits = None
+    check_code = None
+    check_error: type[BaseException] | Literal[False] = False
+    if command in HELP_COMMANDS:
+        check_text = "help"
+        check_exits = True
+        check_code = submanager.enums.ExitCode.SUCCESS
+    elif command in BAD_COMMANDS:
+        check_text = "usage"
+        check_code = submanager.enums.ExitCode.ERROR_PARAMETERS
+        check_error = False if command else AttributeError
+    elif command in GOOD_COMMANDS:
+        check_text = command.replace("-", "").strip()
+    else:
+        raise ValueError(f"Command {command!r} not found in good, bad or help")
 
-    assert not captured_error
-    assert cli_args[0].replace("-", "").strip() in captured_output.out.lower()
-    assert not captured_output.err.strip()
-
-
-@pytest.mark.parametrize(
-    "cli_args", [[""], ["--non-existant-flag"]], ids=["empty", "non-existant"])
-def test_bad_usage(
-        run_cli: RunCLICallable,
-        cli_args: list[str],
-        ) -> None:
-    """Test that the program prints usage when invoked with no args."""
-    captured_output, captured_error = run_cli(cli_args)
-
-    assert captured_error
-    assert (captured_error.code and captured_error.code
-            == submanager.enums.ExitCode.ERROR_PARAMETERS.value)
-    assert "usage" in captured_output.err.lower()
-    assert not captured_output.out.strip()
+    run_and_check_cli(
+        command,
+        config_paths=custom_config_paths,
+        check_text=check_text,
+        check_exits=check_exits,
+        check_code=check_code,
+        check_error=check_error,
+        )

@@ -3,12 +3,6 @@
 # Future imports
 from __future__ import annotations
 
-# Standard library imports
-import subprocess
-from typing import (
-    Callable,  # Import from collections.abc in Python 3.9
-    )
-
 # Third party imports
 import pytest
 from typing_extensions import (
@@ -17,11 +11,12 @@ from typing_extensions import (
 
 # Local imports
 import submanager.enums
+from tests.functional.conftest import (
+    InvokeCommandCallable,
+    )
 
 
 # ---- Constants ----
-
-InvokeCommand = Callable[[str], subprocess.CompletedProcess[str]]
 
 PARAMS_GOOD: Final[list[str]] = [
     "--help",
@@ -37,7 +32,7 @@ PARAMS_BAD: Final[list[str]] = [
 @pytest.mark.slow
 @pytest.mark.parametrize("command", PARAMS_GOOD)
 def test_invocation_good(
-        invoke_command: InvokeCommand,
+        invoke_command: InvokeCommandCallable,
         command: str,
         ) -> None:
     """Test that the program is successfully invoked by different means."""
@@ -53,7 +48,7 @@ def test_invocation_good(
 @pytest.mark.slow
 @pytest.mark.parametrize("command", PARAMS_BAD)
 def test_invocation_bad(
-        invoke_command: InvokeCommand,
+        invoke_command: InvokeCommandCallable,
         command: str,
         ) -> None:
     """Test that the program fails when invoked with bad flags/args."""

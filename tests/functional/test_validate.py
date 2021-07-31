@@ -1,19 +1,10 @@
-"""Test that debug mode correctly suppresses errors in the CLI."""
+"""Test that the validate-config command correctly validates configuration."""
 
 # Future imports
 from __future__ import annotations
 
-# Standard library imports
-from typing import (
-    Callable,  # Import from collections.abc in Python 3.9
-    Optional,  # Not needed in Python 3.10
-    Sequence,  # Import from collections.abc in Python 3.9
-    Tuple,  # Not needed in Python 3.9
-    )
-
 # Third party imports
 import pytest
-from _pytest.capture import CaptureResult
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
     )
@@ -23,13 +14,9 @@ from typing_extensions import (
 import submanager.enums
 import submanager.exceptions
 import submanager.models.config
-
-
-# ---- Types ----
-
-RunCLIOutput = Tuple[CaptureResult[str], Optional[SystemExit]]
-RunCLIPathsCallable = Callable[
-    [submanager.models.config.ConfigPaths, Sequence[str]], RunCLIOutput]
+from tests.functional.conftest import (
+    RunAndCheckCLICallable,
+    )
 
 
 # ---- Constants ----
@@ -37,6 +24,7 @@ RunCLIPathsCallable = Callable[
 VALIDATE_COMMAND: Final[str] = "validate-config"
 MINIMAL_ARGS: Final[list[str]] = ["", "--minimal"]
 INCLUDE_DISABLED_ARGS: Final[list[str]] = ["", "--include-disabled"]
+OFFLINE_ONLY_ARG: Final[str] = "--offline-only"
 
 
 # ---- Tests ----
@@ -44,27 +32,23 @@ INCLUDE_DISABLED_ARGS: Final[list[str]] = ["", "--include-disabled"]
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 @pytest.mark.parametrize("include_disabled", INCLUDE_DISABLED_ARGS)
 def test_validate_generated_error(
-        run_cli_paths: RunCLIPathsCallable,
+        run_and_check_cli: RunAndCheckCLICallable,
         example_config: submanager.models.config.ConfigPaths,
         minimal: str,
         include_disabled: str,
         ) -> None:
-    """Test that the config file is generated when one doesn't exist."""
+    """Test that the generated config validates false."""
     error_type: type[submanager.exceptions.SubManagerUserError]
     if minimal:
         error_type = submanager.exceptions.AccountConfigError
-        error_text = "account"
     else:
         error_type = submanager.exceptions.ConfigDefaultError
-        error_text = "default"
 
-    captured_output, captured_error = run_cli_paths(
-        example_config,
-        [VALIDATE_COMMAND, "--offline-only", minimal, include_disabled],
+    run_and_check_cli(
+        VALIDATE_COMMAND,
+        *[OFFLINE_ONLY_ARG, minimal, include_disabled],
+        config_paths=example_config,
+        check_text="account" if minimal else "default",
+        check_code=submanager.enums.ExitCode.ERROR_USER,
+        check_error=error_type,
         )
-
-    assert error_text in captured_output.err.lower()
-    assert captured_error
-    assert captured_error.code
-    assert captured_error.code == submanager.enums.ExitCode.ERROR_USER.value
-    assert isinstance(captured_error.__cause__, error_type)
