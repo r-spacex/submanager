@@ -14,6 +14,7 @@ from typing import (
     Sequence,  # Import from collections.abc in Python 3.9
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
+    TYPE_CHECKING,  # Not needed in Python 3.9
     TypeVar,
     Union,  # Not needed in Python 3.10
     )
@@ -75,7 +76,11 @@ class RunAndCheckCLICallable(Protocol):
 
 # Invoke command types
 
-InvokeOutput = subprocess.CompletedProcess[str]
+if TYPE_CHECKING:
+    # pylint: disable = unsubscriptable-object, useless-suppression
+    InvokeOutput = subprocess.CompletedProcess[str]
+else:
+    InvokeOutput = subprocess.CompletedProcess
 InvokeCommandCallable = Callable[[str], InvokeOutput]
 
 
