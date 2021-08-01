@@ -218,18 +218,30 @@ def invoke_command(
     return _invoke_command
 
 
+@pytest.fixture(name="temp_config_dir")
+def fixture_temp_config_dir(
+        request: pytest.FixtureRequest,
+        tmp_path: Path,
+        ) -> Path:
+    """Generate a set of temporary ConfigPaths."""
+    config_sub_dir: Path | str | None = getattr(request, "param", None)
+    if not config_sub_dir:
+        return tmp_path
+    return tmp_path / config_sub_dir
+
+
 @pytest.fixture(
     name="temp_config_paths", params=CONFIG_EXTENSIONS_GOOD_GENERATE)
 def fixture_temp_config_paths(
         request: pytest.FixtureRequest,
-        tmp_path: Path,
+        temp_config_dir: Path,
         ) -> submanager.models.config.ConfigPaths:
     """Generate a set of temporary ConfigPaths."""
     config_extension: str = request.param  # type: ignore[attr-defined]
     config_paths = submanager.models.config.ConfigPaths(
-        static=tmp_path / f"temp_config_static.{config_extension}",
-        dynamic=tmp_path / "temp_config_dynamic.json",
-        refresh=tmp_path / "refresh" / "refresh_token_{key}.txt",
+        static=temp_config_dir / f"temp_config_static.{config_extension}",
+        dynamic=temp_config_dir / "temp_config_dynamic.json",
+        refresh=temp_config_dir / "refresh" / "refresh_token_{key}.txt",
         )
     return config_paths
 

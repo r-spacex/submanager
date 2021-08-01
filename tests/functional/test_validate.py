@@ -58,6 +58,7 @@ def test_validate_generated_error(
 
 
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
+@pytest.mark.parametrize("temp_config_dir", ["", "missing_dir"], indirect=True)
 def test_validate_config_not_found(
         run_and_check_cli: RunAndCheckCLICallable,
         temp_config_paths: submanager.models.config.ConfigPaths,

@@ -32,6 +32,7 @@ EXIST_OK_ARGS: Final[list[str]] = ["", "--exist-ok"]
 
 @pytest.mark.parametrize("exist_ok", EXIST_OK_ARGS)
 @pytest.mark.parametrize("force", FORCE_ARGS)
+@pytest.mark.parametrize("temp_config_dir", ["", "missing_dir"], indirect=True)
 def test_config_doesnt_exist(
         run_and_check_cli: RunAndCheckCLICallable,
         temp_config_paths: submanager.models.config.ConfigPaths,
