@@ -16,6 +16,7 @@ import submanager.enums
 import submanager.exceptions
 import submanager.models.config
 from tests.functional.conftest import (
+    CONFIG_EXTENSIONS_BAD,
     RunAndCheckCLICallable,
     )
 
@@ -42,7 +43,7 @@ def test_config_doesnt_exist(
         GENERATE_COMMAND,
         *[force, exist_ok],
         config_paths=temp_config_paths,
-        check_text="generated",
+        check_text="generat",
         )
 
     assert temp_config_paths.static.exists()
@@ -63,7 +64,7 @@ def test_config_exists(
         GENERATE_COMMAND,
         *[force, exist_ok],
         config_paths=empty_config,
-        check_text="overwritten" if force else "exists",
+        check_text="overwrit" if force else "exist",
         check_exits=not bool(force or exist_ok),
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=submanager.exceptions.ConfigExistsError,
@@ -76,7 +77,7 @@ def test_config_exists(
 
 
 @pytest.mark.parametrize(
-    "temp_config_paths", ["xml", "ini", "txt"], indirect=True)
+    "temp_config_paths", CONFIG_EXTENSIONS_BAD, indirect=True)
 def test_generate_unknown_extension_error(
         run_and_check_cli: RunAndCheckCLICallable,
         temp_config_paths: submanager.models.config.ConfigPaths,
@@ -85,9 +86,9 @@ def test_generate_unknown_extension_error(
     run_and_check_cli(
         GENERATE_COMMAND,
         config_paths=temp_config_paths,
-        check_text="format",
+        check_text="extension",
         check_code=submanager.enums.ExitCode.ERROR_USER,
-        check_error=submanager.exceptions.ConfigTypeError,
+        check_error=submanager.exceptions.ConfigExtensionError,
         )
 
 
@@ -99,7 +100,7 @@ def test_generated_config_validates_false(
     run_and_check_cli(
         GENERATE_COMMAND,
         config_paths=temp_config_paths,
-        check_text="generated",
+        check_text="generat",
         )
 
     with pytest.raises(submanager.exceptions.ConfigDefaultError):

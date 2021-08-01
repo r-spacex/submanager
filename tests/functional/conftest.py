@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import (
+    Any,
     Callable,  # Import from collections.abc in Python 3.9
     Optional,  # Not needed in Python 3.9
     Sequence,  # Import from collections.abc in Python 3.9
@@ -31,6 +32,7 @@ from typing_extensions import (
 # Local imports
 import submanager.cli
 import submanager.config.static
+import submanager.config.utils
 import submanager.enums
 import submanager.models.config
 
@@ -93,7 +95,9 @@ INVOCATION_METHODS: Final[list[list[str]]] = [
     INVOCATION_RUNPY,
     ]
 
-CONFIG_EXTENSIONS: Final[list[str]] = ["toml"]
+CONFIG_EXTENSIONS_GOOD: Final[list[str]] = ["toml", "json"]
+CONFIG_EXTENSIONS_GOOD_GENERATE: Final[list[str]] = ["toml"]
+CONFIG_EXTENSIONS_BAD: Final[list[str]] = ["xml", "ini", "txt"]
 
 
 # ---- Fixtures ----
@@ -209,7 +213,8 @@ def invoke_command(
     return _invoke_command
 
 
-@pytest.fixture(name="temp_config_paths", params=CONFIG_EXTENSIONS)
+@pytest.fixture(
+    name="temp_config_paths", params=CONFIG_EXTENSIONS_GOOD_GENERATE)
 def fixture_temp_config_paths(
         request: pytest.FixtureRequest,
         tmp_path: Path,
@@ -232,6 +237,17 @@ def empty_config(
     with open(temp_config_paths.static, mode="w",
               encoding="utf-8", newline="\n") as static_config_file:
         static_config_file.write("\n")
+    return temp_config_paths
+
+
+@pytest.fixture
+def list_config(
+        temp_config_paths: submanager.models.config.ConfigPaths,
+        ) -> submanager.models.config.ConfigPaths:
+    """Generate a list config file in a temp directory."""
+    config_data: Any = ["spam", "eggs"]
+    submanager.config.utils.write_config(
+        config_data, config_path=temp_config_paths.static)
     return temp_config_paths
 
 

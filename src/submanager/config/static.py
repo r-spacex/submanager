@@ -102,6 +102,22 @@ def replace_missing_account_keys(raw_config: ConfigDict) -> ConfigDict:
     return raw_config
 
 
+def check_static_config(
+        raw_config: ConfigDict,
+        config_path: PathLikeStr = CONFIG_PATH_STATIC,
+        raise_error: bool = True,
+        ) -> bool:
+    """Perform basic validity checks of the loaded static config object."""
+    generate_message = "Try using ``submanager generate-config`` to create it"
+    if not raw_config:
+        if not raise_error:
+            return False
+        raise submanager.exceptions.ConfigEmptyError(
+            config_path, message_post=generate_message)
+
+    return True
+
+
 def render_static_config(
         raw_config: ConfigDict) -> submanager.models.config.StaticConfig:
     """Transform the input config into an object with defaults filled in."""
@@ -126,8 +142,10 @@ def load_static_config(
             json.decoder.JSONDecodeError,
             toml.decoder.TomlDecodeError,
             ) as error:
-        raise submanager.exceptions.ConfigFormatError(
+        raise submanager.exceptions.ConfigParsingError(
             config_path, message_post=error) from error
+
+    check_static_config(raw_config, config_path=config_path, raise_error=True)
 
     # Render static config
     try:

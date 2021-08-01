@@ -318,16 +318,28 @@ class ConfigExistsError(ConfigErrorWithPath):
     _message_pre: ClassVar[str] = "File already exists"
 
 
-class ConfigTypeError(ConfigErrorWithPath):
+class ConfigExtensionError(ConfigErrorWithPath):
     """The Sub Manager config file is not in a recognized format."""
 
-    _message_pre: ClassVar[str] = "File format not recognized"
+    _message_pre: ClassVar[str] = "File extension not recognized"
 
 
-class ConfigFormatError(ConfigErrorWithPath):
+class ConfigParsingError(ConfigErrorWithPath):
     """The Sub Manager config file format is not valid."""
 
-    _message_pre: ClassVar[str] = "File format error"
+    _message_pre: ClassVar[str] = "File parsing error"
+
+
+class ConfigEmptyError(ConfigErrorWithPath):
+    """The Sub Manager config file format is empty."""
+
+    _message_pre: ClassVar[str] = "File empty"
+
+
+class ConfigDataTypeError(ConfigErrorWithPath):
+    """The Sub Manager config file must be a dict/mapping."""
+
+    _message_pre: ClassVar[str] = "Data structure not a dict/table/mapping"
 
 
 class ConfigValidationError(ConfigErrorWithPath):

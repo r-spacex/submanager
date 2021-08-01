@@ -6,6 +6,9 @@ from __future__ import annotations
 # Standard library imports
 import json
 from pathlib import Path
+from typing import (
+    Mapping,  # Import from collections.abc in Python 3.9
+    )
 
 # Third party imports
 import pydantic
@@ -36,7 +39,7 @@ def serialize_config(
         if isinstance(config, pydantic.BaseModel):
             serialized_config = config.json(indent=4)
         else:
-            serialized_config = json.dumps(dict(config), indent=4)
+            serialized_config = json.dumps(config, indent=4)
     elif output_format == "toml":
         serialized_config = toml.dumps(dict(config))
     else:
@@ -57,7 +60,7 @@ def write_config(
         serialized_config = serialize_config(
             config=config, output_format=config_path.suffix[1:])
     except submanager.exceptions.ConfigError as error:
-        raise submanager.exceptions.ConfigTypeError(
+        raise submanager.exceptions.ConfigExtensionError(
             config_path, message_post=error) from error
     with open(config_path, mode="w",
               encoding="utf-8", newline="\n") as config_file:
@@ -71,11 +74,20 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
     with open(config_path, mode="r", encoding="utf-8") as config_file:
         config: ConfigDict
         if config_path.suffix == ".json":
-            config = dict(json.load(config_file))
+            raw_config: object = json.load(config_file)
+            if not isinstance(raw_config, Mapping):
+                format_message = (
+                    "Top-level data structure must be a dict/table/mapping, "
+                    f"not a {type(raw_config)!r}"
+                    )
+                raise submanager.exceptions.ConfigDataTypeError(
+                    config_path, message_pre=format_message)
+            config = dict(raw_config)
+
         elif config_path.suffix == ".toml":
             config = dict(toml.load(config_file))
         else:
-            raise submanager.exceptions.ConfigTypeError(
+            raise submanager.exceptions.ConfigExtensionError(
                 config_path,
                 message_post=submanager.exceptions.ConfigError(
                     f"Input format {config_path.suffix!r} must be in "
