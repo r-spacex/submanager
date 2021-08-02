@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 # Standard library imports
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -111,6 +112,12 @@ INVOCATION_IDS: Final[list[str]] = [
 CONFIG_EXTENSIONS_GOOD: Final[list[str]] = ["toml", "json"]
 CONFIG_EXTENSIONS_GOOD_GENERATE: Final[list[str]] = ["toml"]
 CONFIG_EXTENSIONS_BAD: Final[list[str]] = ["xml", "ini", "txt"]
+
+# Path constants
+DATA_DIR: Final[Path] = Path(__file__).parent / "data"
+RSPACEX_CONFIG_PATH: Final[Path] = DATA_DIR / "rspacex_config.toml"
+TEST_CONFIG_PATH: Final[Path] = DATA_DIR / "offline_config.toml"
+CONFIG_PATHS_ALL: Final[list[Path]] = [RSPACEX_CONFIG_PATH, TEST_CONFIG_PATH]
 
 
 # ---- Hooks ----
@@ -319,4 +326,21 @@ def example_config(
         ) -> submanager.models.config.ConfigPaths:
     """Generate an example config file in a temp directory."""
     submanager.config.static.generate_static_config(temp_config_paths.static)
+    return temp_config_paths
+
+
+@pytest.fixture
+def file_config(
+        temp_config_paths: submanager.models.config.ConfigPaths,
+        request: pytest.FixtureRequest,
+        ) -> submanager.models.config.ConfigPaths:
+    """Use a config file from the test data directory."""
+    source_path: object = getattr(request, "param", None)
+    # static analysis: ignore[non_boolean_in_boolean_context]
+    if not source_path:
+        raise ValueError("Source path must be passed via request param")
+    if not isinstance(source_path, (Path, str)):
+        raise TypeError(f"Source path {source_path!r} must be Path or str, "
+                        f"not {type(source_path)!r}")
+    shutil.copyfile(source_path, temp_config_paths.static)
     return temp_config_paths

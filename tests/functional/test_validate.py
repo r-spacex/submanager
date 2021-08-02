@@ -17,6 +17,7 @@ import submanager.models.config
 from tests.functional.conftest import (
     CONFIG_EXTENSIONS_BAD,
     CONFIG_EXTENSIONS_GOOD,
+    CONFIG_PATHS_ALL,
     RunAndCheckCLICallable,
     )
 
@@ -64,7 +65,7 @@ def test_validate_config_not_found(
         temp_config_paths: submanager.models.config.ConfigPaths,
         minimal: str,
         ) -> None:
-    """Test that the generated config validates false."""
+    """Test that the config not being found validates false."""
     run_and_check_cli(
         VALIDATE_COMMAND,
         *[OFFLINE_ONLY_ARG, minimal],
@@ -115,7 +116,7 @@ def test_validate_config_list(
         list_config: submanager.models.config.ConfigPaths,
         minimal: str,
         ) -> None:
-    """Test that the generated config validates false."""
+    """Test that a config file with the wrong data structure fails validate."""
     run_and_check_cli(
         VALIDATE_COMMAND,
         *[OFFLINE_ONLY_ARG, minimal],
@@ -123,4 +124,22 @@ def test_validate_config_list(
         check_text="structure",
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=submanager.exceptions.ConfigDataTypeError,
+        )
+
+
+@pytest.mark.parametrize("minimal", MINIMAL_ARGS)
+@pytest.mark.parametrize("include_disabled", INCLUDE_DISABLED_ARGS)
+@pytest.mark.parametrize("file_config", CONFIG_PATHS_ALL, indirect=True)
+def test_validate_config_offline_valid(
+        run_and_check_cli: RunAndCheckCLICallable,
+        file_config: submanager.models.config.ConfigPaths,
+        minimal: str,
+        include_disabled: str,
+        ) -> None:
+    """Test that the test configs validate true in offline mode."""
+    run_and_check_cli(
+        VALIDATE_COMMAND,
+        *[OFFLINE_ONLY_ARG, minimal, include_disabled],
+        config_paths=file_config,
+        check_text="succe",
         )

@@ -1,0 +1,241 @@
+check_readonly = true
+repeat_interval_s = 60
+
+
+
+[accounts]
+    [accounts.muskbot]
+        check_for_updates = false
+        client_id = "abcdefgABCDEFG"
+        client_secret = "abcdefghijklmnopqrstuvwxyzABCD"
+        refresh_token = "123456789100-abcdefghijklmnopqrstuvwxyzABCD"
+
+    [accounts.muskrat]
+        check_for_updates = false
+        client_id = "abcdefgABCDEFG"
+        client_secret = "abcdefghijklmnopqrstuvwxyzABCD"
+        username = "thisisatestredditaccount"
+        password = "Notarealpassw0rd!"
+
+
+
+[context_default]
+    account = "muskbot"
+    subreddit = "SpaceX"
+
+
+
+[thread_manager]
+    enabled = true
+
+    [thread_manager.defaults]
+        link_update_pages = ["threads", "toolbox"]
+        new_thread_redirect_op = true
+        new_thread_redirect_sticky = true
+        new_thread_redirect_template = "**This thread is no longer being updated, and has been replaced by:**\n\n# [{post_title}]({thread_url})"
+
+
+    [thread_manager.items]
+        [thread_manager.items.discuss]
+            approve_new = true
+            description = "Primary Discuss Megathread"
+            enabled = true
+            new_thread_interval = "month"
+            pin_thread = "TOP"
+            post_title_template = "r/{subreddit} Thread Index and General Discussion [{current_datetime:%B %Y}, #{thread_number}]"
+            target_context.account = "muskrat"
+
+            [thread_manager.items.discuss.initial]
+                thread_id = "l9rb19"
+                thread_number = 77
+
+            [thread_manager.items.discuss.source]
+                description = "Threads Wiki Page"
+                endpoint_name = "threads"
+                endpoint_type = "WIKI_PAGE"
+                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
+
+
+        [thread_manager.items.starlink]
+            approve_new = true
+            description = "Starlink General Thread"
+            enabled = true
+            new_thread_interval = "2 months"
+            pin_thread = false
+            post_title_template = "Starlink General Discussion and Deployment Thread #{thread_number}"
+            target_context.account = "muskrat"
+
+            [thread_manager.items.starlink.initial]
+                thread_id = "jhu37i"
+                thread_number = 2
+
+            [thread_manager.items.starlink.source]
+                description = "Starlink Thread Wiki Page"
+                endpoint_name = "starlink_general"
+                endpoint_type = "WIKI_PAGE"
+                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
+
+
+        [thread_manager.items.starship_dev]
+            approve_new = true
+            description = "Starship Dev Thread"
+            enabled = true
+            new_thread_interval = "1 month"
+            pin_thread = true
+            post_title_template = "Starship Development Thread #{thread_number}"
+            target_context.account = "muskrat"
+
+            [thread_manager.items.starship_dev.initial]
+                thread_id = "n8t8bg"
+                thread_number = 21
+
+            [thread_manager.items.starship_dev.source]
+                description = "Starship Dev Thread Wiki Page"
+                endpoint_name = "starship_dev"
+                endpoint_type = "WIKI_PAGE"
+                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
+
+
+
+[sync_manager]
+    enabled = true
+
+    [sync_manager.defaults]
+        pattern_end = " End"
+        pattern_start = " Start"
+
+
+    [sync_manager.items]
+        [sync_manager.items.menus]
+            description = "Top Bar Menus"
+            enabled = true
+
+            [sync_manager.items.menus.defaults]
+                pattern = "Thread Menu Block"
+
+            [sync_manager.items.menus.source]
+                description = "Threads Wiki Page"
+                endpoint_name = "threads"
+                endpoint_type = "WIKI_PAGE"
+                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
+
+                [sync_manager.items.menus.source.menu_config]
+                    split = "\n> #\n"
+                    subsplit = "\n*"
+
+            [sync_manager.items.menus.targets]
+                [sync_manager.items.menus.targets.old_reddit_menu]
+                    description = "Old Reddit Menu"
+                    enabled = true
+                    endpoint_name = "config/sidebar"
+                    endpoint_type = "WIKI_PAGE"
+                    replace_patterns = {"https://www.reddit.com" = "https://old.reddit.com", "### [" = "> * ["}
+                [sync_manager.items.menus.targets.new_reddit_menu]
+                    description = "New Reddit Menu"
+                    enabled = true
+                    endpoint_name = "menu"
+                    endpoint_type = "MENU"
+                    replace_patterns = {}
+                [sync_manager.items.menus.targets.old_reddit_menu_lounge]
+                    context.subreddit = "SpaceXLounge"
+                    description = "Old Reddit Menu Lounge"
+                    enabled = false
+                    endpoint_name = "config/sidebar"
+                    endpoint_type = "WIKI_PAGE"
+                    replace_patterns = {"https://www.reddit.com" = "https://old.reddit.com", "### [" = "> * ["}
+                [sync_manager.items.menus.targets.new_reddit_menu_lounge]
+                    context.subreddit = "SpaceXLounge"
+                    description = "New Reddit Menu Lounge"
+                    enabled = false
+                    endpoint_name = "menu"
+                    endpoint_type = "MENU"
+                    replace_patterns = {}
+
+
+        [sync_manager.items.events_table]
+            description = "Events Sidebar Table"
+            enabled = true
+
+            [sync_manager.items.events_table.defaults]
+                endpoint_name = "config/sidebar"
+                endpoint_type = "WIKI_PAGE"
+                pattern = "Events Table"
+
+            [sync_manager.items.events_table.source]
+                description = "Old Reddit Sidebar Events"
+
+            [sync_manager.items.events_table.targets]
+                [sync_manager.items.events_table.targets.new_reddit_widget]
+                    description = "New Reddit Sidebar Events"
+                    enabled = true
+                    endpoint_name = "Upcoming Events"
+                    endpoint_type = "WIDGET"
+                    pattern = false
+                [sync_manager.items.events_table.targets.old_reddit_sidebar_lounge]
+                    context.subreddit = "SpaceXLounge"
+                    description = "Old Reddit Sidebar Events Lounge"
+                    enabled = false
+                [sync_manager.items.events_table.targets.new_reddit_widget_lounge]
+                    context.subreddit = "SpaceXLounge"
+                    description = "New Reddit Sidebar Events Lounge"
+                    enabled = false
+                    endpoint_name = "Upcoming Events"
+                    endpoint_type = "WIDGET"
+                    pattern = false
+
+
+        [sync_manager.items.cores_table]
+            description = "Cores Sidebar Table"
+            enabled = true
+
+            [sync_manager.items.cores_table.defaults]
+                endpoint_name = "config/sidebar"
+                endpoint_type = "WIKI_PAGE"
+                pattern = "Cores Table"
+
+            [sync_manager.items.cores_table.source]
+                description = "Old Reddit Sidebar Cores"
+
+            [sync_manager.items.cores_table.targets]
+                [sync_manager.items.cores_table.targets.new_reddit_widget]
+                    description = "New Reddit Sidebar Cores"
+                    enabled = true
+                    endpoint_name = "Falcon 9 Active Cores"
+                    endpoint_type = "WIDGET"
+                    pattern = false
+                [sync_manager.items.cores_table.targets.old_reddit_sidebar_lounge]
+                    context.subreddit = "SpaceXLounge"
+                    description = "Old Reddit Sidebar Cores Lounge"
+                    enabled = false
+                [sync_manager.items.cores_table.targets.new_reddit_widget_lounge]
+                    context.subreddit = "SpaceXLounge"
+                    description = "New Reddit Sidebar Cores Lounge"
+                    enabled = false
+                    endpoint_name = "Falcon 9 Active Cores"
+                    endpoint_type = "WIDGET"
+                    pattern = false
+
+
+        [sync_manager.items.closure_table]
+            description = "Road Closure Sidebar Table"
+            enabled = true
+            [sync_manager.items.closure_table.defaults]
+                pattern = "Closure Table"
+
+            [sync_manager.items.closure_table.source]
+                description = "Road Closures Wiki Page"
+                endpoint_name = "road_closure"
+                endpoint_type = "WIKI_PAGE"
+
+                [sync_manager.items.closure_table.targets]
+                    [sync_manager.items.closure_table.targets.old_reddit_sidebar]
+                        description = "Old Reddit Sidebar Closure Table"
+                        enabled = true
+                        endpoint_name = "config/sidebar"
+                        endpoint_type = "WIKI_PAGE"
+                    [sync_manager.items.closure_table.targets.new_reddit_widget]
+                        description = "New Reddit Sidebar Closure Table"
+                        enabled = true
+                        endpoint_name = "Starbase Road Closures"
+                        endpoint_type = "WIDGET"
+                        pattern = false
