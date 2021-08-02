@@ -79,7 +79,7 @@ def test_config_exists(
 
 @pytest.mark.parametrize(
     "temp_config_paths", CONFIG_EXTENSIONS_BAD, indirect=True)
-def test_generate_unknown_extension_error(
+def test_unknown_extension_error(
         run_and_check_cli: RunAndCheckCLICallable,
         temp_config_paths: submanager.models.config.ConfigPaths,
         ) -> None:
@@ -93,7 +93,7 @@ def test_generate_unknown_extension_error(
         )
 
 
-def test_generated_config_validates_false(
+def test_generated_validates_false(
         run_and_check_cli: RunAndCheckCLICallable,
         temp_config_paths: submanager.models.config.ConfigPaths,
         ) -> None:

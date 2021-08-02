@@ -10,6 +10,7 @@ import json.decoder
 from pathlib import Path
 from typing import (
     Collection,  # Import from collections.abc in Python 3.9
+    TypeVar,
     )
 
 # Third party imports
@@ -80,11 +81,16 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     return raw_config
 
 
+AccountKeyType = TypeVar("AccountKeyType")
+
+
 def replace_value_with_missing(
-        account_key: str,
+        account_key: AccountKeyType,
         valid_account_keys: Collection[str],
-        ) -> str | submanager.models.utils.MissingAccount:
+        ) -> AccountKeyType | str | submanager.models.utils.MissingAccount:
     """Replace the value with the sentinel class if not in the collection."""
+    if not isinstance(account_key, str):
+        return account_key
     if account_key.strip() in valid_account_keys:
         return account_key.strip()
     return submanager.models.utils.MissingAccount(account_key)

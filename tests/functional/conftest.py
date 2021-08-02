@@ -13,6 +13,7 @@ from typing import (
     Callable,  # Import from collections.abc in Python 3.9
     Collection,  # Import from collections.abc in Python 3.9
     Mapping,  # Import from collections.abc in Python 3.9
+    MutableMapping,  # Import from collections.abc in Python 3.9
     Optional,  # Not needed in Python 3.9
     Sequence,  # Import from collections.abc in Python 3.9
     Tuple,  # Not needed in Python 3.9
@@ -42,6 +43,10 @@ import submanager.config.static
 import submanager.config.utils
 import submanager.enums
 import submanager.models.config
+import submanager.utils.misc
+from submanager.types import (
+    ConfigDict,
+    )
 
 
 # ---- Types ----
@@ -131,8 +136,10 @@ def pytest_make_parametrize_id(
     val_id: object = val
     if not isinstance(val, (str, bytes)):
         val_name: object = getattr(val, "name", None)
+        if isinstance(val, Path):
+            val_id = val.stem
         # static analysis: ignore[non_boolean_in_boolean_context]
-        if val_name and isinstance(val_name, str):
+        elif val_name and isinstance(val_name, str):
             val_id = val_name
         elif isinstance(val, Collection):
             if isinstance(val, Mapping):
@@ -329,8 +336,8 @@ def example_config(
     return temp_config_paths
 
 
-@pytest.fixture
-def file_config(
+@pytest.fixture(name="file_config")
+def fixture_file_config(
         temp_config_paths: submanager.models.config.ConfigPaths,
         request: pytest.FixtureRequest,
         ) -> submanager.models.config.ConfigPaths:
@@ -344,3 +351,28 @@ def file_config(
                         f"not {type(source_path)!r}")
     shutil.copyfile(source_path, temp_config_paths.static)
     return temp_config_paths
+
+
+@pytest.fixture
+def modified_config(
+        file_config: submanager.models.config.ConfigPaths,
+        request: pytest.FixtureRequest,
+        ) -> submanager.models.config.ConfigPaths:
+    """Modify an existing config file and return the path."""
+    update_dict: ConfigDict | None = getattr(request, "param", None)
+    if update_dict is None:
+        raise ValueError("Update dict must be passed via request param")
+    if not isinstance(update_dict, MutableMapping):
+        raise TypeError(f"Update dict {update_dict!r} must be a mapping, "
+                        f"not {type(update_dict)!r}")
+
+    config_data = submanager.config.utils.load_config(file_config.static)
+    config_data_modified = submanager.utils.misc.update_dict_recursive(
+        base=dict(config_data),
+        update=dict(update_dict),
+        inplace=False,
+        )
+    submanager.config.utils.write_config(
+        config_data_modified, config_path=file_config.static)
+
+    return file_config
