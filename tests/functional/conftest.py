@@ -122,9 +122,10 @@ CONFIG_EXTENSIONS_BAD: Final[list[str]] = ["xml", "ini", "txt"]
 
 # Path constants
 DATA_DIR: Final[Path] = Path(__file__).parent / "data"
-RSPACEX_CONFIG_PATH: Final[Path] = DATA_DIR / "rspacex_config.toml"
-TEST_CONFIG_PATH: Final[Path] = DATA_DIR / "offline_config.toml"
-CONFIG_PATHS_ALL: Final[list[Path]] = [RSPACEX_CONFIG_PATH, TEST_CONFIG_PATH]
+RSPACEX_CONFIG_PATH: Final[Path] = DATA_DIR / "rspacex.toml"
+TECHNICAL_CONFIG_PATH: Final[Path] = DATA_DIR / "sxtechnical.toml"
+CONFIG_PATHS_ALL: Final[list[Path]] = [
+    RSPACEX_CONFIG_PATH, TECHNICAL_CONFIG_PATH]
 
 
 # ---- Hooks ----
@@ -159,7 +160,7 @@ def pytest_make_parametrize_id(
     if isinstance(val_id, bytes):
         return val_id.decode()
     if isinstance(val_id, str):
-        return val_id.strip().strip("-")
+        return val_id.strip().strip("-").replace("-", "")
     if val_id is None or isinstance(val_id, (int, float, complex, bool)):
         return str(val_id)
 

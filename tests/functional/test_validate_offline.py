@@ -62,15 +62,15 @@ BAD_VALIDATE_PARAMS: Final[list[tuple[ConfigDict, ExpectedTuple]]] = [
     ({"accounts": {"muskrat": {"password": None}}}, READONLY_EXPECTED),
     ]
 BAD_VALIDATE_IDS = [
-    "nonexistant_value",
+    "bad_key",
     "account_int",
-    "account_nonmatch",
+    "account_nomatch",
     "subreddit_int",
     "subreddit_missing",
-    "client_id_missing",
-    "site_name_nomatch",
+    "clientid_missing",
+    "sitename_nomatch",
     "token_missing",
-    "password_missing",
+    "pw_missing",
     ]
 
 
