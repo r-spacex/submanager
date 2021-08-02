@@ -17,6 +17,7 @@ import submanager.exceptions
 import submanager.models.config
 from tests.functional.conftest import (
     CONFIG_EXTENSIONS_BAD,
+    DEBUG_ARGS,
     RunAndCheckCLICallable,
     )
 
@@ -30,9 +31,9 @@ EXIST_OK_ARGS: Final[list[str]] = ["", "--exist-ok"]
 
 # ---- Tests ----
 
+@pytest.mark.parametrize("temp_config_dir", ["", "missing_dir"], indirect=True)
 @pytest.mark.parametrize("exist_ok", EXIST_OK_ARGS)
 @pytest.mark.parametrize("force", FORCE_ARGS)
-@pytest.mark.parametrize("temp_config_dir", ["", "missing_dir"], indirect=True)
 def test_config_doesnt_exist(
         run_and_check_cli: RunAndCheckCLICallable,
         temp_config_paths: submanager.models.config.ConfigPaths,
@@ -41,8 +42,7 @@ def test_config_doesnt_exist(
         ) -> None:
     """Test that the config file is generated when one doesn't exist."""
     run_and_check_cli(
-        GENERATE_COMMAND,
-        *[force, exist_ok],
+        cli_args=[GENERATE_COMMAND, force, exist_ok],
         config_paths=temp_config_paths,
         check_text="generat",
         )
@@ -62,8 +62,7 @@ def test_config_exists(
         ) -> None:
     """Test config file generation when one does exist."""
     run_and_check_cli(
-        GENERATE_COMMAND,
-        *[force, exist_ok],
+        cli_args=[GENERATE_COMMAND, force, exist_ok],
         config_paths=empty_config,
         check_text="overwrit" if force else "exist",
         check_exits=not bool(force or exist_ok),
@@ -85,7 +84,7 @@ def test_unknown_extension_error(
         ) -> None:
     """Test that generating a config file with an unknown extension errors."""
     run_and_check_cli(
-        GENERATE_COMMAND,
+        cli_args=[GENERATE_COMMAND],
         config_paths=temp_config_paths,
         check_text="extension",
         check_code=submanager.enums.ExitCode.ERROR_USER,
@@ -99,7 +98,7 @@ def test_generated_validates_false(
         ) -> None:
     """Test that the generated config file validates successfully."""
     run_and_check_cli(
-        GENERATE_COMMAND,
+        cli_args=[GENERATE_COMMAND],
         config_paths=temp_config_paths,
         check_text="generat",
         )
@@ -119,3 +118,25 @@ def test_generated_validates_false(
             config_path_refresh=temp_config_paths.refresh,
             verbose=True,
             )
+
+
+@pytest.mark.parametrize("debug", DEBUG_ARGS)
+def test_debug_error(
+        run_and_check_cli: RunAndCheckCLICallable,
+        empty_config: submanager.models.config.ConfigPaths,
+        debug: str,
+        ) -> None:
+    """Test that --debug allows the error to bubble up and dump traceback."""
+    check_text = "exist"
+    check_error = submanager.exceptions.ConfigExistsError
+    try:
+        run_and_check_cli(
+            cli_args=[debug, GENERATE_COMMAND],
+            config_paths=empty_config,
+            check_text=check_text,
+            check_code=submanager.enums.ExitCode.ERROR_USER,
+            check_error=check_error,
+            )
+    except submanager.exceptions.SubManagerUserError as error:
+        assert isinstance(error, check_error)
+        assert check_text in str(error)

@@ -13,6 +13,7 @@ from typing_extensions import (
 # Local imports
 import submanager.enums
 from tests.functional.conftest import (
+    DEBUG_ARGS,
     RunAndCheckCLICallable,
     )
 
@@ -29,14 +30,16 @@ CUSTOM_CONFIG_PATH_IDS: Final[list[str]] = ["default_paths", "custom_paths"]
 
 # ---- Tests ----
 
-@pytest.mark.parametrize(
-    "command", HELP_COMMANDS + GOOD_COMMANDS + BAD_COMMANDS)
+@pytest.mark.parametrize("debug", DEBUG_ARGS)
 @pytest.mark.parametrize(
     "custom_config_paths", CUSTOM_CONFIG_PATHS, ids=CUSTOM_CONFIG_PATH_IDS)
+@pytest.mark.parametrize(
+    "command", HELP_COMMANDS + GOOD_COMMANDS + BAD_COMMANDS)
 def test_command_usage(
         run_and_check_cli: RunAndCheckCLICallable,
         command: str,
         custom_config_paths: Literal[False] | None,
+        debug: str,
         ) -> None:
     """Test that the program handles good, bad and help commands properly."""
     check_exits = None
@@ -56,7 +59,7 @@ def test_command_usage(
         raise ValueError(f"Command {command!r} not found in good, bad or help")
 
     run_and_check_cli(
-        command,
+        cli_args=[debug, command],
         config_paths=custom_config_paths,
         check_text=check_text,
         check_exits=check_exits,

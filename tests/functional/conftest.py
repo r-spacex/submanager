@@ -74,8 +74,7 @@ class RunAndCheckCLICallable(Protocol):
 
     def __call__(  # static analysis: ignore[incompatible_return_value]
             self,
-            command: str,
-            *cli_args: str,
+            cli_args: Sequence[str],
             config_paths: ConfigPathValues = None,
             check_text: str | None = None,
             check_exits: bool | None = None,
@@ -100,6 +99,9 @@ InvokeCommandCallable = Callable[[str], InvokeOutput]
 # Package constants
 PACKAGE_NAME: Final[str] = "submanager"
 ENTRYPOINT_NAME: Final[str] = PACKAGE_NAME
+
+# Argument constants
+DEBUG_ARGS: Final[list[str]] = ["", "--debug"]
 
 # Invocation constants
 INVOCATION_RUNPY: Final[list[str]] = [
@@ -215,8 +217,7 @@ def run_and_check_cli(
         ) -> RunAndCheckCLICallable:
     """Run the package CLI and perform various checks on the output."""
     def _run_and_check_cli(
-            command: str,
-            *cli_args: str,
+            cli_args: Sequence[str],
             config_paths: ConfigPathValues = None,
             check_text: str | None = None,
             check_exits: bool | None = None,
@@ -231,15 +232,14 @@ def run_and_check_cli(
                 (check_code and check_code.value) or check_error)
 
         # Run CLI command
-        captured_output, captured_error = run_cli_paths(
-            [command, *cli_args], config_paths)
+        captured_output, captured_error = run_cli_paths(cli_args, config_paths)
 
         # Check output text
         if check_text:
             if check_exits and check_code and check_code.value:
-                assert check_text in captured_output.err.lower()
+                assert check_text.strip() in captured_output.err.lower()
             else:
-                assert check_text in captured_output.out.lower()
+                assert check_text.strip() in captured_output.out.lower()
                 assert not captured_output.err.strip()
 
         # Check output error
