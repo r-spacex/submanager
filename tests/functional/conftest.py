@@ -11,8 +11,6 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,  # Import from collections.abc in Python 3.9
-    Collection,  # Import from collections.abc in Python 3.9
-    Mapping,  # Import from collections.abc in Python 3.9
     MutableMapping,  # Import from collections.abc in Python 3.9
     Optional,  # Not needed in Python 3.9
     Sequence,  # Import from collections.abc in Python 3.9
@@ -27,9 +25,6 @@ from typing import (
 import pytest
 from _pytest.capture import (
     CaptureResult,
-    )
-from _pytest.config import (
-    Config,
     )
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
@@ -46,6 +41,9 @@ import submanager.models.config
 import submanager.utils.misc
 from submanager.types import (
     ConfigDict,
+    )
+from tests.conftest import (
+    PACKAGE_NAME,
     )
 
 
@@ -96,14 +94,11 @@ InvokeCommandCallable = Callable[[str], InvokeOutput]
 
 # ---- Constants ----
 
-# Package constants
-PACKAGE_NAME: Final[str] = "submanager"
-ENTRYPOINT_NAME: Final[str] = PACKAGE_NAME
-
 # Argument constants
 DEBUG_ARGS: Final[list[str]] = ["", "--debug"]
 
 # Invocation constants
+ENTRYPOINT_NAME: Final[str] = PACKAGE_NAME
 INVOCATION_RUNPY: Final[list[str]] = [
     sys.executable, "-b", "-X", "dev", "-m", PACKAGE_NAME]
 INVOCATION_METHODS: Final[list[list[str]]] = [
@@ -121,50 +116,15 @@ CONFIG_EXTENSIONS_GOOD_GENERATE: Final[list[str]] = ["toml"]
 CONFIG_EXTENSIONS_BAD: Final[list[str]] = ["xml", "ini", "txt"]
 
 # Path constants
-DATA_DIR: Final[Path] = Path(__file__).parent / "data"
-RSPACEX_CONFIG_PATH: Final[Path] = DATA_DIR / "rspacex.toml"
-TECHNICAL_CONFIG_PATH: Final[Path] = DATA_DIR / "sxtechnical.toml"
-CONFIG_PATHS_ALL: Final[list[Path]] = [
+CONFIG_DATA_DIR: Final[Path] = Path(__file__).parent / "data"
+
+RSPACEX_CONFIG_PATH: Final[Path] = CONFIG_DATA_DIR / "rspacex.toml"
+TECHNICAL_CONFIG_PATH: Final[Path] = CONFIG_DATA_DIR / "sxtechnical.toml"
+ONLINE_CONFIG_PATH: Final[Path] = CONFIG_DATA_DIR / "online.toml"
+
+CONFIG_PATHS_OFFLINE: Final[list[Path]] = [
     RSPACEX_CONFIG_PATH, TECHNICAL_CONFIG_PATH]
-
-
-# ---- Hooks ----
-
-def pytest_make_parametrize_id(
-        config: Config,  # pylint: disable = unused-argument
-        val: object,
-        argname: str,  # pylint: disable = unused-argument
-        ) -> str | None:
-    """Intelligently generate parameter IDs; hook for pytest."""
-    val_id: object = val
-    if not isinstance(val, (str, bytes)):
-        val_name: object = getattr(val, "name", None)
-        if isinstance(val, Path):
-            val_id = val.stem
-        # static analysis: ignore[non_boolean_in_boolean_context]
-        elif val_name and isinstance(val_name, str):
-            val_id = val_name
-        elif isinstance(val, Collection):
-            if isinstance(val, Mapping):
-                # static analysis: ignore[undefined_attribute]
-                val_iter = iter(val.values())
-            else:
-                val_iter = iter(val)
-            # static analysis: ignore[incompatible_argument]
-            if len(val) == 1:
-                val_id = next(val_iter)
-            elif all((isinstance(val_item, str) for val_item in val_iter)):
-                # static analysis: ignore[incompatible_argument]
-                val_id = " ".join(val)
-
-    if isinstance(val_id, bytes):
-        return val_id.decode()
-    if isinstance(val_id, str):
-        return val_id.strip().strip("-").replace("-", "")
-    if val_id is None or isinstance(val_id, (int, float, complex, bool)):
-        return str(val_id)
-
-    return None
+CONFIG_PATHS_ONLINE: Final[list[Path]] = [ONLINE_CONFIG_PATH]
 
 
 # ---- Fixtures ----

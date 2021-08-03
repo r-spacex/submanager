@@ -1,0 +1,195 @@
+check_readonly = true
+repeat_interval_s = 5
+
+
+
+[accounts]
+    [accounts.testbot]
+        check_for_updates = false
+        site_name = "testbot"
+
+
+
+[context_default]
+    account = "testbot"
+    subreddit = "SubManagerTesting"
+
+
+
+[thread_manager]
+    enabled = true
+
+    [thread_manager.defaults]
+        link_update_pages = ["threads", "sync_thread_source"]
+        new_thread_redirect_op = true
+        new_thread_redirect_sticky = true
+        new_thread_redirect_template = "**This thread is no longer being updated, and has been replaced by:**\n\n# [{post_title}]({thread_url})"
+
+
+    [thread_manager.items]
+        [thread_manager.items.cycle_thread]
+            approve_new = true
+            description = "Thread that is always recycled"
+            enabled = true
+            new_thread_interval = "2 seconds"
+            pin_thread = "TOP"
+            post_title_template = "r/{subreddit} Test Cycled Thread [{current_datetime:%B %Y}, #{thread_number}]"
+
+            [thread_manager.items.cycle_thread.initial]
+                thread_number = 41
+                thread_id = "oww6en"
+
+            [thread_manager.items.cycle_thread.source]
+                description = "Create Thread Wiki Page"
+                endpoint_name = "cycle_thread_source"
+                endpoint_type = "WIKI_PAGE"
+                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
+                context.subreddit = "SubManagerTesting"
+
+
+        [thread_manager.items.sync_thread]
+            approve_new = true
+            description = "Thread that is always synced"
+            enabled = true
+            new_thread_interval = "6 months"
+            pin_thread = false
+            post_title_template = "Test Sync Thread #{thread_number}"
+
+            [thread_manager.items.sync_thread.initial]
+                thread_number = 1
+                thread_id = "oww7e0"
+
+            [thread_manager.items.sync_thread.source]
+                description = "Sync Thread Wiki Page"
+                endpoint_name = "sync_thread_source"
+                endpoint_type = "WIKI_PAGE"
+                pattern = "Sync"
+                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
+
+
+        [thread_manager.items.new_thread]
+            approve_new = true
+            description = "Thread that is always created with no predecessors"
+            enabled = true
+            new_thread_interval = "month"
+            pin_thread = "bottom"
+            post_title_template = "Test New Thread #{thread_number}"
+            [thread_manager.items.new_thread.source]
+                description = "New Thread Wiki Page"
+                endpoint_name = "new_thread_source"
+                endpoint_type = "WIKI_PAGE"
+                replace_patterns = {}
+
+
+        [thread_manager.items.disabled_thread]
+            description = "Thread that is disabled"
+            enabled = false
+            [thread_manager.items.disabled_thread.source]
+                description = "Non-existant wiki page"
+                endpoint_name = "non_existant_source"
+                endpoint_type = "WIKI_PAGE"
+
+
+
+[sync_manager]
+    enabled = true
+
+    [sync_manager.defaults]
+        pattern_end = " End"
+        pattern_start = " Start"
+
+
+    [sync_manager.items]
+        [sync_manager.items.disabled_sync_item]
+            description = "Disabled sync item"
+            enabled = true
+
+            [sync_manager.items.disabled_sync_item.defaults]
+                endpoint_name = "threads"
+                endpoint_type = "WIKI_PAGE"
+
+            [sync_manager.items.disabled_sync_item.source]
+                description = "Non existent source"
+
+            [sync_manager.items.disabled_sync_item.targets]
+                [sync_manager.items.disabled_sync_item.targets.non_existant_target]
+                    context.subreddit = "SpaceX"
+                    description = "Non existent target"
+                    enabled = false
+                    endpoint_name = "config/sidebar"
+
+    
+        [sync_manager.items.menus]
+            description = "Top Bar Menus"
+            enabled = true
+
+            [sync_manager.items.menus.defaults]
+                pattern = "Thread Menu Block"
+
+            [sync_manager.items.menus.source]
+                description = "Threads Wiki Page"
+                endpoint_name = "threads"
+                endpoint_type = "WIKI_PAGE"
+                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
+
+                [sync_manager.items.menus.source.menu_config]
+                    split = "\n> #\n"
+                    subsplit = "\n*"
+
+            [sync_manager.items.menus.targets]
+                [sync_manager.items.menus.targets.old_reddit_menu]
+                    description = "Old Reddit Menu"
+                    enabled = true
+                    endpoint_name = "config/sidebar"
+                    endpoint_type = "WIKI_PAGE"
+                    replace_patterns = {"https://www.reddit.com" = "https://old.reddit.com", "### [" = "> * ["}
+                [sync_manager.items.menus.targets.new_reddit_menu]
+                    description = "New Reddit Menu"
+                    enabled = true
+                    endpoint_name = "menu"
+                    endpoint_type = "MENU"
+
+
+        [sync_manager.items.sidebar_thread]
+            description = "Sidebar and thread sync"
+            enabled = true
+
+            [sync_manager.items.sidebar_thread.defaults]
+                endpoint_name = "config/sidebar"
+                endpoint_type = "WIKI_PAGE"
+                pattern = "Sidebar Table"
+
+            [sync_manager.items.sidebar_thread.source]
+                description = "Old Reddit Sidebar Table"
+
+            [sync_manager.items.sidebar_thread.targets]
+                [sync_manager.items.sidebar_thread.targets.new_reddit_sidebar_widget]
+                    description = "New Reddit Sidebar Widget Table"
+                    endpoint_name = "Test Widget"
+                    endpoint_type = "WIDGET"
+                    pattern = false
+               [sync_manager.items.sidebar_thread.targets.thread_target]
+                    description = "Thread Target"
+                    endpoint_name = "oww8dg"
+                    endpoint_type = "THREAD"
+                    pattern = "Thread Table"
+
+
+        [sync_manager.items.cross_sub_sync]
+            description = "Cross sub sync"
+            enabled = true
+
+            [sync_manager.items.cross_sub_sync.defaults]
+                endpoint_type = "WIKI_PAGE"
+                pattern = false
+
+            [sync_manager.items.cross_sub_sync.source]
+                context.subreddit = "SpaceX"
+                description = "r/SpaceX Wiki Index"
+                endpoint_name = "index"
+
+            [sync_manager.items.cross_sub_sync.targets]
+                [sync_manager.items.cross_sub_sync.targets.rspacex_index_clone]
+                    description = "r/SpaceX Wiki Index Clone"
+                    enabled = true
+                    endpoint_name = "rspacex_index_clone"

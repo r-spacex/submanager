@@ -1,4 +1,4 @@
-"""Test that the validate-config command correctly validates configuration."""
+"""Test that the validate-config command validates configuration offline."""
 
 # Future imports
 from __future__ import annotations
@@ -25,7 +25,7 @@ from submanager.types import (
 from tests.functional.conftest import (
     CONFIG_EXTENSIONS_BAD,
     CONFIG_EXTENSIONS_GOOD,
-    CONFIG_PATHS_ALL,
+    CONFIG_PATHS_OFFLINE,
     DEBUG_ARGS,
     RunAndCheckCLICallable,
     )
@@ -40,7 +40,6 @@ ExpectedTuple = Tuple[str, Type[submanager.exceptions.SubManagerUserError]]
 
 VALIDATE_COMMAND: Final[str] = "validate-config"
 OFFLINE_ONLY_ARG: Final[str] = "--offline-only"
-
 MINIMAL_ARGS: Final[list[str]] = ["", "--minimal"]
 INCLUDE_DISABLED_ARGS: Final[list[str]] = ["", "--include-disabled"]
 
@@ -169,7 +168,7 @@ def test_config_list_error(
 
 @pytest.mark.parametrize("include_disabled", INCLUDE_DISABLED_ARGS)
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
-@pytest.mark.parametrize("file_config", CONFIG_PATHS_ALL, indirect=True)
+@pytest.mark.parametrize("file_config", CONFIG_PATHS_OFFLINE, indirect=True)
 def test_valid_offline(
         run_and_check_cli: RunAndCheckCLICallable,
         file_config: submanager.models.config.ConfigPaths,
@@ -186,7 +185,7 @@ def test_valid_offline(
 
 
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
-@pytest.mark.parametrize("file_config", CONFIG_PATHS_ALL, indirect=True)
+@pytest.mark.parametrize("file_config", CONFIG_PATHS_OFFLINE, indirect=True)
 def test_parsing_error(
         run_and_check_cli: RunAndCheckCLICallable,
         file_config: submanager.models.config.ConfigPaths,
@@ -216,7 +215,7 @@ def test_parsing_error(
     ids=BAD_VALIDATE_IDS,
     indirect=["modified_config"],
     )
-@pytest.mark.parametrize("file_config", CONFIG_PATHS_ALL, indirect=True)
+@pytest.mark.parametrize("file_config", CONFIG_PATHS_OFFLINE, indirect=True)
 def test_value_error(
         run_and_check_cli: RunAndCheckCLICallable,
         modified_config: submanager.models.config.ConfigPaths,
