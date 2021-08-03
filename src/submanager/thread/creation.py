@@ -106,10 +106,10 @@ def create_new_thread(
     new_thread.disable_inbox_replies()  # type: ignore[no-untyped-call]
     new_thread_mod: praw.models.reddit.submission.Submission = (
         reddit_mod.submission(id=new_thread.id))
-    if thread_config.approve_new:
-        new_thread_mod.mod.approve()
     for attribute in ("id", "url", "permalink", "shortlink"):
         template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
+    if thread_config.approve_new:
+        new_thread_mod.mod.approve()
 
     # Unpin old thread and pin new one
     if thread_config.pin_thread and (
