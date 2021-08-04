@@ -26,8 +26,8 @@ from tests.functional.conftest import (
     CONFIG_EXTENSIONS_BAD,
     CONFIG_EXTENSIONS_GOOD,
     CONFIG_PATHS_OFFLINE,
-    DEBUG_ARGS,
     RunAndCheckCLICallable,
+    RunAndCheckDebugCallable,
     )
 
 
@@ -241,23 +241,8 @@ def test_value_error(
             )
 
 
-@pytest.mark.parametrize("debug", DEBUG_ARGS)
-def test_debug_error(
-        run_and_check_cli: RunAndCheckCLICallable,
-        temp_config_paths: submanager.models.config.ConfigPaths,
-        debug: str,
+def test_debug_validate(
+        run_and_check_debug: RunAndCheckDebugCallable,
         ) -> None:
     """Test that --debug allows the error to bubble up and dump traceback."""
-    check_text = "not found"
-    check_error = submanager.exceptions.ConfigNotFoundError
-    try:
-        run_and_check_cli(
-            cli_args=[debug, VALIDATE_COMMAND, OFFLINE_ONLY_ARG],
-            config_paths=temp_config_paths,
-            check_text=check_text,
-            check_code=submanager.enums.ExitCode.ERROR_USER,
-            check_error=check_error,
-            )
-    except submanager.exceptions.SubManagerUserError as error:
-        assert isinstance(error, check_error)
-        assert check_text in str(error)
+    run_and_check_debug([VALIDATE_COMMAND, OFFLINE_ONLY_ARG])

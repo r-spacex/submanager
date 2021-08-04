@@ -28,12 +28,13 @@ from submanager.types import (
 from tests.functional.conftest import (
     CONFIG_PATHS_ONLINE,
     RunAndCheckCLICallable,
+    RunAndCheckDebugCallable,
     )
 
 
 # ---- Types ----
 
-ConfigTuple = Tuple[
+RunConfigTuple = Tuple[
     ConfigDict,
     str,
     str,
@@ -47,7 +48,7 @@ ConfigTuple = Tuple[
 RUN_COMMAND: Final[str] = "run"
 SKIP_VALIDATE_ARG: Final[str] = "--skip-validate"
 
-TEST_RUN_CONFIGS: Final[list[ConfigTuple]] = [
+TEST_RUN_CONFIGS: Final[list[RunConfigTuple]] = [
     (
         {"accounts": None},
         "",
@@ -107,3 +108,10 @@ def test_run(
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=check_error,
         )
+
+
+def test_debug_validate(
+        run_and_check_debug: RunAndCheckDebugCallable,
+        ) -> None:
+    """Test that --debug allows the error to bubble up and dump traceback."""
+    run_and_check_debug([RUN_COMMAND])

@@ -66,6 +66,8 @@ RunCLIPathsCallable = (Callable[
     [Sequence[str], Union[
         submanager.models.config.ConfigPaths, Literal[False]]], RunCLIOutput])
 
+RunAndCheckDebugCallable = Callable[[Sequence[str]], None]
+
 
 class RunAndCheckCLICallable(Protocol):
     """Callable class for the run and check CLI fixture function."""
@@ -89,6 +91,7 @@ if TYPE_CHECKING:
     InvokeOutput = subprocess.CompletedProcess[str]
 else:
     InvokeOutput = subprocess.CompletedProcess
+
 InvokeCommandCallable = Callable[[str], InvokeOutput]
 
 
@@ -127,7 +130,7 @@ CONFIG_PATHS_OFFLINE: Final[list[Path]] = [
 CONFIG_PATHS_ONLINE: Final[list[Path]] = [ONLINE_CONFIG_PATH]
 
 
-# ---- Fixtures ----
+# ---- Test helper fixtures ----
 
 @pytest.fixture(name="run_cli")
 def fixture_run_cli(capfd: pytest.CaptureFixture[str]) -> RunCLICallable:
@@ -171,8 +174,8 @@ def fixture_run_cli_paths(
     return _run_cli_paths
 
 
-@pytest.fixture
-def run_and_check_cli(
+@pytest.fixture(name="run_and_check_cli")
+def fixture_run_and_check_cli(
         run_cli_paths: RunCLIPathsCallable,
         temp_config_paths: submanager.models.config.ConfigPaths,
         ) -> RunAndCheckCLICallable:
@@ -220,6 +223,37 @@ def run_and_check_cli(
     return _run_and_check_cli
 
 
+@pytest.fixture(params=DEBUG_ARGS)
+def run_and_check_debug(
+        run_and_check_cli: RunAndCheckCLICallable,
+        temp_config_paths: submanager.models.config.ConfigPaths,
+        request: pytest.FixtureRequest,
+        ) -> RunAndCheckDebugCallable:
+    """Test that --debug allows the error to bubble up and dump traceback."""
+    check_text = "not found"
+    check_error = submanager.exceptions.ConfigNotFoundError
+    debug: str = getattr(request, "param", "")
+
+    def _test_debug_error(cli_args: Sequence[str]) -> None:
+        try:
+            run_and_check_cli(
+                cli_args=[debug, *cli_args],
+                config_paths=temp_config_paths,
+                check_text=check_text,
+                check_code=submanager.enums.ExitCode.ERROR_USER,
+                check_error=check_error,
+                )
+        except submanager.exceptions.SubManagerUserError as error:
+            if not debug:
+                raise
+            assert isinstance(error, check_error)
+            assert check_text in str(error)
+        else:
+            assert not debug
+
+    return _test_debug_error
+
+
 @pytest.fixture(params=INVOCATION_METHODS, ids=INVOCATION_IDS)
 def invoke_command(
         request: pytest.FixtureRequest,
@@ -237,6 +271,8 @@ def invoke_command(
         return process_result
     return _invoke_command
 
+
+# ---- Setup fixtures ----
 
 @pytest.fixture(name="temp_config_dir")
 def fixture_temp_config_dir(
