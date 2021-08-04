@@ -1,4 +1,4 @@
-"""Test that the validate-config command validates configuration offline."""
+"""Test that the validate-config command validates the configuration."""
 
 # Future imports
 from __future__ import annotations
@@ -26,6 +26,7 @@ from tests.functional.conftest import (
     CONFIG_EXTENSIONS_BAD,
     CONFIG_EXTENSIONS_GOOD,
     CONFIG_PATHS_OFFLINE,
+    CONFIG_PATHS_ONLINE,
     RunAndCheckCLICallable,
     RunAndCheckDebugCallable,
     )
@@ -39,9 +40,13 @@ ExpectedTuple = Tuple[str, Type[submanager.exceptions.SubManagerUserError]]
 # ---- Constants ----
 
 VALIDATE_COMMAND: Final[str] = "validate-config"
-OFFLINE_ONLY_ARG: Final[str] = "--offline-only"
 MINIMAL_ARGS: Final[list[str]] = ["", "--minimal"]
 INCLUDE_DISABLED_ARGS: Final[list[str]] = ["", "--include-disabled"]
+OFFLINE_ONLY_ARG: Final[str] = "--offline-only"
+OFFLINE_ONLY_ARGS: Final = [
+    OFFLINE_ONLY_ARG,
+    pytest.param("", marks=[pytest.mark.slow, pytest.mark.online]),
+    ]
 
 VALIDATION_EXPECTED: Final[ExpectedTuple] = (
     "validat", submanager.exceptions.ConfigValidationError)
@@ -49,7 +54,7 @@ ACCOUNT_EXPECTED: Final[ExpectedTuple] = (
     "account", submanager.exceptions.AccountConfigError)
 READONLY_EXPECTED: Final[ExpectedTuple] = (
     "read", submanager.exceptions.RedditReadOnlyError)
-BAD_VALIDATE_PARAMS: Final[list[tuple[ConfigDict, ExpectedTuple]]] = [
+BAD_VALIDATE_OFFLINE_PARAMS: Final[list[tuple[ConfigDict, ExpectedTuple]]] = [
     ({"non_existant_key": "Non-Existant Value"}, VALIDATION_EXPECTED),
     ({"context_default": {"account": 42}}, VALIDATION_EXPECTED),
     ({"context_default": {"account": "missing_account"}}, VALIDATION_EXPECTED),
@@ -60,7 +65,7 @@ BAD_VALIDATE_PARAMS: Final[list[tuple[ConfigDict, ExpectedTuple]]] = [
     ({"accounts": {"muskbot": {"refresh_token": None}}}, READONLY_EXPECTED),
     ({"accounts": {"muskrat": {"password": None}}}, READONLY_EXPECTED),
     ]
-BAD_VALIDATE_IDS = [
+BAD_VALIDATE_OFFLINE_IDS = [
     "bad_key",
     "account_int",
     "account_nomatch",
@@ -211,8 +216,8 @@ def test_parsing_error(
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 @pytest.mark.parametrize(
     "modified_config, check_vars",
-    BAD_VALIDATE_PARAMS,
-    ids=BAD_VALIDATE_IDS,
+    BAD_VALIDATE_OFFLINE_PARAMS,
+    ids=BAD_VALIDATE_OFFLINE_IDS,
     indirect=["modified_config"],
     )
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_OFFLINE, indirect=True)
@@ -246,3 +251,25 @@ def test_debug_validate(
         ) -> None:
     """Test that --debug allows the error to bubble up and dump traceback."""
     run_and_check_debug([VALIDATE_COMMAND, OFFLINE_ONLY_ARG])
+
+
+@pytest.mark.parametrize("include_disabled", INCLUDE_DISABLED_ARGS)
+@pytest.mark.parametrize("offline_only", OFFLINE_ONLY_ARGS)
+@pytest.mark.parametrize("file_config", CONFIG_PATHS_ONLINE, indirect=True)
+def test_valid_online(
+        run_and_check_cli: RunAndCheckCLICallable,
+        file_config: submanager.models.config.ConfigPaths,
+        offline_only: str,
+        include_disabled: str,
+        ) -> None:
+    """Test that the test configs validate true in offline mode."""
+    should_fail = bool(include_disabled and not offline_only)
+    run_and_check_cli(
+        cli_args=[
+            VALIDATE_COMMAND, offline_only, include_disabled],
+        config_paths=file_config,
+        check_text="permi" if should_fail else "succe",
+        check_exits=should_fail,
+        check_code=submanager.enums.ExitCode.ERROR_USER,
+        check_error=submanager.exceptions.WikiPagePermissionError,
+        )
