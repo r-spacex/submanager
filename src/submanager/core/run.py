@@ -98,9 +98,10 @@ def run_manage(
 
 def start_manage(
         config_paths: submanager.models.config.ConfigPaths | None = None,
-        repeat_interval_s: float | None = None,
         *,
         skip_validate: bool = False,
+        repeat_interval_s: float | None = None,
+        repeat_max_n: int | None = None,
         ) -> None:
     """Run the mainloop of Sub Manager, performing each task in sequance."""
     # Load config and set up session
@@ -109,15 +110,22 @@ def start_manage(
         config_paths = submanager.models.config.ConfigPaths()
     static_config, accounts = run_initial_setup(
         config_paths, validate=not skip_validate)
-
     if repeat_interval_s is None:
         repeat_interval_s = static_config.repeat_interval_s
+
     while True:
+        # Run the bot
         run_manage_once(
             static_config=static_config,
             accounts=accounts,
             config_path_dynamic=config_paths.dynamic,
             )
+        if repeat_max_n is not None:
+            repeat_max_n -= 1
+            if repeat_max_n <= 0:
+                break
+
+        # Wait until the desired time of the next cycle
         time_left_s = repeat_interval_s
         try:  # pylint: disable = too-many-try-statements
             while True:

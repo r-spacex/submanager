@@ -151,16 +151,22 @@ def create_arg_parser() -> argparse.ArgumentParser:
         )
     parser_start.set_defaults(func=submanager.core.run.start_manage)
     parser_start.add_argument(
-        "--repeat-interval-s",
-        type=float,
-        metavar="N",
-        help=("Run every N seconds, or the value from the config file "
-              "variable repeat_interval_s if N isn't specified"),
-        )
-    parser_start.add_argument(
         "--skip-validate",
         action="store_true",
         help="Don't validate the config against Reddit prior to executing it",
+        )
+    parser_start.add_argument(
+        "--repeat-interval-s",
+        type=float,
+        metavar="SECONDS",
+        help=("Run every SECONDS seconds; if not passed, uses the value "
+              "variable repeat_interval_s from the config file"),
+        )
+    parser_start.add_argument(
+        "--repeat-max-n",
+        type=int,
+        metavar="N",
+        help="If passed, run only N times; useful for testing and debugging",
         )
 
     return parser_main

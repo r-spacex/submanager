@@ -36,7 +36,8 @@ from tests.functional.conftest import (
 
 RunConfigTuple = Tuple[
     ConfigDict,
-    str,
+    list[str],
+    list[str],
     str,
     Optional[Type[submanager.exceptions.SubManagerUserError]],
     Optional[list[MarkDecorator]],
@@ -46,37 +47,53 @@ RunConfigTuple = Tuple[
 # ---- Constants ----
 
 RUN_COMMAND: Final[str] = "run"
-SKIP_VALIDATE_ARG: Final[str] = "--skip-validate"
+START_COMMAND: Final[str] = "start"
+COMMANDS: Final[list[str]] = [RUN_COMMAND, START_COMMAND]
 
-TEST_RUN_CONFIGS: Final[list[RunConfigTuple]] = [
+SKIP_VALIDATE_ARG: Final[str] = "--skip-validate"
+REPEAT_INTERVAL_S_ARG: Final[str] = "--repeat-interval-s"
+REPEAT_MAX_N_ARG: Final[str] = "--repeat-max-n"
+
+
+TEST_CONFIG_VAR_NAMES: Final[list[str]] = [
+    "modified_config",
+    "cli_args_run",
+    "cli_args_start",
+    "check_text",
+    "check_error",
+    ]
+TEST_CONFIGS: Final[list[RunConfigTuple]] = [
     (
         {"accounts": None},
-        "",
+        [],
+        [],
         "account",
         submanager.exceptions.ConfigValidationError,
         None,
         ),
     (
         {"accounts": {"testbot": {"refresh_token": ""}}},
-        "",
+        [],
+        [REPEAT_MAX_N_ARG, "1"],
         "400",
         submanager.exceptions.ScopeCheckError,
         [pytest.mark.online],
         ),
     (
         {},
-        "--skip-validate",
+        [SKIP_VALIDATE_ARG],
+        [SKIP_VALIDATE_ARG, REPEAT_INTERVAL_S_ARG, "5", REPEAT_MAX_N_ARG, "2"],
         "complet",
         None,
         [pytest.mark.online, pytest.mark.slow],
         ),
     ]
-TEST_RUN_CONFIGS_MARKED: Final = [
+TEST_CONFIGS_MARKED: Final = [
     pytest.param(*config[:-1], marks=config[-1])
     if config[-1] is not None else config[:-1]
-    for config in TEST_RUN_CONFIGS
+    for config in TEST_CONFIGS
     ]
-TEST_RUN_IDS: Final[list[str]] = [
+TEST_IDS: Final[list[str]] = [
     "invalid_noskip_minimal",
     "invalid_noskip_validate",
     "valid_skipvalidate",
@@ -86,22 +103,32 @@ TEST_RUN_IDS: Final[list[str]] = [
 # ---- Tests ----
 
 @pytest.mark.parametrize(
-    "modified_config, skip_validate, check_text, check_error",
-    TEST_RUN_CONFIGS_MARKED,
-    ids=TEST_RUN_IDS,
+    TEST_CONFIG_VAR_NAMES,
+    TEST_CONFIGS_MARKED,
+    ids=TEST_IDS,
     indirect=["modified_config"],
     )
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_ONLINE, indirect=True)
-def test_run(
+@pytest.mark.parametrize("command", COMMANDS)
+def test_start_run(
         run_and_check_cli: RunAndCheckCLICallable,
         modified_config: submanager.models.config.ConfigPaths,
-        skip_validate: str,
+        command: str,
+        cli_args_run: list[str],
+        cli_args_start: list[str],
         check_text: str,
         check_error: type[BaseException] | None,
         ) -> None:
     """Test that the test configs validate true in offline mode."""
+    if command == "run":
+        cli_args = cli_args_run
+    elif command == "start":
+        cli_args = cli_args_start
+    else:
+        raise ValueError("Command must be run or start")
+
     run_and_check_cli(
-        cli_args=[RUN_COMMAND, skip_validate],
+        cli_args=[command, *cli_args],
         config_paths=modified_config,
         check_text=check_text,
         check_exits=bool(check_error),
@@ -110,8 +137,10 @@ def test_run(
         )
 
 
+@pytest.mark.parametrize("command", COMMANDS)
 def test_debug_validate(
         run_and_check_debug: RunAndCheckDebugCallable,
+        command: str,
         ) -> None:
     """Test that --debug allows the error to bubble up and dump traceback."""
-    run_and_check_debug([RUN_COMMAND])
+    run_and_check_debug([command])

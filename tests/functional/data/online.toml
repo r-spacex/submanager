@@ -1,5 +1,5 @@
 check_readonly = true
-repeat_interval_s = 5
+repeat_interval_s = 60
 
 
 
@@ -27,32 +27,12 @@ repeat_interval_s = 5
 
 
     [thread_manager.items]
-        [thread_manager.items.cycle_thread]
-            approve_new = true
-            description = "Thread that is always recycled"
-            enabled = true
-            new_thread_interval = "2 seconds"
-            pin_thread = "TOP"
-            post_title_template = "r/{subreddit} Test Cycled Thread [{current_datetime:%B %Y}, #{thread_number}]"
-
-            [thread_manager.items.cycle_thread.initial]
-                thread_number = 41
-                thread_id = "oww6en"
-
-            [thread_manager.items.cycle_thread.source]
-                description = "Create Thread Wiki Page"
-                endpoint_name = "cycle_thread_source"
-                endpoint_type = "WIKI_PAGE"
-                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
-                context.subreddit = "SubManagerTesting"
-
-
         [thread_manager.items.sync_thread]
             approve_new = true
-            description = "Thread that is always synced"
+            description = "Synced Thread"
             enabled = true
-            new_thread_interval = "6 months"
-            pin_thread = false
+            new_thread_interval = "5 months"
+            pin_thread = "TOP"
             post_title_template = "Test Sync Thread #{thread_number}"
 
             [thread_manager.items.sync_thread.initial]
@@ -67,13 +47,34 @@ repeat_interval_s = 5
                 replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
 
 
+        [thread_manager.items.cycle_thread]
+            approve_new = true
+            description = "Reposted Thread"
+            enabled = true
+            new_thread_interval = "2 seconds"
+            pin_thread = false
+            post_title_template = "Sub Manager Cycled Thread [{current_datetime:%Y-%m-%d %H:%M:%S}]"
+
+            [thread_manager.items.cycle_thread.initial]
+                thread_number = 41
+                thread_id = "oww6en"
+
+            [thread_manager.items.cycle_thread.source]
+                description = "Create Thread Wiki Page"
+                endpoint_name = "cycle_thread_source"
+                endpoint_type = "WIKI_PAGE"
+                replace_patterns = {"https://old.reddit.com" = "https://www.reddit.com"}
+                context.subreddit = "SubManagerTesting"
+
+
         [thread_manager.items.new_thread]
             approve_new = true
-            description = "Thread that is always created with no predecessors"
-            enabled = true
+            description = "Newly Created Thread"
+            enabled = false
             new_thread_interval = "month"
             pin_thread = "bottom"
             post_title_template = "Test New Thread #{thread_number}"
+
             [thread_manager.items.new_thread.source]
                 description = "New Thread Wiki Page"
                 endpoint_name = "new_thread_source"
@@ -82,10 +83,10 @@ repeat_interval_s = 5
 
 
         [thread_manager.items.disabled_thread]
-            description = "Thread that is disabled"
+            description = "Disabled Thread"
             enabled = false
             [thread_manager.items.disabled_thread.source]
-                description = "Non-existant wiki page"
+                description = "Non-existent wiki page"
                 endpoint_name = "non_existant_source"
                 endpoint_type = "WIKI_PAGE"
 
@@ -101,7 +102,7 @@ repeat_interval_s = 5
 
     [sync_manager.items]
         [sync_manager.items.disabled_sync_item]
-            description = "Disabled sync item"
+            description = "Disabled Sync Item"
             enabled = true
 
             [sync_manager.items.disabled_sync_item.defaults]
@@ -118,7 +119,7 @@ repeat_interval_s = 5
                     enabled = false
                     endpoint_name = "config/sidebar"
 
-    
+
         [sync_manager.items.menus]
             description = "Top Bar Menus"
             enabled = true
@@ -151,7 +152,7 @@ repeat_interval_s = 5
 
 
         [sync_manager.items.sidebar_thread]
-            description = "Sidebar and thread sync"
+            description = "Sidebar and Thread Sync"
             enabled = true
 
             [sync_manager.items.sidebar_thread.defaults]
@@ -176,7 +177,7 @@ repeat_interval_s = 5
 
 
         [sync_manager.items.cross_sub_sync]
-            description = "Cross sub sync"
+            description = "Cross Sub Sync"
             enabled = true
 
             [sync_manager.items.cross_sub_sync.defaults]

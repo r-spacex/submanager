@@ -24,6 +24,7 @@ import submanager.exceptions
 import submanager.models.config
 import submanager.sync.processing
 import submanager.thread.utils
+import submanager.utils.output
 from submanager.types import (
     AccountsMap,
     )
@@ -62,6 +63,45 @@ def update_page_links(
         page.edit(
             new_content, reason=(
                 f"Update {description or uid_base} thread URLs"))
+
+
+def handle_pin_thread(
+        thread_config: submanager.models.config.ThreadItemConfig,
+        reddit_mod: praw.reddit.Reddit,
+        current_thread_mod: praw.models.reddit.submission.Submission | None,
+        new_thread_mod: praw.models.reddit.submission.Submission,
+        ) -> None:
+    """Analyze the currently pinned thread and pin the new one correctly."""
+    bottom_sticky = (
+        thread_config.pin_thread is not submanager.enums.PinType.TOP)
+    if current_thread_mod:
+        current_thread_mod.mod.sticky(state=False)
+        time.sleep(10)
+    sticky_to_keep: praw.models.reddit.submission.Submission | None = None
+    try:
+        sticky_to_keep = reddit_mod.subreddit(
+            thread_config.context.subreddit).sticky(number=1)
+    except prawcore.exceptions.NotFound:  # Ignore if no sticky
+        pass
+    if (current_thread_mod and sticky_to_keep
+            and sticky_to_keep.id == current_thread_mod.id):
+        try:
+            sticky_to_keep = reddit_mod.subreddit(
+                thread_config.context.subreddit).sticky(number=2)
+        except prawcore.exceptions.NotFound:  # Ignore if no sticky
+            pass
+    try:
+        new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
+    except prawcore.exceptions.BadRequest as error:
+        print(f"Attempt to sticky thread {thread_config.description} "
+              "failed the first time due to an error; retrying. "
+              "The error was:\n")
+        submanager.utils.output.print_error(error)
+        new_thread_mod.mod.approve()
+        new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
+    finally:
+        if sticky_to_keep:
+            sticky_to_keep.mod.sticky(state=True)
 
 
 def create_new_thread(
@@ -114,27 +154,12 @@ def create_new_thread(
     # Unpin old thread and pin new one
     if thread_config.pin_thread and (
             thread_config.pin_thread is not submanager.enums.PinType.NONE):
-        bottom_sticky = (
-            thread_config.pin_thread is not submanager.enums.PinType.TOP)
-        if current_thread_mod:
-            current_thread_mod.mod.sticky(state=False)
-            time.sleep(10)
-        sticky_to_keep: praw.models.reddit.submission.Submission | None = None
-        try:
-            sticky_to_keep = reddit_mod.subreddit(
-                thread_config.context.subreddit).sticky(number=1)
-        except prawcore.exceptions.NotFound:  # Ignore if no sticky
-            pass
-        if (current_thread and sticky_to_keep
-                and sticky_to_keep.id == current_thread.id):
-            try:
-                sticky_to_keep = reddit_mod.subreddit(
-                    thread_config.context.subreddit).sticky(number=2)
-            except prawcore.exceptions.NotFound:  # Ignore if no sticky
-                pass
-        new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
-        if sticky_to_keep:
-            sticky_to_keep.mod.sticky(state=True)
+        handle_pin_thread(
+            thread_config=thread_config,
+            reddit_mod=reddit_mod,
+            current_thread_mod=current_thread_mod,
+            new_thread_mod=new_thread_mod,
+            )
 
     if current_thread and current_thread_mod:
         # Update links to point to new thread
