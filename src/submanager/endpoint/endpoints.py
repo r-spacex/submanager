@@ -126,7 +126,7 @@ class WikiSyncEndpoint(
             raise submanager.exceptions.WikiPagePermissionError(
                 self.config,
                 message_pre=(f"Account {self.config.context.account!r} "
-                             "must be authorized to access wiki page "
+                             "must be authorized to edit wiki page "
                              f"{self.config.endpoint_name!r}"),
                 message_post=error,
                 ) from error

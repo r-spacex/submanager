@@ -75,7 +75,7 @@ TEST_CONFIGS: Final[list[RunConfigTuple]] = [
         {"accounts": {"testbot": {"refresh_token": ""}}},
         [],
         [REPEAT_MAX_N_ARG, "1"],
-        "400",
+        "scope",
         submanager.exceptions.ScopeCheckError,
         [pytest.mark.online],
         ),

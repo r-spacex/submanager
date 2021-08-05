@@ -5,8 +5,10 @@ from __future__ import annotations
 
 # Standard library imports
 from typing import (
+    Optional,  # Not needed in Python 3.10
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
+    Union,  # Not needed in Python 3.10
     )
 
 # Third party imports
@@ -34,11 +36,20 @@ from tests.functional.conftest import (
 
 # ---- Types ----
 
-ExpectedTuple = Tuple[str, Type[submanager.exceptions.SubManagerUserError]]
+RequestTuple = Union[tuple[ConfigDict, Union[str, bool, None]], ConfigDict]
+ExpectedTuple = (
+    Tuple[str, Optional[Type[submanager.exceptions.SubManagerUserError]]])
+ParamConfigs = dict[str, tuple[RequestTuple, ExpectedTuple]]
 
 
 # ---- Constants ----
 
+# pylint: disable = consider-using-namedtuple-or-dataclass
+
+PSEUDORANDOM_STRING: Final[str] = "izouashbutyzyep"
+INT_VALUE: Final[int] = 42
+
+# CLI constants
 VALIDATE_COMMAND: Final[str] = "validate-config"
 MINIMAL_ARGS: Final[list[str]] = ["", "--minimal"]
 INCLUDE_DISABLED_ARGS: Final[list[str]] = ["", "--include-disabled"]
@@ -48,34 +59,168 @@ OFFLINE_ONLY_ARGS: Final = [
     pytest.param("", marks=[pytest.mark.slow, pytest.mark.online]),
     ]
 
+# Offline validation param configs
 VALIDATION_EXPECTED: Final[ExpectedTuple] = (
     "validat", submanager.exceptions.ConfigValidationError)
 ACCOUNT_EXPECTED: Final[ExpectedTuple] = (
     "account", submanager.exceptions.AccountConfigError)
 READONLY_EXPECTED: Final[ExpectedTuple] = (
     "read", submanager.exceptions.RedditReadOnlyError)
-BAD_VALIDATE_OFFLINE_PARAMS: Final[list[tuple[ConfigDict, ExpectedTuple]]] = [
-    ({"non_existant_key": "Non-Existant Value"}, VALIDATION_EXPECTED),
-    ({"context_default": {"account": 42}}, VALIDATION_EXPECTED),
-    ({"context_default": {"account": "missing_account"}}, VALIDATION_EXPECTED),
-    ({"context_default": {"subreddit": 42}}, VALIDATION_EXPECTED),
-    ({"context_default": {"subreddit": None}}, VALIDATION_EXPECTED),
-    ({"accounts": {"muskbot": {"client_id": None}}}, ACCOUNT_EXPECTED),
-    ({"accounts": {"muskrat": {"site_name": "MISSINGNO"}}}, ACCOUNT_EXPECTED),
-    ({"accounts": {"muskbot": {"refresh_token": None}}}, READONLY_EXPECTED),
-    ({"accounts": {"muskrat": {"password": None}}}, READONLY_EXPECTED),
-    ]
-BAD_VALIDATE_OFFLINE_IDS = [
-    "bad_key",
-    "account_int",
-    "account_nomatch",
-    "subreddit_int",
-    "subreddit_missing",
-    "clientid_missing",
-    "sitename_nomatch",
-    "token_missing",
-    "pw_missing",
-    ]
+
+BAD_VALIDATE_OFFLINE_PARAMS: Final[ParamConfigs] = {
+    "non_existant_key": (
+        {PSEUDORANDOM_STRING: PSEUDORANDOM_STRING},
+        VALIDATION_EXPECTED,
+        ),
+    "account_int": (
+        {"context_default": {"account": INT_VALUE}},
+        VALIDATION_EXPECTED,
+        ),
+    "account_nomatch": (
+        {"context_default": {"account": PSEUDORANDOM_STRING}},
+        VALIDATION_EXPECTED,
+        ),
+    "subreddit_int": (
+        {"context_default": {"subreddit": INT_VALUE}},
+        VALIDATION_EXPECTED,
+        ),
+    "subreddit_missing": (
+        {"context_default": {"subreddit": None}},
+        VALIDATION_EXPECTED,
+        ),
+    "clientid_missing": (
+        {"accounts": {"muskbot": {"client_id": None}}},
+        ACCOUNT_EXPECTED,
+        ),
+    "sitename_nomatch": (
+        {"accounts": {"muskrat": {"site_name": PSEUDORANDOM_STRING}}},
+        ACCOUNT_EXPECTED,
+        ),
+    "token_missing": (
+        {"accounts": {"muskbot": {"refresh_token": None}}},
+        READONLY_EXPECTED,
+        ),
+    "pw_missing": (
+        {"accounts": {"muskrat": {"password": None}}},
+        READONLY_EXPECTED,
+        ),
+    }
+
+# Onlne validation param configs
+NON_ACCESSABLE_PAGE: Final[str] = "non_accessable_page"
+NON_MOD_SUBREDDIT: Final[str] = "SubManagerTesting2"
+NON_SUPPORTED_WIDGET: Final[str] = "Bad Type Widget"
+NON_WRITEABLE_PAGE: Final[str] = "non_writable_page"
+NON_WRITEABLE_WIDGET: Final[str] = "Test Widget"
+THREAD_ID_LINK: Final[str] = "oy6ju3"
+THREAD_ID_NOT_OP: Final[str] = "owu3jn"
+
+BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
+    "placebo": (
+        ({}, True),
+        ("succe", None),
+        ),
+    "token_empty": (
+        ({"accounts": {"testbot": {"refresh_token": ""}}}, True),
+        ("scope", submanager.exceptions.ScopeCheckError),
+        ),
+    "subreddit_notfound": (
+        ({"context_default": {"subreddit": PSEUDORANDOM_STRING}},
+         "sync_manager.items.menus.targets.old_reddit_menu"),
+        ("subreddit", submanager.exceptions.SubredditNotFoundError),
+        ),
+    "thread_source_notfound": (
+        ({"thread_manager": {"items": {"cycle_thread": {"source": {
+            "endpoint_name": PSEUDORANDOM_STRING}}}}},
+         "thread_manager.items.cycle_thread"),
+        ("found", submanager.exceptions.RedditObjectNotFoundError),
+        ),
+    "menu_notfound": (
+        ({"sync_manager": {"items": {"menus": {"targets": {
+            "new_reddit_menu": {"context": {"subreddit": NON_MOD_SUBREDDIT}},
+            }}}}},
+         "sync_manager.items.menus.targets.new_reddit_menu"),
+        ("create", submanager.exceptions.RedditObjectNotFoundError),
+        ),
+    # "menu_not_writeable": (
+    #     ({"sync_manager": {"items": {"menus": {"targets": {
+    #         "new_reddit_menu": {"context": {"subreddit": NON_MOD_SUBREDDIT}},
+    #         }}}}},
+    #      "sync_manager.items.menus.targets.new_reddit_menu"),
+    #     ("mod", submanager.exceptions.NotAModError),
+    #     ),
+    "thread_notfound": (
+        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
+            "thread_target": {"endpoint_name": PSEUDORANDOM_STRING}}}}}},
+         "sync_manager.items.sidebar_thread.targets.thread_target"),
+        ("found", submanager.exceptions.RedditObjectNotFoundError),
+        ),
+    "thread_notop": (
+        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
+            "thread_target": {"endpoint_name": THREAD_ID_NOT_OP}}}}}},
+         "sync_manager.items.sidebar_thread.targets.thread_target"),
+        ("account", submanager.exceptions.NotOPError),
+        ),
+    "thread_wrong_type": (
+        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
+            "thread_target": {"endpoint_name": THREAD_ID_LINK}}}}}},
+         "sync_manager.items.sidebar_thread.targets.thread_target"),
+        ("link", submanager.exceptions.PostTypeError),
+        ),
+    "widget_notfound": (
+        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
+            "new_reddit_widget": {"endpoint_name": PSEUDORANDOM_STRING}}}}}},
+         "sync_manager.items.sidebar_thread.targets.new_reddit_widget"),
+        ("found", submanager.exceptions.RedditObjectNotFoundError),
+        ),
+    "widget_wrong_type": (
+        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
+            "new_reddit_widget": {"endpoint_name": NON_SUPPORTED_WIDGET}}}}}},
+         "sync_manager.items.sidebar_thread.targets.new_reddit_widget"),
+        ("type", submanager.exceptions.WidgetTypeError),
+        ),
+    "widget_notwriteable": (
+        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
+            "new_reddit_widget": {
+                "endpoint_name": NON_WRITEABLE_WIDGET,
+                "context": {"subreddit": NON_MOD_SUBREDDIT},
+                }}}}}},
+         "sync_manager.items.sidebar_thread.targets.new_reddit_widget"),
+        ("mod", submanager.exceptions.NotAModError),
+        ),
+    "wiki_notfound_source": (
+        ({"sync_manager": {"items": {"cross_sub_sync": {"source": {
+            "endpoint_name": PSEUDORANDOM_STRING}}}}},
+         "sync_manager.items.cross_sub_sync.targets.index_clone"),
+        ("found", submanager.exceptions.RedditObjectNotFoundError),
+        ),
+    "wiki_notaccessable_source": (
+        ({"sync_manager": {"items": {"cross_sub_sync": {"source": {
+            "endpoint_name": NON_ACCESSABLE_PAGE}}}}},
+         "sync_manager.items.cross_sub_sync.targets.index_clone"),
+        ("access", submanager.exceptions.RedditObjectNotAccessibleError),
+        ),
+    "wiki_notfound_target": (
+        ({"sync_manager": {"items": {"disabled_sync_item": {"targets": {
+            "non_existant_target": {"endpoint_name": PSEUDORANDOM_STRING}}}}}},
+         "sync_manager.items.disabled_sync_item.targets.non_existant_target"),
+        ("found", submanager.exceptions.RedditObjectNotFoundError),
+        ),
+    "wiki_notaccessable_target": (
+        ({},
+         "sync_manager.items.disabled_sync_item.targets.non_existant_target"),
+        ("access", submanager.exceptions.RedditObjectNotAccessibleError),
+        ),
+    "wiki_notwriteable_target": (
+        ({"sync_manager": {"items": {"disabled_sync_item": {"targets": {
+            "non_existant_target": {
+                "endpoint_name": NON_WRITEABLE_PAGE,
+                "context": {"subreddit": NON_MOD_SUBREDDIT},
+                }}}}}},
+         "sync_manager.items.disabled_sync_item.targets.non_existant_target"),
+        ("edit", submanager.exceptions.WikiPagePermissionError),
+        ),
+    }
 
 
 # ---- Tests ----
@@ -216,8 +361,8 @@ def test_parsing_error(
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 @pytest.mark.parametrize(
     "modified_config, check_vars",
-    BAD_VALIDATE_OFFLINE_PARAMS,
-    ids=BAD_VALIDATE_OFFLINE_IDS,
+    list(BAD_VALIDATE_OFFLINE_PARAMS.values()),
+    ids=list(BAD_VALIDATE_OFFLINE_PARAMS.keys()),
     indirect=["modified_config"],
     )
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_OFFLINE, indirect=True)
@@ -230,7 +375,8 @@ def test_value_error(
     """Test that config files with a bad value validate false."""
     check_text, check_error = check_vars
     cli_args = [VALIDATE_COMMAND, OFFLINE_ONLY_ARG, minimal]
-    if minimal and check_error == submanager.exceptions.RedditReadOnlyError:
+    if minimal and (check_error is None or (
+            check_error == submanager.exceptions.RedditReadOnlyError)):
         run_and_check_cli(
             cli_args=cli_args,
             config_paths=modified_config,
@@ -268,8 +414,41 @@ def test_valid_online(
         cli_args=[
             VALIDATE_COMMAND, offline_only, include_disabled],
         config_paths=file_config,
-        check_text="permi" if should_fail else "succe",
+        check_text="access" if should_fail else "succe",
         check_exits=should_fail,
         check_code=submanager.enums.ExitCode.ERROR_USER,
-        check_error=submanager.exceptions.WikiPagePermissionError,
+        check_error=submanager.exceptions.RedditObjectNotAccessibleError,
         )
+
+
+@pytest.mark.parametrize("offline_only", OFFLINE_ONLY_ARGS)
+@pytest.mark.parametrize(
+    "modified_config, check_vars",
+    list(BAD_VALIDATE_ONLINE_PARAMS.values()),
+    ids=list(BAD_VALIDATE_ONLINE_PARAMS.keys()),
+    indirect=["modified_config"],
+    )
+@pytest.mark.parametrize("file_config", CONFIG_PATHS_ONLINE, indirect=True)
+def test_online_error(
+        run_and_check_cli: RunAndCheckCLICallable,
+        modified_config: submanager.models.config.ConfigPaths,
+        check_vars: ExpectedTuple,
+        offline_only: str,
+        ) -> None:
+    """Test that config files that produce Reddit errors validate false."""
+    check_text, check_error = check_vars
+    cli_args = [VALIDATE_COMMAND, offline_only]
+    if offline_only or check_error is None:
+        run_and_check_cli(
+            cli_args=cli_args,
+            config_paths=modified_config,
+            check_text="succe",
+            )
+    else:
+        run_and_check_cli(
+            cli_args=cli_args,
+            config_paths=modified_config,
+            check_text=check_text,
+            check_code=submanager.enums.ExitCode.ERROR_USER,
+            check_error=check_error,
+            )

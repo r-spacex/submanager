@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 # Standard library imports
+import copy
 import shutil
 import subprocess
 import sys
@@ -39,9 +40,6 @@ import submanager.config.utils
 import submanager.enums
 import submanager.models.config
 import submanager.utils.misc
-from submanager.types import (
-    ConfigDict,
-    )
 from tests.conftest import (
     PACKAGE_NAME,
     )
@@ -356,16 +354,42 @@ def modified_config(
         request: pytest.FixtureRequest,
         ) -> submanager.models.config.ConfigPaths:
     """Modify an existing config file and return the path."""
-    update_dict: ConfigDict | None = getattr(request, "param", None)
-    if update_dict is None:
+    # Get and check request params
+    request_param = getattr(request, "param", None)
+    if request_param is None:
         raise ValueError("Update dict must be passed via request param")
+    if isinstance(request_param, Sequence):
+        update_dict, disable_all = request_param
+    else:
+        update_dict = request_param
+        disable_all = False
     if not isinstance(update_dict, MutableMapping):
         raise TypeError(f"Update dict {update_dict!r} must be a mapping, "
                         f"not {type(update_dict)!r}")
 
+    # Disable all items if requested
     config_data = submanager.config.utils.load_config(file_config.static)
+    if disable_all:
+        config_data_modified = (
+            submanager.utils.misc.process_dict_items_recursive(
+                dict(config_data),
+                fn_torun=lambda value: False,
+                keys_match={"enabled"},
+                inplace=False,
+                )
+            )
+        if isinstance(disable_all, str):
+            config_data_level = config_data_modified
+            for key in disable_all.split("."):
+                config_data_level = config_data_level[key]
+                if config_data_level.get("enabled", None) is not None:
+                    config_data_level["enabled"] = True
+    else:
+        config_data_modified = copy.deepcopy(dict(config_data))
+
+    # Modify config and write it back
     config_data_modified = submanager.utils.misc.update_dict_recursive(
-        base=dict(config_data),
+        base=config_data_modified,
         update=dict(update_dict),
         inplace=False,
         )

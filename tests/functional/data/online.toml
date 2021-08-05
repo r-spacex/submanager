@@ -106,7 +106,7 @@ repeat_interval_s = 60
             enabled = true
 
             [sync_manager.items.disabled_sync_item.defaults]
-                endpoint_name = "threads"
+                endpoint_name = "non_accessable_page"
                 endpoint_type = "WIKI_PAGE"
 
             [sync_manager.items.disabled_sync_item.source]
@@ -114,10 +114,9 @@ repeat_interval_s = 60
 
             [sync_manager.items.disabled_sync_item.targets]
                 [sync_manager.items.disabled_sync_item.targets.non_existant_target]
-                    context.subreddit = "SpaceX"
+                    context.subreddit = "SubManagerTesting2"
                     description = "Non existent target"
                     enabled = false
-                    endpoint_name = "config/sidebar"
 
 
         [sync_manager.items.menus]
@@ -164,13 +163,15 @@ repeat_interval_s = 60
                 description = "Old Reddit Sidebar Table"
 
             [sync_manager.items.sidebar_thread.targets]
-                [sync_manager.items.sidebar_thread.targets.new_reddit_sidebar_widget]
+                [sync_manager.items.sidebar_thread.targets.new_reddit_widget]
                     description = "New Reddit Sidebar Widget Table"
+                    enabled = true
                     endpoint_name = "Test Widget"
                     endpoint_type = "WIDGET"
                     pattern = false
                [sync_manager.items.sidebar_thread.targets.thread_target]
                     description = "Thread Target"
+                    enabled = true
                     endpoint_name = "oww8dg"
                     endpoint_type = "THREAD"
                     pattern = "Thread Table"
@@ -185,12 +186,12 @@ repeat_interval_s = 60
                 pattern = false
 
             [sync_manager.items.cross_sub_sync.source]
-                context.subreddit = "SpaceX"
-                description = "r/SpaceX Wiki Index"
+                context.subreddit = "SubManagerTesting2"
+                description = "r/SubManager Wiki Index"
                 endpoint_name = "index"
 
             [sync_manager.items.cross_sub_sync.targets]
-                [sync_manager.items.cross_sub_sync.targets.rspacex_index_clone]
-                    description = "r/SpaceX Wiki Index Clone"
+                [sync_manager.items.cross_sub_sync.targets.index_clone]
+                    description = "r/SubManager Wiki Index Clone"
                     enabled = true
                     endpoint_name = "rspacex_index_clone"
