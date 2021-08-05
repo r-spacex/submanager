@@ -5,6 +5,7 @@ from __future__ import annotations
 
 # Standard library imports
 from typing import (
+    Dict,  # Not needed in Python 3.9
     Optional,  # Not needed in Python 3.10
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
@@ -36,10 +37,10 @@ from tests.functional.conftest import (
 
 # ---- Types ----
 
-RequestTuple = Union[tuple[ConfigDict, Union[str, bool, None]], ConfigDict]
+RequestTuple = Union[Tuple[ConfigDict, Union[str, bool, None]], ConfigDict]
 ExpectedTuple = (
     Tuple[str, Optional[Type[submanager.exceptions.SubManagerUserError]]])
-ParamConfigs = dict[str, tuple[RequestTuple, ExpectedTuple]]
+ParamConfigs = Dict[str, Tuple[RequestTuple, ExpectedTuple]]
 
 
 # ---- Constants ----
@@ -120,8 +121,9 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
         ({}, True),
         ("succe", None),
         ),
-    "token_empty": (
-        ({"accounts": {"testbot": {"refresh_token": ""}}}, True),
+    "client_id_bad": (
+        ({"accounts": {"testbot": {"client_id": PSEUDORANDOM_STRING}}},
+         True),
         ("scope", submanager.exceptions.ScopeCheckError),
         ),
     "subreddit_notfound": (

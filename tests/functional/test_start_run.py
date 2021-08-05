@@ -5,7 +5,8 @@ from __future__ import annotations
 
 # Standard library imports
 from typing import (
-    Optional,  # Not needed in Python 3.9
+    List,  # Not needed in Python 3.9
+    Optional,  # Not needed in Python 3.10
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
     )
@@ -36,15 +37,17 @@ from tests.functional.conftest import (
 
 RunConfigTuple = Tuple[
     ConfigDict,
-    list[str],
-    list[str],
+    List[str],
+    List[str],
     str,
     Optional[Type[submanager.exceptions.SubManagerUserError]],
-    Optional[list[MarkDecorator]],
+    Optional[List[MarkDecorator]],
     ]
 
 
 # ---- Constants ----
+
+PSEUDORANDOM_STRING: Final[str] = "izouashbutyzyep"
 
 RUN_COMMAND: Final[str] = "run"
 START_COMMAND: Final[str] = "start"
@@ -72,7 +75,7 @@ TEST_CONFIGS: Final[list[RunConfigTuple]] = [
         None,
         ),
     (
-        {"accounts": {"testbot": {"refresh_token": ""}}},
+        {"accounts": {"testbot": {"client_id": PSEUDORANDOM_STRING}}},
         [],
         [REPEAT_MAX_N_ARG, "1"],
         "scope",

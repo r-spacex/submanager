@@ -13,7 +13,7 @@ from typing import (
     Any,
     Callable,  # Import from collections.abc in Python 3.9
     MutableMapping,  # Import from collections.abc in Python 3.9
-    Optional,  # Not needed in Python 3.9
+    Optional,  # Not needed in Python 3.10
     Sequence,  # Import from collections.abc in Python 3.9
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
