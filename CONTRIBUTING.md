@@ -74,18 +74,35 @@ While Windows and macOS are supported for development and use alongside Linux, r
 
 ## Running Tests
 
-This package uses the [Pytest]() framework for its unit and integration tests, which are located in the ``tests/`` directory in the root of the project.
-As you might expect, unit tests, which mirror the structure of the package and test individual components, are found in the `unit` subdirectory, while integration tests, which tests the functionality of the package as a whole, like in the `integration` subdirectory.
-We welcome contributions of both kinds of tests to expand our coverage, increase reliability, and ensure we don't experience any regressions.
+This package uses the [Pytest](https://pytest.org) framework for its unit and integration tests, which are located inside the ``tests/`` directory in the root of the project.
+As you might expect, unit tests, which mirror the structure of the package and test individual components, are found in the `unit` subdirectory, while integration tests, which test the functionality of the package as a whole, like in the `integration` subdirectory, and functional tests, which test the package's behavior though the user-facing CLI, are in the `functional` subdirectory.
+Currently, given the project's development status, it has a substantial test suite but is primarily focused on high-level functional testing, with more granular unit and integration tests to be added later.
+We welcome contributions of all three kinds of tests to expand our coverage, increase reliability, and ensure we don't experience any regressions.
 If you need help writing tests, please let us know, and we'll be happy to guide you.
 
-To run the tests, simply install the development dependencies as above, and then simply execute
+To run the tests (minus the online ones that require network connectivity and an authorized Reddit account to interact with the test subreddit), install the development dependencies as above, and then simply execute
 
 ```bash
 pytest
 ```
 
-The `pytest.ini` sets up a variety of settings and command line options for you, so you shouldn't need to pass any further options to pytest unless you have a specific use case.
+The ``pytest.ini`` config file sets up a variety of settings and command line options for you, so you shouldn't need to pass any further options to pytest unless you have a specific use case.
+To skip the slower tests (most of them are online), run pytest ``-m "no slow"``
+
+```bash
+pytest -m "not slow"
+```
+
+Finally, to run the online tests, pass ``--run-online``
+
+```bash
+pytest --run-online
+```
+
+**Note**: The online tests require a PRAW ``site`` named ``testbot`` that has mod access to the r/SubManagerTesting sub and approved user access to the r/SubManagerTesting2 sub, with scopes `modconfig`, `read`, `wikiread`, `edit`, `modwiki`, `submit`, `structuredstyles`, and `wikiedit`, as well as optionally `identity` and `mysubreddits`.
+As such, they are normally only run by the core team and the CIs, and you can exercise most of the code by running ``submanager validate-config`` on your local config.
+However, if you would like to help with PRAW's development, we can consider giving a user account under your control access to the appropriate subs, so you can run the online tests locally as well by simply configuring the ``testbot`` site in your ``praw.ini`` with the credentials of your user.
+Feel free to contact us if you're interested.
 
 
 
@@ -93,7 +110,8 @@ The `pytest.ini` sets up a variety of settings and command line options for you,
 
 When you start to work on a new pull request (PR), you need to be sure that your work is done on top of the correct branch, and that you base your PR on Github against it.
 
-To guide you, issues on Github are marked with a milestone that indicates the correct branch to use. If not, follow these guidelines:
+To guide you, issues on Github are marked with a milestone that indicates the correct branch to use.
+If not, follow these guidelines:
 
 * Use the latest release branch (e.g. ``0.3.x`` for bugfixes only (*e.g.* milestones ``v0.3.1`` or ``v0.3.2``)
 * Use ``master`` to introduce new features or break compatibility with previous versions (*e.g.* milestones ``v0.4alpha2`` or ``v0.4beta1``).
@@ -112,7 +130,8 @@ $ git pull upstream <BASE-BRANCH>
 $ git checkout -b <FEATURE-BRANCH>
 ```
 
-Once you've made and tested your changes, commit them with a descriptive message of 74 characters or less written in the imperative tense, with a capitalized first letter and no period at the end. For example:
+Once you've made and tested your changes, commit them with a descriptive message of 74 characters or less written in the imperative tense, with a capitalized first letter and no period at the end.
+For example:
 
 ```bash
 git commit -am "Fix bug reading configuration on Windows"
