@@ -164,8 +164,6 @@ def fixture_run_cli_paths(
                 config_paths.static.as_posix(),
                 "--dynamic-config-path",
                 config_paths.dynamic.as_posix(),
-                "--refresh-config-path",
-                config_paths.refresh.as_posix(),
                 ]
         all_cli_args = [*config_path_args, *cli_args]
         return run_cli(all_cli_args)
@@ -295,7 +293,6 @@ def fixture_temp_config_paths(
     config_paths = submanager.models.config.ConfigPaths(
         static=temp_config_dir / f"temp_config_static.{config_extension}",
         dynamic=temp_config_dir / "temp_config_dynamic.json",
-        refresh=temp_config_dir / "refresh" / "refresh_token_{key}.txt",
         )
     return config_paths
 

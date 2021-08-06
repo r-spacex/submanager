@@ -19,7 +19,6 @@ from typing import (
 
 # Third party imports
 import praw.reddit
-import praw.util.token_manager
 
 
 if TYPE_CHECKING:
@@ -33,13 +32,8 @@ ExceptTuple = Tuple[Type[Exception], ...]
 ConfigDict = Mapping[str, Any]
 ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
 
-AccountConfig = NewType("AccountConfig", MutableMapping[str, str])
+AccountConfig = NewType("AccountConfig", Mapping[str, str])
 AccountsConfig = NewType("AccountsConfig", Mapping[str, AccountConfig])
-AccountConfigProcessed = NewType(
-    "AccountConfigProcessed",
-    MutableMapping[str, Union[str, praw.util.token_manager.FileTokenManager]])
-AccountsConfigProcessed = NewType(
-    "AccountsConfigProcessed", Mapping[str, AccountConfigProcessed])
 AccountsMap = NewType("AccountsMap", Mapping[str, praw.reddit.Reddit])
 
 ChildrenData = List[MutableMapping[str, str]]

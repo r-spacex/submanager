@@ -30,11 +30,8 @@ START_TIME: Final[float] = time.monotonic()
 # ---- Path constants ----
 
 CONFIG_DIRECTORY: Final[Path] = Path("~/.config/submanager").expanduser()
-TOKEN_DIRECTORY: Final[Path] = CONFIG_DIRECTORY / "refresh_tokens"
-
 CONFIG_PATH_STATIC: Final[Path] = CONFIG_DIRECTORY / "config.toml"
 CONFIG_PATH_DYNAMIC: Final[Path] = CONFIG_DIRECTORY / "config_dynamic.json"
-CONFIG_PATH_REFRESH: Final[Path] = TOKEN_DIRECTORY / "refresh_token_{key}.txt"
 
 
 # ---- URL constants ----

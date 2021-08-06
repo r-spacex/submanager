@@ -115,7 +115,6 @@ def test_generated_validates_false(
     with pytest.raises(submanager.exceptions.AccountConfigError):
         submanager.core.initialization.setup_accounts(
             static_config.accounts,
-            config_path_refresh=temp_config_paths.refresh,
             verbose=True,
             )
 

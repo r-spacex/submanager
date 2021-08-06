@@ -24,7 +24,6 @@ import submanager.models.config
 import submanager.utils.output
 from submanager.constants import (
     CONFIG_PATH_DYNAMIC,
-    CONFIG_PATH_REFRESH,
     CONFIG_PATH_STATIC,
     )
 from submanager.types import (
@@ -72,11 +71,6 @@ def create_arg_parser() -> argparse.ArgumentParser:
         "--dynamic-config-path",
         dest="config_path_dynamic",
         help="The path to a custom dynamic (runtime) config file to use",
-        )
-    parser_main.add_argument(
-        "--refresh-config-path",
-        dest="config_path_refresh",
-        help="The path to a custom (set of) refresh token files to use",
         )
 
     # Generate the config file
@@ -177,14 +171,12 @@ def run_toplevel_function(
         *,
         config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
         config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
-        config_path_refresh: PathLikeStr = CONFIG_PATH_REFRESH,
         **kwargs: Any,
         ) -> None:
     """Dispatch to the top-level function, converting paths to objs."""
     config_paths = submanager.models.config.ConfigPaths(
         static=Path(config_path_static),
         dynamic=Path(config_path_dynamic),
-        refresh=Path(config_path_refresh),
         )
     func(config_paths=config_paths, **kwargs)
 

@@ -45,7 +45,6 @@ def validate_config(
         vprint("Loading accounts", level=1)
         accounts = submanager.core.initialization.setup_accounts(
             static_config.accounts,
-            config_path_refresh=config_paths.refresh,
             verbose=verbose,
             )
 

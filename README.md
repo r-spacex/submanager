@@ -70,7 +70,7 @@ For information on how to contribute to Sub Manager, including reporting issues,
 
 First, you'll want to generate the primary Sub Manager user config file, in order to tell it what you want it to do.
 To do so, simply run ``submanager generate-config`` to generate it at the default path, and a stock config file with some starting examples will be output (formatted as TOML for humans).
-By default, the file is located at ``~/.config/submanager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory, and any refresh tokens saved in the ``refresh_tokens`` subdirectory.
+By default, the file is located at ``~/.config/submanager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory.
 However, you can specify an alternate config file for one or both with the various ``--config-path`` command line arguments, allowing you to run multiple instances of the bot simultaneously on the same machine (for example, to avoid cramming everything into one big configuration file, or use multiple cores).
 
 To improve robustness and enforce safe maintenance practices, Sub Manager must now be stopped and restarted to read-in updated config.
@@ -78,14 +78,14 @@ Individual modules, such as ``sync_manager`` and ``thread_manager``, can be enab
 To perform a variety of checks that your configuration is valid and will result in a successful run, without actually executing any state-changing Reddit actions, run ``submanager validate-config``; if an error occurs, informative output will explain the problem and, often, how to fix it.
 
 
-
 ### Configuring credentials
 
 Starting with Sub Manager v0.5.0 and later, the Reddit account to use for a given action can be specified per module (``sync_manager``, ``thread_manager``), per task (sync item, thread) and even per source and target, as well as globally.
 You'll need to configure and register the account(s) involved for Reddit app access with the Reddit API.
 We recommend you configure your credentials in ``praw.ini`` and simply refer to them via the PRAW ``site_name`` argument of the respective account listed under the ``accounts`` table, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
-However, if you prefer, the various arguments that ``praw.Reddit()`` can accept, e.g. username/password, client id/client secret, refresh token, etc) can be also all be included as subkeys of the named account in the ``accounts`` table.
-Sub Manager fully supports the new Reddit refresh token handling; just enter your initial refresh token under the `refresh_token` key for the account in the ``accounts`` table, and it will automatically set up a handler to store it and keep it updated going forward.
+However, if you prefer, the various arguments that ``praw.Reddit()`` can accept, e.g. ``username``, ``password``, ``client id``, ``client secret``, ``refresh token`` etc) can be also all be included as subkeys of the named account in the ``accounts`` table.
+Sub Manager v0.5.0 supported the new token manager refresh token handling Reddit announced in early 2021, while v0.6.0 dropped that support along with PRAW due to Reddit reverting that change.
+While this occurred before to the first wide public release of Sub Manager (v0.6.0), this change is nevertheless transparent to users, as Sub Manager handles this for you.
 
 
 ### Posting intervals

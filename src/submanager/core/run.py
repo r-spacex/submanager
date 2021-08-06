@@ -42,7 +42,7 @@ def run_initial_setup(
     static_config, __ = submanager.core.initialization.setup_config(
         config_paths=config_paths)
     accounts = submanager.core.initialization.setup_accounts(
-        static_config.accounts, config_path_refresh=config_paths.refresh)
+        static_config.accounts)
     return static_config, accounts
 
 

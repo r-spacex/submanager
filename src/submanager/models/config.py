@@ -30,7 +30,6 @@ import submanager.models.base
 import submanager.models.utils
 from submanager.constants import (
     CONFIG_PATH_DYNAMIC,
-    CONFIG_PATH_REFRESH,
     CONFIG_PATH_STATIC,
     )
 from submanager.models.types import (
@@ -59,7 +58,6 @@ class ConfigPaths(submanager.models.base.CustomBaseModel):
     """Configuration path object for the various config file types."""
 
     dynamic: Path = CONFIG_PATH_DYNAMIC
-    refresh: Path = CONFIG_PATH_REFRESH
     static: Path = CONFIG_PATH_STATIC
 
 
