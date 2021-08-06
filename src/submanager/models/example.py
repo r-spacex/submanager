@@ -16,10 +16,6 @@ from typing_extensions import (
 
 # Local imports
 import submanager.models.config
-from submanager.types import (
-    AccountsConfig,
-    AccountConfig,
-    )
 
 
 # ---- General constants ----
@@ -53,11 +49,11 @@ EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
 
 EXAMPLE_ACCOUNT_NAME: Final[str] = "EXAMPLE_USER"
 
-EXAMPLE_ACCOUNT_CONFIG: Final = AccountConfig({
-    "site_name": "EXAMPLE_SITE_NAME",
-    })
+EXAMPLE_ACCOUNT_CONFIG: Final = submanager.models.config.AccountConfig(
+    config={"site_name": "EXAMPLE_SITE_NAME"},
+    )
 
-EXAMPLE_ACCOUNTS: Final = AccountsConfig({
+EXAMPLE_ACCOUNTS: Final = submanager.models.config.AccountsConfig({
     EXAMPLE_ACCOUNT_NAME: EXAMPLE_ACCOUNT_CONFIG,
     })
 

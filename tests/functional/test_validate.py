@@ -94,19 +94,20 @@ BAD_VALIDATE_OFFLINE_PARAMS: Final[ParamConfigs] = {
         VALIDATION_EXPECTED,
         ),
     "clientid_missing": (
-        {"accounts": {"muskbot": {"client_id": None}}},
+        {"accounts": {"muskbot": {"config": {"client_id": None}}}},
         ACCOUNT_EXPECTED,
         ),
     "sitename_nomatch": (
-        {"accounts": {"muskrat": {"site_name": PSEUDORANDOM_STRING}}},
+        {"accounts": {"muskrat": {"config": {
+            "site_name": PSEUDORANDOM_STRING}}}},
         ACCOUNT_EXPECTED,
         ),
     "token_missing": (
-        {"accounts": {"muskbot": {"refresh_token": None}}},
+        {"accounts": {"muskbot": {"config": {"refresh_token": None}}}},
         READONLY_EXPECTED,
         ),
     "pw_missing": (
-        {"accounts": {"muskrat": {"password": None}}},
+        {"accounts": {"muskrat": {"config": {"password": None}}}},
         READONLY_EXPECTED,
         ),
     }
@@ -126,8 +127,8 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
         ("succe", None),
         ),
     "client_id_bad": (
-        ({"accounts": {"testbot": {"client_id": PSEUDORANDOM_STRING}}},
-         True),
+        ({"accounts": {"testbot": {"config": {
+            "client_id": PSEUDORANDOM_STRING}}}}, True),
         ("scope", submanager.exceptions.ScopeCheckError),
         ),
     "subreddit_notfound": (

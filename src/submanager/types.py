@@ -32,8 +32,6 @@ ExceptTuple = Tuple[Type[Exception], ...]
 ConfigDict = Mapping[str, Any]
 ConfigDictDynamic = MutableMapping[str, MutableMapping[str, Any]]
 
-AccountConfig = NewType("AccountConfig", Mapping[str, str])
-AccountsConfig = NewType("AccountsConfig", Mapping[str, AccountConfig])
 AccountsMap = NewType("AccountsMap", Mapping[str, praw.reddit.Reddit])
 
 ChildrenData = List[MutableMapping[str, str]]

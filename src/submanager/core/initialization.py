@@ -16,13 +16,12 @@ from submanager.constants import (
     USER_AGENT,
     )
 from submanager.types import (
-    AccountsConfig,
     AccountsMap,
     )
 
 
 def setup_accounts(
-        accounts_config: AccountsConfig,
+        accounts_config: submanager.models.config.AccountsConfig,
         *,
         verbose: bool = False,
         ) -> AccountsMap:
@@ -38,7 +37,7 @@ def setup_accounts(
                 user_agent=USER_AGENT,
                 check_for_async=False,
                 praw8_raise_exception_on_me=True,
-                **account_kwargs,
+                **account_kwargs.config,
                 )
         except submanager.exceptions.PRAW_ALL_ERRORS as error:
             raise submanager.exceptions.AccountConfigError(

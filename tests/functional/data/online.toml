@@ -4,7 +4,7 @@ repeat_interval_s = 60
 
 
 [accounts]
-    [accounts.testbot]
+    [accounts.testbot.config]
         check_for_updates = false
         site_name = "testbot"
 

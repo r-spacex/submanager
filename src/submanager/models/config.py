@@ -10,8 +10,10 @@ import datetime
 import re
 from pathlib import Path
 from typing import (
+    Any,
     Mapping,  # Import from collections.abc in Python 3.9
     MutableMapping,  # Import from collections.abc in Python 3.9
+    NewType,
     Sequence,  # Import from collections.abc in Python 3.9
     Union,  # Not needed in Python 3.10
     )
@@ -37,9 +39,6 @@ from submanager.models.types import (
     StripStr,
     StrPattern,
     ThreadIDStr,
-    )
-from submanager.types import (
-    AccountsConfig,
     )
 
 
@@ -216,6 +215,15 @@ class ThreadManagerConfig(submanager.models.base.ItemManagerConfig):
 
 # ---- Overall static config ----
 
+class AccountConfig(submanager.models.base.CustomBaseModel):
+    """Configuration for an individual user account."""
+
+    config: Mapping[StripStr, Any] = {}
+
+
+AccountsConfig = NewType("AccountsConfig", Mapping[StripStr, AccountConfig])
+
+
 class StaticConfig(submanager.models.base.CustomBaseModel):
     """Model reprisenting the bot's static configuration."""
 
@@ -231,11 +239,7 @@ class StaticConfig(submanager.models.base.CustomBaseModel):
             cls, value: AccountsConfig) -> AccountsConfig:
         """Validate that at least one user account is defined."""
         if not value:
-            raise ValueError("No Reddit user accounts defined")
-        for account_key, account_kwargs in value.items():
-            if not account_kwargs:
-                raise ValueError(
-                    f"No parameters defined for account {account_key!r}")
+            raise ValueError("No user accounts defined")
         return value
 
 

@@ -4,13 +4,13 @@ repeat_interval_s = 60
 
 
 [accounts]
-    [accounts.muskbot]
+    [accounts.muskbot.config]
         check_for_updates = false
         client_id = "abcdefgABCDEFG"
         client_secret = "abcdefghijklmnopqrstuvwxyzABCD"
         refresh_token = "123456789100-abcdefghijklmnopqrstuvwxyzABCD"
 
-    [accounts.muskrat]
+    [accounts.muskrat.config]
         check_for_updates = false
         client_id = "abcdefgABCDEFG"
         client_secret = "abcdefghijklmnopqrstuvwxyzABCD"

@@ -82,8 +82,8 @@ To perform a variety of checks that your configuration is valid and will result 
 
 Starting with Sub Manager v0.5.0 and later, the Reddit account to use for a given action can be specified per module (``sync_manager``, ``thread_manager``), per task (sync item, thread) and even per source and target, as well as globally.
 You'll need to configure and register the account(s) involved for Reddit app access with the Reddit API.
-We recommend you configure your credentials in ``praw.ini`` and simply refer to them via the PRAW ``site_name`` argument of the respective account listed under the ``accounts`` table, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
-However, if you prefer, the various arguments that ``praw.Reddit()`` can accept, e.g. ``username``, ``password``, ``client id``, ``client secret``, ``refresh token`` etc) can be also all be included as subkeys of the named account in the ``accounts`` table.
+We recommend you configure your credentials in ``praw.ini`` and simply refer to them via the PRAW ``site_name`` argument in the ``config`` subtable of the respective account listed under the ``accounts`` table, which will avoid any secrets leaking if you accidentally or deliberately store your ``config.toml`` somewhere public.
+However, if you prefer, the various arguments that ``praw.Reddit()`` can accept, e.g. ``username``, ``password``, ``client id``, ``client secret``, ``refresh token`` etc) can be also all be included as subkeys under the ``config`` subtable of the named account in the ``accounts`` table.
 Sub Manager v0.5.0 supported the new token manager refresh token handling Reddit announced in early 2021, while v0.6.0 dropped that support along with PRAW due to Reddit reverting that change.
 While this occurred before to the first wide public release of Sub Manager (v0.6.0), this change is nevertheless transparent to users, as Sub Manager handles this for you.
 

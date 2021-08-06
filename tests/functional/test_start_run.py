@@ -75,7 +75,8 @@ TEST_CONFIGS: Final[list[RunConfigTuple]] = [
         None,
         ),
     (
-        {"accounts": {"testbot": {"client_id": PSEUDORANDOM_STRING}}},
+        {"accounts": {"testbot": {"config": {
+            "client_id": PSEUDORANDOM_STRING}}}},
         [],
         [REPEAT_MAX_N_ARG, "1"],
         "scope",
