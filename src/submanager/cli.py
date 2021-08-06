@@ -73,6 +73,22 @@ def create_arg_parser() -> argparse.ArgumentParser:
         help="The path to a custom dynamic (runtime) config file to use",
         )
 
+    # Get information about the current configuration
+    info_desc = "Get information about the bot's configuration"
+    parser_info = subparsers.add_parser(
+        "get-config-info",
+        description=info_desc,
+        help=info_desc,
+        argument_default=argparse.SUPPRESS,
+        )
+    parser_info.set_defaults(
+        func=submanager.core.commands.run_get_config_info)
+    parser_info.add_argument(
+        "--endpoints",
+        action="store_true",
+        help="Get information about the config endpoints defined in the file",
+        )
+
     # Generate the config file
     generate_desc = "Generate the bot's config files"
     parser_generate = subparsers.add_parser(

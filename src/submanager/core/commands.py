@@ -3,12 +3,56 @@
 # Future imports
 from __future__ import annotations
 
+# Standard library imports
+from pathlib import Path
+
 # Local imports
 import submanager.config.static
+import submanager.core.initialization
 import submanager.exceptions
 import submanager.models.config
 import submanager.utils.output
+import submanager.validation.endpoints
 import submanager.validation.validate
+
+
+def run_get_config_info(
+        config_paths: submanager.models.config.ConfigPaths | None = None,
+        *,
+        endpoints: bool = False,
+        ) -> None:
+    """Print basic information about the current configuration."""
+    if config_paths is None:
+        config_paths = submanager.models.config.ConfigPaths()
+
+    # Print config file path information
+    path_items: list[tuple[str, Path]] = [
+        ("static", config_paths.static), ("dynamic", config_paths.dynamic)]
+    pad_chars = max([len(path_item[0]) for path_item in path_items])
+    print()
+    for config_name, config_path in path_items:
+        config_exists = config_path.exists()
+        config_status = "    [FOUND]" if config_exists else "[NOT FOUND]"
+        print(
+            f"{config_name.title(): >{pad_chars}} config path:",
+            config_status,
+            f'"{config_path.as_posix()}"')
+    print()
+
+    # Print endpoint list information
+    if endpoints:
+        static_config, __ = submanager.core.initialization.setup_config(
+            config_paths=config_paths)
+        enabled_endpoints = submanager.validation.endpoints.get_all_endpoints(
+            static_config=static_config, include_disabled=False)
+        all_endpoints = submanager.validation.endpoints.get_all_endpoints(
+            static_config=static_config, include_disabled=True)
+        print(" ###### Source/target sync endpoints ######")
+        for endpoint in all_endpoints:
+            enabled = endpoint in enabled_endpoints
+            endpoint_status = " [ENABLED]" if enabled else "[DISABLED]"
+            print(f"{endpoint_status}  {endpoint.uid}")
+        print()
 
 
 def run_generate_config(

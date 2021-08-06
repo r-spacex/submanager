@@ -70,8 +70,9 @@ For information on how to contribute to Sub Manager, including reporting issues,
 
 First, you'll want to generate the primary Sub Manager user config file, in order to tell it what you want it to do.
 To do so, simply run ``submanager generate-config`` to generate it at the default path, and a stock config file with some starting examples will be output (formatted as TOML for humans).
-By default, the file is located at ``~/.config/submanager/config.toml``, with dynamically-updated, programmatically-managed runtime config in ``dynamic_config.json`` in the same directory.
-However, you can specify an alternate config file for one or both with the various ``--config-path`` command line arguments, allowing you to run multiple instances of the bot simultaneously on the same machine (for example, to avoid cramming everything into one big configuration file, or use multiple cores).
+The static config file, which stores user configuration as human-friendly TOML, is located in the ``submanager`` subdirectory OS-appropriate user config directory, and the dynamic config file, which stores persistent internal state (e.g. current threads being managed) as machine-friendly JSON, is located in ``submanager`` subdirectory OS-appropriate user state directory.
+To view the full paths to and status of these files on your system, simply run ``submanager get-config-info``.
+You can specify an alternate config file for one or both with the respective ``--config-path`` and ``--dynamic-config-path`` options, allowing you to run multiple instances of the bot simultaneously on the same machine (for example, to avoid cramming everything into one big configuration file, or use multiple cores).
 
 To improve robustness and enforce safe maintenance practices, Sub Manager must now be stopped and restarted to read-in updated config.
 Individual modules, such as ``sync_manager`` and ``thread_manager``, can be enabled and disabled via their corresponding ``enabled`` options, and can be further configured as described below.
