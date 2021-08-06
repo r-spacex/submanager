@@ -126,6 +126,8 @@ ONLINE_CONFIG_PATH: Final[Path] = CONFIG_DATA_DIR / "online.toml"
 CONFIG_PATHS_OFFLINE: Final[list[Path]] = [
     RSPACEX_CONFIG_PATH, TECHNICAL_CONFIG_PATH]
 CONFIG_PATHS_ONLINE: Final[list[Path]] = [ONLINE_CONFIG_PATH]
+CONFIG_PATHS_ALL: Final[list[Path]] = (
+    CONFIG_PATHS_OFFLINE + CONFIG_PATHS_ONLINE)
 
 
 # ---- Test helper fixtures ----
