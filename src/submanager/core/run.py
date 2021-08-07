@@ -52,30 +52,33 @@ def run_manage_once(
         config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
         ) -> None:
     """Run the manage loop once, without validation checks."""
-    # Load config and set up session
     print("Running Sub Manager")
-    dynamic_config = submanager.config.dynamic.load_dynamic_config(
-        static_config=static_config, config_path=config_path_dynamic)
-    dynamic_config_active = dynamic_config.copy(deep=True)
+    # Lock and load dynamic config and set up session
+    with submanager.config.dynamic.LockedandLoadedDynamicConfig(
+            static_config=static_config,
+            config_path=config_path_dynamic,
+            verbose=True,
+            ) as dynamic_config:
+        dynamic_config_active = dynamic_config.copy(deep=True)
 
-    # Run the core manager tasks
-    if static_config.sync_manager.enabled:
-        submanager.sync.manager.sync_all(
-            static_config.sync_manager,
-            dynamic_config_active.sync_manager,
-            accounts,
-            )
-    if static_config.thread_manager.enabled:
-        submanager.thread.manager.manage_threads(
-            static_config.thread_manager,
-            dynamic_config_active.thread_manager,
-            accounts,
-            )
+        # Run the core manager tasks
+        if static_config.sync_manager.enabled:
+            submanager.sync.manager.sync_all(
+                static_config.sync_manager,
+                dynamic_config_active.sync_manager,
+                accounts,
+                )
+        if static_config.thread_manager.enabled:
+            submanager.thread.manager.manage_threads(
+                static_config.thread_manager,
+                dynamic_config_active.thread_manager,
+                accounts,
+                )
 
-    # Write out the dynamic config if it changed
-    if dynamic_config_active != dynamic_config:
-        submanager.config.utils.write_config(
-            dynamic_config_active, config_path=config_path_dynamic)
+        # Write out the dynamic config if it changed
+        if dynamic_config_active != dynamic_config:
+            submanager.config.utils.write_config(
+                dynamic_config_active, config_path=config_path_dynamic)
     print("Sub Manager run complete")
 
 

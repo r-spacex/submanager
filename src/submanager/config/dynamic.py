@@ -3,11 +3,22 @@
 # Future imports
 from __future__ import annotations
 
-# Standard library
+# Standard library imports
+import contextlib
 import copy
 from pathlib import Path
+from types import (
+    TracebackType,
+    )
+
+# Third party imports
+from typing_extensions import (
+    Literal,  # Added to typing in Python 3.8
+    )
+
 
 # Local imports
+import submanager.config.lock
 import submanager.config.utils
 import submanager.models.config
 from submanager.constants import (
@@ -68,3 +79,44 @@ def load_dynamic_config(
             static_config=static_config, dynamic_config_raw=dynamic_config_raw)
 
     return dynamic_config
+
+
+class LockedandLoadedDynamicConfig(contextlib.AbstractContextManager[
+        submanager.models.config.DynamicConfig]):
+    """Return the dynamic config if and when it can be locked."""
+
+    def __init__(
+            self,
+            static_config: submanager.models.config.StaticConfig,
+            config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
+            timeout_s: float = submanager.config.lock.TIMEOUT_S_DEFAULT,
+            verbose: bool = False,
+            ) -> None:
+        self.static_config = static_config
+        self.config_path = Path(config_path)
+        self.timeout_s = timeout_s
+        self.verbose = verbose
+
+    def __enter__(self) -> submanager.models.config.DynamicConfig:
+        """Attempt to acquire a lock on a dynamic config file and return it."""
+        submanager.config.lock.wait_for_lock(
+            config_path=self.config_path,
+            raise_error_on_timeout=True,
+            timeout_s=self.timeout_s,
+            verbose=self.verbose,
+            )
+        dynamic_config = load_dynamic_config(
+            static_config=self.static_config,
+            config_path=self.config_path,
+            )
+        return dynamic_config
+
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+            ) -> Literal[False]:
+        """Release the lock on the dynamic config."""
+        submanager.config.lock.unlock_config(self.config_path)
+        return False

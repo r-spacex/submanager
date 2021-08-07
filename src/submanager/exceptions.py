@@ -359,3 +359,9 @@ class AccountConfigError(ErrorWithAccount, ConfigError):
     """PRAW error loading the Reddit account configuration."""
 
     _message_pre: ClassVar[str] = "PRAW error on initialization"
+
+
+# ---- Misc errors ----
+
+class LockTimeoutError(SubManagerError):
+    """The timeout was exceeded while attempting to acquire a file lock."""
