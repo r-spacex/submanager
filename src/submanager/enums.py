@@ -60,7 +60,7 @@ class EndpointType(StrValueEnum):
 
 
 @enum.unique
-class PinType(StrValueEnum):
+class PinMode(StrValueEnum):
     """Reprisent the type of thread pinning behavior on Reddit."""
 
     NONE = "none"

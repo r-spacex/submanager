@@ -108,15 +108,15 @@ def create_new_thread(
 
 
 def handle_pin_thread(
-        pin_mode: submanager.enums.PinType | bool,
+        pin_mode: submanager.enums.PinMode | bool,
         subreddit: str,
         thread_context_mod: ThreadAccountContext,
         ) -> None:
     """Analyze the currently pinned thread and pin the new one correctly."""
-    if not pin_mode or pin_mode is submanager.enums.PinType.NONE:
+    if not pin_mode or pin_mode is submanager.enums.PinMode.NONE:
         return
 
-    bottom_sticky = pin_mode is not submanager.enums.PinType.TOP
+    bottom_pin = pin_mode is not submanager.enums.PinMode.TOP
 
     # Unpin previous thread
     if thread_context_mod.current_thread:
@@ -124,25 +124,25 @@ def handle_pin_thread(
         time.sleep(2)
 
     # Set up variables
-    sticky_to_keep: praw.models.reddit.submission.Submission | None = None
+    pin_to_keep: praw.models.reddit.submission.Submission | None = None
     subreddit_mod = thread_context_mod.reddit.subreddit(subreddit)
 
-    # Attempt to get other pinned post to keep as a sticky
+    # Attempt to get other pinned thread to keep pinned
     try:
-        sticky_to_keep = subreddit_mod.sticky(number=1)
-    except prawcore.exceptions.NotFound:  # Ignore if no sticky
+        pin_to_keep = subreddit_mod.sticky(number=1)
+    except prawcore.exceptions.NotFound:  # Ignore if no pinned thread
         pass
-    if (thread_context_mod.current_thread and sticky_to_keep
-            and sticky_to_keep.id == thread_context_mod.current_thread.id):
+    if (thread_context_mod.current_thread and pin_to_keep
+            and pin_to_keep.id == thread_context_mod.current_thread.id):
         try:
-            sticky_to_keep = subreddit_mod.sticky(number=2)
-        except prawcore.exceptions.NotFound:  # Ignore if no sticky
+            pin_to_keep = subreddit_mod.sticky(number=2)
+        except prawcore.exceptions.NotFound:  # Ignore if no pinned thread
             pass
 
     # Pin new thread, re-approving and retrying once if it fails
     try:
         thread_context_mod.new_thread.mod.sticky(
-            state=True, bottom=bottom_sticky)
+            state=True, bottom=bottom_pin)
     except prawcore.exceptions.BadRequest as error:
         print(
             f"Attempt to pin thread {thread_context_mod.new_thread.title!r} "
@@ -152,10 +152,10 @@ def handle_pin_thread(
         submanager.utils.output.print_error(error)
         thread_context_mod.new_thread.mod.approve()
         thread_context_mod.new_thread.mod.sticky(
-            state=True, bottom=bottom_sticky)
+            state=True, bottom=bottom_pin)
     finally:
-        if sticky_to_keep:
-            sticky_to_keep.mod.sticky(state=True)
+        if pin_to_keep:
+            pin_to_keep.mod.sticky(state=True)
 
 
 def update_page_links(
@@ -258,7 +258,7 @@ def handle_new_thread(
 
     # Unpin old thread and pin new one
     handle_pin_thread(  # static analysis: ignore[incompatible_argument]
-        pin_mode=thread_config.pin_thread,
+        pin_mode=thread_config.pin_mode,
         subreddit=thread_config.context.subreddit,
         thread_context_mod=thread_context.mod,
         )

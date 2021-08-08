@@ -41,7 +41,7 @@ repeat_interval_s = 60
             description = "Primary Discuss Thread"
             enabled = true
             new_thread_interval = "month"
-            pin_thread = "TOP"
+            pin_mode = "top"
             post_title_template = "r/{subreddit} Thread Index and General Discussion [{current_datetime:%B %Y}, #{thread_number}]"
             target_context.account = "muskrat"
 
@@ -62,7 +62,7 @@ repeat_interval_s = 60
             description = "Starlink General Thread"
             enabled = true
             new_thread_interval = "1 month"
-            pin_thread = false
+            pin_mode = false
             post_title_template = "Starlink General Discussion and Deployment Thread #{thread_number}"
             target_context.account = "muskrat"
 
@@ -84,7 +84,7 @@ repeat_interval_s = 60
             description = "Starship Dev Thread"
             enabled = true
             new_thread_interval = "month"
-            pin_thread = true
+            pin_mode = "BOTTOM"
             post_title_template = "Starship Development Thread #{thread_number}"
             target_context.account = "muskrat"
 

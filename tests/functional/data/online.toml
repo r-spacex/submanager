@@ -32,7 +32,7 @@ repeat_interval_s = 60
             description = "Synced Thread"
             enabled = true
             new_thread_interval = "5 months"
-            pin_thread = "TOP"
+            pin_mode = "bottom"
             post_title_template = "Test Sync Thread #{thread_number}"
 
             [thread_manager.items.sync_thread.initial]
@@ -52,7 +52,7 @@ repeat_interval_s = 60
             description = "Reposted Thread"
             enabled = true
             new_thread_interval = "2 seconds"
-            pin_thread = false
+            pin_mode = "top"
             post_title_template = "Sub Manager Cycled Thread [{current_datetime:%Y-%m-%d %H:%M:%S}]"
 
             [thread_manager.items.cycle_thread.initial]
@@ -72,7 +72,7 @@ repeat_interval_s = 60
             description = "Newly Created Thread"
             enabled = false
             new_thread_interval = "month"
-            pin_thread = "bottom"
+            pin_mode = false
             post_title_template = "Test New Thread #{thread_number}"
 
             [thread_manager.items.new_thread.source]
