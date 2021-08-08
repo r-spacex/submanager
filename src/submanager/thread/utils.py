@@ -14,14 +14,17 @@ import praw.reddit
 # Local imports
 import submanager.models.config
 import submanager.models.utils
+from submanager.types import (
+    TemplateVars,
+    )
 
 
 def generate_template_vars(
         thread_config: submanager.models.config.ThreadItemConfig,
         dynamic_config: submanager.models.config.DynamicThreadItemConfig,
-        ) -> dict[str, str | int | datetime.datetime]:
+        ) -> TemplateVars:
     """Generate the title and post templates."""
-    template_vars: dict[str, str | int | datetime.datetime] = {
+    template_vars: TemplateVars = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
         "subreddit": thread_config.context.subreddit,

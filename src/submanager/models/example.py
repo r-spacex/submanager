@@ -15,6 +15,7 @@ from typing_extensions import (
     )
 
 # Local imports
+import submanager.models.base
 import submanager.models.config
 
 
@@ -57,7 +58,7 @@ EXAMPLE_ACCOUNTS: Final = submanager.models.config.AccountsConfig({
     EXAMPLE_ACCOUNT_NAME: EXAMPLE_ACCOUNT_CONFIG,
     })
 
-EXAMPLE_CONTEXT: Final = submanager.models.config.ContextConfig(
+EXAMPLE_CONTEXT: Final = submanager.models.base.ContextConfig(
     account="EXAMPLE_USER",
     subreddit="EXAMPLESUBREDDIT",
     )

@@ -6,15 +6,15 @@ from __future__ import annotations
 # Standard library imports
 import re
 import time
-from typing import (
-    Collection,  # Import from collections.abc in Python 3.9
-    Mapping,  # Import from collections.abc in Python 3.9
-    )
 
 # Third party imports
 import praw.models.reddit.submission
 import praw.reddit
 import prawcore.exceptions
+from typing_extensions import (
+    Final,  # Added to typing in Python 3.8
+    Literal,  # Added to typing in Python 3.8
+    )
 
 # Local imports
 import submanager.endpoint.creation
@@ -27,30 +27,163 @@ import submanager.thread.utils
 import submanager.utils.output
 from submanager.types import (
     AccountsMap,
+    TemplateVars,
     )
 
 
+# ---- Constants ----
+
+THREAD_ATTRIBUTES: Final[list[str]] = [
+    "id", "url", "permalink", "shortlink"]
+
+
+# ---- Helper classes ----
+
+class ThreadAccountContext:
+    """Stores the objects for a new and previous thread for one account."""
+
+    def __init__(
+            self,
+            reddit: praw.reddit.Reddit,
+            new_thread_id: str,
+            current_thread_id: str | Literal[False] | None = None,
+            ) -> None:
+        self.reddit = reddit
+        self.new_thread: praw.models.reddit.submission.Submission
+        self.new_thread = self.reddit.submission(id=new_thread_id)
+
+        self.current_thread: praw.models.reddit.submission.Submission | None
+        self.current_thread = None
+        if current_thread_id:
+            self.current_thread = self.reddit.submission(id=current_thread_id)
+
+
+class ThreadContext:
+    """Stores the Reddit objects for the post and mod accounts."""
+
+    def __init__(
+            self,
+            thread_config: submanager.models.config.ThreadItemConfig,
+            accounts: AccountsMap,
+            new_thread_id: str,
+            current_thread_id: str | Literal[False] | None = None,
+            ) -> None:
+        self.post = ThreadAccountContext(
+            reddit=accounts[thread_config.target_context.account],
+            new_thread_id=new_thread_id,
+            current_thread_id=current_thread_id,
+            )
+        self.mod = ThreadAccountContext(
+            reddit=accounts[thread_config.context.account],
+            new_thread_id=new_thread_id,
+            current_thread_id=current_thread_id,
+            )
+
+
+# ---- Helper functions ----
+
+def create_new_thread(
+        thread_config: submanager.models.config.ThreadItemConfig,
+        dynamic_config: submanager.models.config.DynamicThreadItemConfig,
+        accounts: AccountsMap,
+        template_vars: TemplateVars,
+        ) -> praw.models.reddit.submission.Submission:
+    """Create a new thread based on the title and post template."""
+    # Create sync endpoint for source
+    source_obj = submanager.endpoint.creation.create_sync_endpoint_from_config(
+        config=thread_config.source,
+        reddit=accounts[thread_config.source.context.account])
+    post_text = submanager.sync.processing.process_source_endpoint(
+        thread_config.source, source_obj, dynamic_config)
+    new_thread: praw.models.reddit.submission.Submission = (
+        accounts[thread_config.target_context.account]
+        .subreddit(thread_config.target_context.subreddit)
+        .submit(title=template_vars["post_title"], selftext=post_text)
+        )
+    new_thread.disable_inbox_replies()  # type: ignore[no-untyped-call]
+    for attribute in THREAD_ATTRIBUTES:
+        template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
+
+    return new_thread
+
+
+def handle_pin_thread(
+        pin_mode: submanager.enums.PinType | bool,
+        subreddit: str,
+        thread_context_mod: ThreadAccountContext,
+        ) -> None:
+    """Analyze the currently pinned thread and pin the new one correctly."""
+    if not pin_mode or pin_mode is submanager.enums.PinType.NONE:
+        return
+
+    bottom_sticky = pin_mode is not submanager.enums.PinType.TOP
+
+    # Unpin previous thread
+    if thread_context_mod.current_thread:
+        thread_context_mod.current_thread.mod.sticky(state=False)
+        time.sleep(2)
+
+    # Set up variables
+    sticky_to_keep: praw.models.reddit.submission.Submission | None = None
+    subreddit_mod = thread_context_mod.reddit.subreddit(subreddit)
+
+    # Attempt to get other pinned post to keep as a sticky
+    try:
+        sticky_to_keep = subreddit_mod.sticky(number=1)
+    except prawcore.exceptions.NotFound:  # Ignore if no sticky
+        pass
+    if (thread_context_mod.current_thread and sticky_to_keep
+            and sticky_to_keep.id == thread_context_mod.current_thread.id):
+        try:
+            sticky_to_keep = subreddit_mod.sticky(number=2)
+        except prawcore.exceptions.NotFound:  # Ignore if no sticky
+            pass
+
+    # Pin new thread, re-approving and retrying once if it fails
+    try:
+        thread_context_mod.new_thread.mod.sticky(
+            state=True, bottom=bottom_sticky)
+    except prawcore.exceptions.BadRequest as error:
+        print(
+            f"Attempt to pin thread {thread_context_mod.new_thread.title!r} "
+            "failed the first time due to an error; retrying. "
+            "The error was:\n"
+            )
+        submanager.utils.output.print_error(error)
+        thread_context_mod.new_thread.mod.approve()
+        thread_context_mod.new_thread.mod.sticky(
+            state=True, bottom=bottom_sticky)
+    finally:
+        if sticky_to_keep:
+            sticky_to_keep.mod.sticky(state=True)
+
+
 def update_page_links(
-        links: Mapping[str, str],
-        pages_to_update: Collection[str],
-        reddit: praw.reddit.Reddit,
-        *,
-        context: submanager.models.config.ContextConfig,
-        uid: str,
-        description: str = "",
+        thread_config: submanager.models.config.ThreadItemConfig,
+        thread_context: ThreadContext,
         ) -> None:
     """Update the links to the given thread on the passed pages."""
-    uid_base = ".".join(uid.split(".")[:-1])
-    for page_name in pages_to_update:
+    if not (thread_context.post.current_thread
+            and thread_context.mod.current_thread):
+        return
+
+    links = {
+        getattr(thread_context.post.current_thread, link_type).strip("/"): (
+            getattr(thread_context.post.new_thread, link_type).strip("/"))
+        for link_type in ("permalink", "shortlink")
+        }
+
+    uid = thread_config.uid + ".link_update_pages"
+    for page_name in thread_config.link_update_pages:
         page_config = submanager.models.config.EndpointConfig(
-            context=context,
+            context=thread_config.context,
             description=f"Thread link page {page_name}",
             endpoint_name=page_name,
             uid=uid + f".{page_name}",
             )
         page = submanager.endpoint.endpoints.WikiSyncEndpoint(
             config=page_config,
-            reddit=reddit,
+            reddit=thread_context.mod.reddit,
             )
         new_content = page.content
         for old_link, new_link in links.items():
@@ -62,130 +195,86 @@ def update_page_links(
                 )
         page.edit(
             new_content, reason=(
-                f"Update {description or uid_base} thread URLs"))
+                f"Update {thread_config.description or thread_config.uid} "
+                "thread URLs"
+                )
+            )
 
 
-def handle_pin_thread(
+def add_redirect_messages(
         thread_config: submanager.models.config.ThreadItemConfig,
-        reddit_mod: praw.reddit.Reddit,
-        current_thread_mod: praw.models.reddit.submission.Submission | None,
-        new_thread_mod: praw.models.reddit.submission.Submission,
+        thread_context: ThreadContext,
+        template_vars: TemplateVars,
         ) -> None:
-    """Analyze the currently pinned thread and pin the new one correctly."""
-    bottom_sticky = (
-        thread_config.pin_thread is not submanager.enums.PinType.TOP)
-    if current_thread_mod:
-        current_thread_mod.mod.sticky(state=False)
-        time.sleep(10)
-    sticky_to_keep: praw.models.reddit.submission.Submission | None = None
-    try:
-        sticky_to_keep = reddit_mod.subreddit(
-            thread_config.context.subreddit).sticky(number=1)
-    except prawcore.exceptions.NotFound:  # Ignore if no sticky
-        pass
-    if (current_thread_mod and sticky_to_keep
-            and sticky_to_keep.id == current_thread_mod.id):
-        try:
-            sticky_to_keep = reddit_mod.subreddit(
-                thread_config.context.subreddit).sticky(number=2)
-        except prawcore.exceptions.NotFound:  # Ignore if no sticky
-            pass
-    try:
-        new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
-    except prawcore.exceptions.BadRequest as error:
-        print(f"Attempt to sticky thread {thread_config.description} "
-              "failed the first time due to an error; retrying. "
-              "The error was:\n")
-        submanager.utils.output.print_error(error)
-        new_thread_mod.mod.approve()
-        new_thread_mod.mod.sticky(state=True, bottom=bottom_sticky)
-    finally:
-        if sticky_to_keep:
-            sticky_to_keep.mod.sticky(state=True)
+    """Add a customizable redirect message to the old thread."""
+    if not (thread_context.post.current_thread
+            and thread_context.mod.current_thread):
+        return
+
+    redirect_template = thread_config.redirect_template
+    redirect_message = redirect_template.strip().format(**template_vars)
+
+    if thread_config.redirect_op:
+        current_text = thread_context.post.current_thread.selftext
+        thread_context.post.current_thread.edit(
+            f"{redirect_message}\n\n{current_text}")
+    if thread_config.redirect_sticky:
+        redirect_comment = thread_context.mod.current_thread.reply(
+            redirect_message)
+        redirect_comment.mod.distinguish(sticky=True)
 
 
-def create_new_thread(
+# ---- Top-level functions ----
+
+def handle_new_thread(
         thread_config: submanager.models.config.ThreadItemConfig,
         dynamic_config: submanager.models.config.DynamicThreadItemConfig,
         accounts: AccountsMap,
         ) -> None:
-    """Create a new thread based on the title and post template."""
-    # Generate thread title and contents
+    """Handle creating and setting up a new thread and retiring the old."""
+    # Bump counts in dynamic config
     dynamic_config.source_timestamp = 0
     dynamic_config.thread_number += 1
 
-    # Get subreddit objects for accounts
-    reddit_mod = accounts[thread_config.context.account]
-    reddit_post = accounts[thread_config.target_context.account]
-
-    # Create sync endpoint for source
-    source_obj = submanager.endpoint.creation.create_sync_endpoint_from_config(
-        config=thread_config.source,
-        reddit=accounts[thread_config.source.context.account])
-
-    # Generate template variables, title and post text
+    # Generate template variables, title and post text and post
     template_vars = submanager.thread.utils.generate_template_vars(
         thread_config, dynamic_config)
-    post_text = submanager.sync.processing.process_source_endpoint(
-        thread_config.source, source_obj, dynamic_config)
-
-    # Get current thread objects first
-    current_thread: praw.models.reddit.submission.Submission | None = None
-    current_thread_mod: praw.models.reddit.submission.Submission | None = None
-    if dynamic_config.thread_id:
-        current_thread = reddit_post.submission(id=dynamic_config.thread_id)
-        current_thread_mod = reddit_mod.submission(id=dynamic_config.thread_id)
-
-    # Submit and approve new thread
-    new_thread: praw.models.reddit.submission.Submission = (
-        reddit_post.subreddit(
-            thread_config.target_context.subreddit
-            )
-        .submit(title=template_vars["post_title"], selftext=post_text)
+    _new_thread = create_new_thread(
+        thread_config=thread_config,
+        dynamic_config=dynamic_config,
+        accounts=accounts,
+        template_vars=template_vars,
         )
-    new_thread.disable_inbox_replies()  # type: ignore[no-untyped-call]
-    new_thread_mod: praw.models.reddit.submission.Submission = (
-        reddit_mod.submission(id=new_thread.id))
-    for attribute in ("id", "url", "permalink", "shortlink"):
-        template_vars[f"thread_{attribute}"] = getattr(new_thread, attribute)
+
+    # Initialize thread context and approve thread
+    thread_context = ThreadContext(
+        thread_config=thread_config,
+        accounts=accounts,
+        new_thread_id=_new_thread.id,
+        current_thread_id=dynamic_config.thread_id,
+        )
     if thread_config.approve_new:
-        new_thread_mod.mod.approve()
+        thread_context.mod.new_thread.mod.approve()
 
     # Unpin old thread and pin new one
-    if thread_config.pin_thread and (
-            thread_config.pin_thread is not submanager.enums.PinType.NONE):
-        handle_pin_thread(
-            thread_config=thread_config,
-            reddit_mod=reddit_mod,
-            current_thread_mod=current_thread_mod,
-            new_thread_mod=new_thread_mod,
-            )
+    handle_pin_thread(  # static analysis: ignore[incompatible_argument]
+        pin_mode=thread_config.pin_thread,
+        subreddit=thread_config.context.subreddit,
+        thread_context_mod=thread_context.mod,
+        )
 
-    if current_thread and current_thread_mod:
-        # Update links to point to new thread
-        links = {
-            getattr(current_thread, link_type).strip("/"): (
-                getattr(new_thread, link_type).strip("/"))
-            for link_type in ("permalink", "shortlink")}
-        update_page_links(
-            links=links,
-            pages_to_update=thread_config.link_update_pages,
-            reddit=reddit_mod,
-            context=thread_config.context,
-            uid=thread_config.uid + ".link_update_pages",
-            description=thread_config.description,
-            )
+    # Update links to point to new thread
+    update_page_links(
+        thread_config=thread_config,
+        thread_context=thread_context,
+        )
 
-        # Add messages to new thread on old thread if enabled
-        redirect_template = thread_config.new_thread_redirect_template
-        redirect_message = redirect_template.strip().format(**template_vars)
-
-        if thread_config.new_thread_redirect_op:
-            current_thread.edit(
-                redirect_message + "\n\n" + current_thread.selftext)
-        if thread_config.new_thread_redirect_sticky:
-            redirect_comment = current_thread_mod.reply(redirect_message)
-            redirect_comment.mod.distinguish(sticky=True)
+    # Add messages to new thread on old thread if enabled
+    add_redirect_messages(
+        thread_config=thread_config,
+        thread_context=thread_context,
+        template_vars=template_vars,
+        )
 
     # Update dynamic config accordingly
-    dynamic_config.thread_id = new_thread.id
+    dynamic_config.thread_id = thread_context.post.new_thread.id

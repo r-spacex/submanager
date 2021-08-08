@@ -30,9 +30,9 @@ repeat_interval_s = 60
 
     [thread_manager.defaults]
         link_update_pages = ["threads", "toolbox"]
-        new_thread_redirect_op = true
-        new_thread_redirect_sticky = true
-        new_thread_redirect_template = "**This thread is no longer being updated, and has been replaced by:**\n\n# [{post_title}]({thread_url})"
+        redirect_op = true
+        redirect_sticky = true
+        redirect_template = "**This thread is no longer being updated, and has been replaced by:**\n\n# [{post_title}]({thread_url})"
 
 
     [thread_manager.items]

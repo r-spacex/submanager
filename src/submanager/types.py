@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 # Standard library imports
+import datetime
 import os
 from typing import (
     Any,
@@ -37,3 +38,5 @@ AccountsMap = NewType("AccountsMap", Mapping[str, praw.reddit.Reddit])
 ChildrenData = List[MutableMapping[str, str]]
 SectionData = MutableMapping[str, Union[str, ChildrenData]]
 MenuData = NewType("MenuData", List[SectionData])
+
+TemplateVars = MutableMapping[str, Union[str, int, float, datetime.datetime]]

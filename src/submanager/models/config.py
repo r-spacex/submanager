@@ -82,22 +82,6 @@ class PatternConfig(submanager.models.base.CustomBaseModel):
     pattern_start: pydantic.StrictStr = " Start"
 
 
-class ContextConfig(submanager.models.base.CustomBaseModel):
-    """Local context configuration for the bot."""
-
-    account: StripStr
-    subreddit: StripStr
-
-    @pydantic.validator("account", pre=True)
-    def check_account_found(  # pylint: disable = no-self-use, no-self-argument
-            cls, value: submanager.models.utils.MissingAccount | str) -> str:
-        """Check that the account is present in the global accounts table."""
-        if isinstance(value, submanager.models.utils.MissingAccount):
-            raise ValueError(
-                f"Account key '{value}' not listed in accounts table")
-        return value
-
-
 class InitialThreadConfig(submanager.models.base.CustomBaseModel):
     """Initial configuration of a managed thread."""
 
@@ -107,10 +91,9 @@ class InitialThreadConfig(submanager.models.base.CustomBaseModel):
 
 # ---- Endpoint models ----
 
-class EndpointConfig(submanager.models.base.ItemConfig):
+class EndpointConfig(submanager.models.base.ItemWithContextConfig):
     """Config params specific to sync endpoint setup."""
 
-    context: ContextConfig
     endpoint_name: StripStr
 
 
@@ -154,23 +137,22 @@ class SyncManagerConfig(submanager.models.base.ItemManagerConfig):
 
 # ---- Thread manager models ----
 
-class ThreadItemConfig(submanager.models.base.ItemConfig):
+class ThreadItemConfig(submanager.models.base.ItemWithContextConfig):
     """Configuration for a managed thread item."""
 
     approve_new: bool = True
-    context: ContextConfig
     initial: InitialThreadConfig = InitialThreadConfig()
     link_update_pages: Sequence[StripStr] = []
     new_thread_interval: Union[NonEmptyStr, Literal[False]] = "monthly"
-    new_thread_redirect_op: bool = True
-    new_thread_redirect_sticky: bool = True
-    new_thread_redirect_template: NonEmptyStr = DEFAULT_REDIRECT_TEMPLATE
     pin_thread: Union[submanager.enums.PinType, pydantic.StrictBool] = (
         submanager.enums.PinType.BOTTOM)
     post_title_template: StripStr = (
         "{subreddit} Discussion Thread (#{thread_number})")
+    redirect_op: bool = True
+    redirect_sticky: bool = True
+    redirect_template: NonEmptyStr = DEFAULT_REDIRECT_TEMPLATE
     source: FullEndpointConfig
-    target_context: ContextConfig
+    target_context: submanager.models.base.ContextConfig
 
     @pydantic.validator("new_thread_interval")
     def check_interval(  # pylint: disable = no-self-use, no-self-argument
@@ -230,7 +212,7 @@ class StaticConfig(submanager.models.base.CustomBaseModel):
     check_readonly: bool = True
     repeat_interval_s: pydantic.NonNegativeFloat = 60
     accounts: AccountsConfig
-    context_default: ContextConfig
+    context_default: submanager.models.base.ContextConfig
     sync_manager: SyncManagerConfig = SyncManagerConfig()
     thread_manager: ThreadManagerConfig = ThreadManagerConfig()
 

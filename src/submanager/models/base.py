@@ -14,6 +14,7 @@ from typing import (
 import pydantic
 
 # Local imports
+import submanager.models.utils
 from submanager.models.types import (
     ItemIDStr,
     StripStr,
@@ -42,6 +43,28 @@ class ItemConfig(CustomBaseModel, metaclass=abc.ABCMeta):
     description: pydantic.StrictStr = ""
     enabled: bool = True
     uid: ItemIDStr
+
+
+class ContextConfig(CustomBaseModel):
+    """Local context configuration for the bot."""
+
+    account: StripStr
+    subreddit: StripStr
+
+    @pydantic.validator("account", pre=True)
+    def check_account_found(  # pylint: disable = no-self-use, no-self-argument
+            cls, value: submanager.models.utils.MissingAccount | str) -> str:
+        """Check that the account is present in the global accounts table."""
+        if isinstance(value, submanager.models.utils.MissingAccount):
+            raise ValueError(
+                f"Account key '{value}' not listed in accounts table")
+        return value
+
+
+class ItemWithContextConfig(ItemConfig, metaclass=abc.ABCMeta):
+    """Base class reprisenting a config item that has a Reddit context."""
+
+    context: ContextConfig
 
 
 class DynamicItemConfig(CustomMutableBaseModel, metaclass=abc.ABCMeta):
