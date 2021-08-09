@@ -19,17 +19,29 @@ from submanager.types import (
     )
 
 
-def process_endpoint_text(
+def process_source_text(
+        source_text: str,
+        endpoint_config: submanager.models.config.FullEndpointConfig,
+        ) -> str:
+    """Perform text processing operations on the source text."""
+    source_text = submanager.sync.utils.replace_patterns(
+        source_text, endpoint_config.replace_patterns)
+    source_text = submanager.sync.utils.truncate_lines(
+        source_text, endpoint_config.truncate_lines)
+    return source_text
+
+
+def handle_endpoint_pattern(
         content: str,
-        config: submanager.models.config.PatternConfig,
+        pattern_config: submanager.models.config.PatternConfig,
         replace_text: str | None = None,
         ) -> str | Literal[False]:
     """Perform the desired find-replace for a specific sync endpoint."""
     match_obj = submanager.sync.utils.search_startend(
         content,
-        config.pattern,
-        config.pattern_start,
-        config.pattern_end,
+        pattern_config.pattern,
+        pattern_config.pattern_start,
+        pattern_config.pattern_end,
         )
 
     # If matched against a block in the endpoint, handle the match obj
@@ -66,14 +78,14 @@ def process_source_endpoint(
     # Otherwise, process the source text
     source_content = source_obj.content
     if isinstance(source_content, str):
-        source_content_processed = process_endpoint_text(
+        source_content_subset = handle_endpoint_pattern(
             source_content, source_config)
-        if source_content_processed is False:
+        if source_content_subset is False:
             print("Skipping sync pattern not found in source "
                   f"{source_obj.config.description} {source_obj.config.uid}")
             return False
-        source_content_processed = submanager.sync.utils.replace_patterns(
-            source_content_processed, source_config.replace_patterns)
+        source_content_processed = process_source_text(
+            source_content_subset, source_config)
         return source_content_processed
 
     return source_content
@@ -88,8 +100,7 @@ def process_target_endpoint(
     """Handle text conversions and deployment onto a sync target."""
     # Perform the target-specific pattern replacements
     if isinstance(source_content, str):
-        source_content = submanager.sync.utils.replace_patterns(
-            source_content, target_config.replace_patterns)
+        source_content = process_source_text(source_content, target_config)
 
     # If the target is a menu, build the source into one if not already one
     target_content = target_obj.content
@@ -103,7 +114,7 @@ def process_target_endpoint(
             target_content = source_content
     # If they're both text, process the replacements
     elif isinstance(source_content, str) and isinstance(target_content, str):
-        target_content_processed = process_endpoint_text(
+        target_content_processed = handle_endpoint_pattern(
             target_content, target_config, replace_text=source_content)
         if target_content_processed is False:
             print("Skipping sync pattern not found in target "

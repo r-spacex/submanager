@@ -15,6 +15,15 @@ from typing_extensions import (
     )
 
 
+def truncate_lines(text: str, lines: int | Literal[False]) -> str:
+    """Truncate the text to the specified number of lines."""
+    if not lines:
+        return text
+    if lines < 0:
+        raise ValueError(f"Lines to truncate must be > 0, not {lines!r}")
+    return "\n".join(text.splitlines()[:lines])
+
+
 def replace_patterns(text: str, patterns: Mapping[str, str]) -> str:
     """Replace each pattern in the text with its mapped replacement."""
     for old, new in patterns.items():

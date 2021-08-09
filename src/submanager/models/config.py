@@ -109,6 +109,7 @@ class FullEndpointConfig(EndpointTypeConfig, PatternConfig):
 
     menu_config: MenuConfig = MenuConfig()
     replace_patterns: Mapping[NonEmptyStr, pydantic.StrictStr] = {}
+    truncate_lines: Union[pydantic.PositiveInt, Literal[False]] = False
 
 
 # ---- Sync manager models ----
