@@ -8,6 +8,7 @@ import submanager.enums
 import submanager.exceptions
 import submanager.models.config
 import submanager.sync.manager
+import submanager.thread.utils
 from submanager.types import (
     AccountsMap,
     )
@@ -31,13 +32,16 @@ def sync_thread(
             f"{thread_config.description or thread_config.uid} Thread"),
         endpoint_name=dynamic_config.thread_id,
         endpoint_type=submanager.enums.EndpointType.THREAD,
-        uid=thread_config.uid + ".target"
+        pattern=submanager.thread.utils.THREAD_PATTERN,
+        pattern_end=thread_config.source.pattern_end,
+        pattern_start=thread_config.source.pattern_start,
+        uid=thread_config.uid + ".target",
         )
     sync_item = submanager.models.config.SyncItemConfig(
         description=thread_config.description,
         source=thread_config.source,
         targets={"managed_thread": thread_target},
-        uid=thread_config.uid + ".sync_item"
+        uid=thread_config.uid + ".sync_item",
         )
     submanager.sync.manager.sync_one(
         sync_item=sync_item,

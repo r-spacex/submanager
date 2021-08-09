@@ -11,8 +11,12 @@ from typing import (
 
 # Third party imports
 from typing_extensions import (
+    Final,  # Added to typing in Python 3.8
     Literal,  # Added to typing in Python 3.8
     )
+
+
+PATTERN_TEMPLATE: Final[str] = "[](/# {})"
 
 
 def truncate_lines(text: str, lines: int | Literal[False]) -> str:
@@ -42,8 +46,15 @@ def startend_to_pattern(start: str, end: str | None = None) -> str:
 def startend_to_pattern_md(start: str, end: str | None = None) -> str:
     """Convert start/end strings to a Markdown-"comment" capture pattern."""
     end = start if end is None else end
-    start, end = [f"[](/# {pattern})" for pattern in (start, end)]
+    start, end = [PATTERN_TEMPLATE.format(pattern) for pattern in (start, end)]
     return startend_to_pattern(start, end)
+
+
+def pattern_to_pattern_md(pattern: str, start: str = "", end: str = "") -> str:
+    """Convert a pattern to its Markdown equivalent."""
+    start = pattern + start
+    end = pattern + end
+    return startend_to_pattern_md(start, end)
 
 
 def search_startend(
@@ -55,8 +66,6 @@ def search_startend(
     """Match the text between the given Markdown pattern w/suffices."""
     if pattern is False or pattern is None or not (pattern or start or end):
         return False
-    start = pattern + start
-    end = pattern + end
-    pattern = startend_to_pattern_md(start, end)
+    pattern = pattern_to_pattern_md(pattern, start, end)
     match_obj = re.search(pattern, source_text)
     return match_obj

@@ -10,6 +10,9 @@ import datetime
 import dateutil.relativedelta
 import praw.models.reddit.submission
 import praw.reddit
+from typing_extensions import (
+    Final,  # Added to typing in Python 3.8
+    )
 
 # Local imports
 import submanager.models.config
@@ -17,6 +20,9 @@ import submanager.models.utils
 from submanager.types import (
     TemplateVars,
     )
+
+
+THREAD_PATTERN: Final[str] = "Auto Sync"
 
 
 def generate_template_vars(

@@ -23,6 +23,7 @@ import submanager.enums
 import submanager.exceptions
 import submanager.models.config
 import submanager.sync.processing
+import submanager.sync.utils
 import submanager.thread.utils
 import submanager.utils.output
 from submanager.types import (
@@ -95,6 +96,13 @@ def create_new_thread(
         reddit=accounts[thread_config.source.context.account])
     post_text = submanager.sync.processing.process_source_endpoint(
         thread_config.source, source_obj, dynamic_config)
+    pattern = submanager.sync.utils.PATTERN_TEMPLATE.format(
+        f"{submanager.thread.utils.THREAD_PATTERN}{{}}")
+    post_text = (
+        f"{pattern.format(thread_config.source.pattern_start)}\n"
+        f"{post_text}\n"
+        f"{pattern.format(thread_config.source.pattern_end)}"
+        )
     new_thread: praw.models.reddit.submission.Submission = (
         accounts[thread_config.target_context.account]
         .subreddit(thread_config.target_context.subreddit)
