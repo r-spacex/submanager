@@ -111,33 +111,42 @@ def handle_pin_thread(
         pin_mode: submanager.enums.PinMode | bool,
         subreddit: str,
         thread_context_mod: ThreadAccountContext,
-        ) -> None:
+        ) -> bool | None:
     """Analyze the currently pinned thread and pin the new one correctly."""
     if not pin_mode or pin_mode is submanager.enums.PinMode.NONE:
-        return
-
-    bottom_pin = pin_mode is not submanager.enums.PinMode.TOP
-
-    # Unpin previous thread
-    if thread_context_mod.current_thread:
-        thread_context_mod.current_thread.mod.sticky(state=False)
-        time.sleep(2)
+        return None
 
     # Set up variables
     pin_to_keep: praw.models.reddit.submission.Submission | None = None
     subreddit_mod = thread_context_mod.reddit.subreddit(subreddit)
+    auto = pin_mode is submanager.enums.PinMode.AUTO
 
-    # Attempt to get other pinned thread to keep pinned
-    try:
-        pin_to_keep = subreddit_mod.sticky(number=1)
-    except prawcore.exceptions.NotFound:  # Ignore if no pinned thread
-        pass
-    if (thread_context_mod.current_thread and pin_to_keep
-            and pin_to_keep.id == thread_context_mod.current_thread.id):
+    # Unpin previous thread if not in auto pin mode
+    if not auto and thread_context_mod.current_thread:
+        thread_context_mod.current_thread.mod.sticky(state=False)
+        time.sleep(2)
+
+    # Get currently pinned threads
+    current_pins: list[praw.models.reddit.submission.Submission] = []
+    for pin_n in range(1, 3):
         try:
-            pin_to_keep = subreddit_mod.sticky(number=2)
+            current_pins.append(subreddit_mod.sticky(number=pin_n))
         except prawcore.exceptions.NotFound:  # Ignore if no pinned thread
             pass
+
+    # Get current pinned thread ids and determine current thread status
+    pinned_thread_ids = [thread.id for thread in current_pins]
+    current_thread_id = None
+    if thread_context_mod.current_thread:
+        current_thread_id = thread_context_mod.current_thread.id
+    if auto:
+        if not current_thread_id or current_thread_id not in pinned_thread_ids:
+            return False
+        bottom_pin = bool(pinned_thread_ids.index(current_thread_id))
+    else:
+        bottom_pin = pin_mode is not submanager.enums.PinMode.TOP
+    if not bottom_pin and len(current_pins) > 1:
+        pin_to_keep = current_pins[1]
 
     # Pin new thread, re-approving and retrying once if it fails
     try:
@@ -147,15 +156,17 @@ def handle_pin_thread(
         print(
             f"Attempt to pin thread {thread_context_mod.new_thread.title!r} "
             "failed the first time due to an error; retrying. "
-            "The error was:\n"
+            "The error was:"
             )
         submanager.utils.output.print_error(error)
         thread_context_mod.new_thread.mod.approve()
         thread_context_mod.new_thread.mod.sticky(
             state=True, bottom=bottom_pin)
-    finally:
-        if pin_to_keep:
-            pin_to_keep.mod.sticky(state=True)
+
+    if pin_to_keep:
+        pin_to_keep.mod.sticky(state=True, bottom=True)
+
+    return True
 
 
 def update_page_links(

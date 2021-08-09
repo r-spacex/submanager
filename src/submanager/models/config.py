@@ -145,7 +145,7 @@ class ThreadItemConfig(submanager.models.base.ItemWithContextConfig):
     link_update_pages: Sequence[StripStr] = []
     new_thread_interval: Union[NonEmptyStr, Literal[False]] = "monthly"
     pin_mode: Union[submanager.enums.PinMode, pydantic.StrictBool] = (
-        submanager.enums.PinMode.BOTTOM)
+        submanager.enums.PinMode.AUTO)
     post_title_template: StripStr = (
         "{subreddit} Discussion Thread (#{thread_number})")
     redirect_op: bool = True

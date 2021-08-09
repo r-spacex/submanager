@@ -64,5 +64,6 @@ class PinMode(StrValueEnum):
     """Reprisent the type of thread pinning behavior on Reddit."""
 
     NONE = "none"
+    AUTO = "auto"
     BOTTOM = "bottom"
     TOP = "top"
