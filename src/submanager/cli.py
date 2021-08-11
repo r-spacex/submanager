@@ -150,6 +150,12 @@ def create_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Don't validate the config against Reddit prior to executing it",
         )
+    parser_run.add_argument(
+        "--resync-all",
+        action="store_true",
+        help=("Resync all targets and threads, even if the source hasn't been "
+              "modified; useful after adding targets & other config changes"),
+        )
 
     # Start the bot running
     start_desc = "Start the bot running continously until stopped or errored"

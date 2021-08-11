@@ -29,13 +29,14 @@ def validate_config(
         config_paths = submanager.models.config.ConfigPaths()
 
     try:  # pylint: disable = too-many-try-statements
-        vprint("Loading offline config", level=1)
+        vprint("Loading config", level=1)
         static_config, __ = submanager.core.initialization.setup_config(
             config_paths=config_paths,
             verbose=verbose,
             )
+
         if not minimal:
-            vprint("Checking offline config", level=1)
+            vprint("Checking config offline", level=1)
             submanager.validation.offline.validate_offline_config(
                 static_config=static_config,
                 config_paths=config_paths,

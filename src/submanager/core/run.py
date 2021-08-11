@@ -26,23 +26,37 @@ from submanager.types import (
 def run_initial_setup(
         config_paths: submanager.models.config.ConfigPaths | None = None,
         *,
-        validate: bool = True,
+        skip_validate: bool = False,
+        resync_all: bool = False,
         ) -> tuple[submanager.models.config.StaticConfig,
                    AccountsMap]:
     """Run initial run-time setup for each time the application is started."""
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
-    if validate:
+    if not skip_validate:
         submanager.validation.validate.validate_config(
             config_paths=config_paths,
             offline_only=False,
             raise_error=True,
             verbose=True,
             )
-    static_config, __ = submanager.core.initialization.setup_config(
-        config_paths=config_paths)
+
+    static_config, dynamic_config = (
+        submanager.core.initialization.setup_config(config_paths=config_paths))
     accounts = submanager.core.initialization.setup_accounts(
         static_config.accounts)
+
+    # Reset the source timestamps so all items get resynced
+    if resync_all:
+        dynamic_items: list[submanager.models.config.DynamicSyncItemConfig] = (
+            list(dynamic_config.sync_manager.items.values())
+            + list(dynamic_config.thread_manager.items.values())
+            )
+        for item in dynamic_items:
+            item.source_timestamp = 0
+        submanager.config.utils.write_config(
+            dynamic_config, config_path=config_paths.dynamic)
+
     return static_config, accounts
 
 
@@ -86,12 +100,13 @@ def run_manage(
         config_paths: submanager.models.config.ConfigPaths | None = None,
         *,
         skip_validate: bool = False,
+        resync_all: bool = False,
         ) -> None:
     """Load the config file and run the thread manager."""
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
     static_config, accounts = run_initial_setup(
-        config_paths, validate=not skip_validate)
+        config_paths, skip_validate=skip_validate, resync_all=resync_all)
     run_manage_once(
         static_config=static_config,
         accounts=accounts,
@@ -112,7 +127,7 @@ def start_manage(
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
     static_config, accounts = run_initial_setup(
-        config_paths, validate=not skip_validate)
+        config_paths, skip_validate=skip_validate, resync_all=True)
     if repeat_interval_s is None:
         repeat_interval_s = static_config.repeat_interval_s
 

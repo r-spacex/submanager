@@ -54,6 +54,7 @@ START_COMMAND: Final[str] = "start"
 COMMANDS: Final[list[str]] = [RUN_COMMAND, START_COMMAND]
 
 SKIP_VALIDATE_ARG: Final[str] = "--skip-validate"
+RESYNC_ALL_ARG: Final[str] = "--resync-all"
 REPEAT_INTERVAL_S_ARG: Final[str] = "--repeat-interval-s"
 REPEAT_MAX_N_ARG: Final[str] = "--repeat-max-n"
 
@@ -85,7 +86,7 @@ TEST_CONFIGS: Final[list[RunConfigTuple]] = [
         ),
     (
         {},
-        [SKIP_VALIDATE_ARG],
+        [SKIP_VALIDATE_ARG, RESYNC_ALL_ARG],
         [SKIP_VALIDATE_ARG, REPEAT_INTERVAL_S_ARG, "5", REPEAT_MAX_N_ARG, "2"],
         "complet",
         None,
