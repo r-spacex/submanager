@@ -173,7 +173,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         )
 
     # Start the bot running
-    start_desc = "Start the bot running continously until stopped or errored"
+    start_desc = "Start the bot running continuously until stopped or errored"
     parser_start = subparsers.add_parser(
         "start",
         description=start_desc,

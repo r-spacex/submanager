@@ -13,9 +13,9 @@
 
 1. Activate the appropriate virtual environment: e.g. ``source env/bin/activate``
 2. Install/update packaging packages: e.g. pip install --upgrade pip`` then ``pip install --upgrade setuptools wheel packaging build pep517``
-4. Build source and wheel distributions: ``python -b -X dev -m build``
-5. In a clean env, install the build: ``pip install dist/submanager-X.Y.Z.TAG-py3-none-any.whl``
-6. Test the installed version: ``submanager monitor`` and ``submanager start``
+3. Build source and wheel distributions: ``python -b -X dev -m build``
+4. In a clean env, install the build: ``pip install dist/submanager-X.Y.Z.TAG-py3-none-any.whl``
+5. Test the installed version: ``submanager monitor`` and ``submanager start``
 
 
 ## Upload to PyPI (production release)

@@ -1,6 +1,26 @@
 # Sub Manager Changelog
 
 
+<!-- markdownlint-disable -->
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Version 0.5.1 (2021-06-15)](#version-051-2021-06-15)
+- [Version 0.5.0 (2021-05-18)](#version-050-2021-05-18)
+- [Version 0.4.0 (2021-03-24)](#version-040-2021-03-24)
+- [Version 0.3.1 (2021-03-01)](#version-031-2021-03-01)
+- [Version 0.3.0 (2021-02-08)](#version-030-2021-02-08)
+- [Version 0.2.2 (2021-02-01)](#version-022-2021-02-01)
+- [Version 0.2.1 (2021-01-22)](#version-021-2021-01-22)
+- [Version 0.1.2 (2021-01-20)](#version-012-2021-01-20)
+- [Version 0.1.1 (2021-01-20)](#version-011-2021-01-20)
+- [Version 0.1.0 (2021-01-01)](#version-010-2021-01-01)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+<!-- markdownlint-restore -->
+
+
+
 ## Version 0.5.1 (2021-06-15)
 
 Bufix release with the following changes:
@@ -15,12 +35,14 @@ Bufix release with the following changes:
 Major feature release with many config-breaking changes.
 
 New features:
+
 * Add multi-account support, per-source, target and sync/thread
 * Add multi-subreddit support with similar granularity, to allow sync between subs
 * Add ability to leave a customizable OP message and/or sticky when replacing a thread
 * Enable flexible config inheritance (source/target <- task <- module <- global)
 
 Under the hood:
+
 * Add full refresh token handling to support new Reddit OAUTH changes
 * Fully reorganize config to be much cleaner and more flexible
 * Majorly refactor code for much greater extendability going forward
@@ -31,6 +53,7 @@ Under the hood:
 ## Version 0.4.0 (2021-03-24)
 
 Enhancement release with the following changes:
+
 * Support both fixed and floating time intervals for posting megathreads
 * Support arbitrary integer periods for floating post intervals
 * Add support for N weekly posting frequency
@@ -43,6 +66,7 @@ Enhancement release with the following changes:
 ## Version 0.3.1 (2021-03-01)
 
 Bugfix release with the following changes:
+
 * Replace ``tomlkit`` with ``toml`` to fix strange bugs with PRAW
 * Fix bug with unsticky of old megathread not having mod permissions
 * Fix bug with not updating megathread URLs correctly
@@ -56,6 +80,7 @@ Bugfix release with the following changes:
 Major feature and refactoring release with many config/API changes.
 
 New features:
+
 * Support sync to/from New Reddit sidebar widgets
 * Support sync to/from thread OPs
 * Support sync to new Reddit menus
@@ -64,6 +89,7 @@ New features:
 * Add broader and more granular enable/disable options
 
 Under the hood:
+
 * Use sync module as backend for megathread update
 * Split static and dynamic config files and objects
 * Make static config human-editable TOML
@@ -76,6 +102,7 @@ Under the hood:
 ## Version 0.2.2 (2021-02-01)
 
 Bugfix and enhancement release with the following changes:
+
 * Add support for updating megathread links in wiki, sidebar/menu and removal messages
 * Add basic error handling (restart, etc) to systemd service unit (to recover from random Reddit errors)
 * Set unbuffered output so the systemd journal/syslog output is updated in real time
@@ -86,6 +113,7 @@ Bugfix and enhancement release with the following changes:
 ## Version 0.2.1 (2021-01-22)
 
 Bugfix and enhancement release with the following changes:
+
 * Add option to enable/disable megathread manager module
 * Recheck date more reliably every run
 * Add requirements.txt for dependencies
@@ -102,12 +130,14 @@ Version 0.2.0 (2021-01-21)
 Major feature release with a major new module.
 
 Add new Sync Manager module:
+
 * Sync arbitrary source wiki pages to target wiki pages
 * Sync full pages or subsections designated by special marker comments
 * Supports multiple targets per source page with custom settings
 * Customizable pattern replacements (i.e. for reformatting, etc) between them
 
 Under the hood:
+
 * Add accompanying config for sync manager
 * Major code refactoring to support current and future changes
 * Various minor bug fixes
@@ -117,6 +147,7 @@ Under the hood:
 ## Version 0.1.2 (2021-01-20)
 
 Performance and minor enhancement release with the following changes:
+
 * Automatically update config with newly added options
 * Cache current thread for better performance
 * Further refactor session objects
@@ -126,6 +157,7 @@ Performance and minor enhancement release with the following changes:
 ## Version 0.1.1 (2021-01-20)
 
 Bugfix and enhancement release with the following changes:
+
 * Add ability to run in a loop at a set interval
 * Fix various minor bugs
 * Refactor config/variable names to make more sense
@@ -137,6 +169,7 @@ Bugfix and enhancement release with the following changes:
 Initial deployed release.
 
 Major features:
+
 * Create and approve new megathreads at a customizable interval
 * Sync current metathread content from wiki page when changed
 * Generate fully customizable title with variable replacement
@@ -145,6 +178,7 @@ Major features:
 * Pin the new thread and unpin the old thread
 
 Under the hood:
+
 * Supports any subreddit; no hardcoding
 * Session and timestamp caching to avoid unnecessary requests
 * Controlled from automatically-generated JSON config file

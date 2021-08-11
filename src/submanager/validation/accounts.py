@@ -36,7 +36,7 @@ TEST_USERNAME: Final[str] = "spez"
 
 @enum.unique
 class ScopeCheck(enum.Enum):
-    """The availible scope to test a Reddit request for."""
+    """The available scope to test a Reddit request for."""
 
     IDENTITY = "identity"
     READ_POST = "read"
@@ -94,7 +94,7 @@ def try_perform_test_request(
 
     # Otherwise, if no common scopes are authorized, check the username
     else:
-        # Test username, availible to all scopes
+        # Test username, available to all scopes
         reddit.username_available(TEST_USERNAME)
 
 
@@ -117,7 +117,7 @@ def perform_test_request(
         scope_check = ScopeCheck.READ_WIKI
     # Otherwise, if no common scopes are authorized, check the username
     else:
-        # Test username, availible to all scopes
+        # Test username, available to all scopes
         warning_message = (
             f"Account {account_key!r} scopes ({scopes!r}) did not include"
             f"any typically used for access ({TESTABLE_SCOPES!r})")

@@ -38,7 +38,7 @@ class CustomMutableBaseModel(
 
 
 class ItemConfig(CustomBaseModel, metaclass=abc.ABCMeta):
-    """Base class for an atomic unit in the config hiearchy."""
+    """Base class for an atomic unit in the config hierarchy."""
 
     description: pydantic.StrictStr = ""
     enabled: bool = True

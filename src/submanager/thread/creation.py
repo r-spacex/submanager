@@ -1,4 +1,4 @@
-"""Perform the tasks nessesary to create a new thread and deprecate the old."""
+"""Perform the tasks necessary to create a new thread and deprecate the old."""
 
 # Future imports
 from __future__ import annotations

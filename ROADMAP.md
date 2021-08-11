@@ -33,8 +33,8 @@
 
 * Add more desired features (sticky comments, moderation tools, more automod automation...)
 * Add support for running within the Brokkr framework
-    * Create wrappers for plugin(s) for session, wiki sync and megathread sync
-    * Create preset(s) for plugins(s)
+  * Create wrappers for plugin(s) for session, wiki sync and megathread sync
+  * Create preset(s) for plugins(s)
 * Create example Brokkr system config
 * Add MyPy type annotations
 * Add more detailed logging, optionally integrated with Brokkr

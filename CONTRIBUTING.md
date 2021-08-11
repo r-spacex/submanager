@@ -4,11 +4,31 @@ Sub Manager is part of the r/SpaceX Github org, and is developed with standard G
 You should be familiar with the basics of using ``git`` and Github, though this guide walks you through most of the basics of what you need to know to contribute.
 
 
+
+<!-- markdownlint-disable -->
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Reporting issues](#reporting-issues)
+- [Setting Up a Development Environment](#setting-up-a-development-environment)
+  - [Fork and clone the repo](#fork-and-clone-the-repo)
+  - [Create and activate a fresh venv](#create-and-activate-a-fresh-venv)
+  - [Install Sub Manager in dev mode](#install-sub-manager-in-dev-mode)
+  - [Enable the Pre-Commit hooks](#enable-the-pre-commit-hooks)
+- [Running Tests](#running-tests)
+- [Git Branches](#git-branches)
+- [Submitting a PR](#submitting-a-pr)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+<!-- markdownlint-restore -->
+
+
+
 ## Reporting issues
 
 Discover a bug?
 Want a new feature?
-[Open](https://github.com/r-spacex/submanager/issues/new/choose) an [issue]((https://github.com/r-spacex/submanager/issues)!
+[Open](https://github.com/r-spacex/submanager/issues/new/choose) an [issue](https://github.com/r-spacex/submanager/issues)!
 Make sure to describe the bug or feature in detail, with reproducible examples and references if possible, what you are looking to have fixed/added.
 While we can't promise we'll fix everything you might find, we'll certainly take it into consideration, and typically welcome pull requests to resolve accepted issues.
 Thanks!
@@ -54,10 +74,10 @@ or on Windows (cmd),
 .\env\Scripts\activate.bat
 ```
 
-Of course you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc).
+Of course, you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc).
 
 
-### Installation
+### Install Sub Manager in dev mode
 
 To install the package in editable ("development") mode (where updates to the source files will be reflected in the installed package) and include the dependencies used for development, run
 
@@ -69,6 +89,28 @@ You can then run Sub Manager as normal, with the ``submanager`` command.
 When you make changes in your local copy of the git repository, they will be reflecting in your installed copy as soon as you re-run it.
 
 While Windows and macOS are supported for development and use alongside Linux, running as a persistent system service is an exercise for the user.
+
+
+### Enable the Pre-Commit hooks
+
+This repository uses [Pre-Commit](https://pre-commit.com/) to install, configure and update a suite of pre-commit hooks that check for common problems and issues, and fix many of them automatically.
+Pre-commit itself is installed with the above command, and the hooks should be enabled by running the following from the root of this repo:
+
+```bash
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+The hooks will be automatically run against any new/changed files every time you commit.
+It may take a few minutes to install the needed packages the first time you commit, but subsequent runs should only take a few seconds.
+If you made one or more commits before installing the hooks (not recommended), you can run them manually on all the files in the repo with:
+
+```bash
+pre-commit run --all-files
+```
+
+**Note**: Most of the hooks fix the problems they detect automatically (the hook output will say ``files were modified by this hook``, but no errors/warnings will be listed), but they will still abort the commit so you can double-check everything first.
+Once you're satisfied, ``git add .`` and commit again.
 
 
 
@@ -125,9 +167,9 @@ You should also submit bugfixes to the release branch or ``master`` for errors t
 To start working on a new PR, you need to execute these commands, filling in the branch names where appropriate (``<BASE-BRANCH>`` is the branch you're basing your work against, e.g. ``master``, while ``<FEATURE-BRANCH>`` is the branch you'll be creating to store your changes, e.g. ``fix-startup-bug`` or ``add-widget-support``:
 
 ```bash
-$ git checkout <BASE-BRANCH>
-$ git pull upstream <BASE-BRANCH>
-$ git checkout -b <FEATURE-BRANCH>
+git checkout <BASE-BRANCH>
+git pull upstream <BASE-BRANCH>
+git checkout -b <FEATURE-BRANCH>
 ```
 
 Once you've made and tested your changes, commit them with a descriptive message of 74 characters or less written in the imperative tense, with a capitalized first letter and no period at the end.

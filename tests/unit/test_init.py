@@ -21,7 +21,7 @@ BASELINE_VERSION: Final[str] = "0.5.0"
 # ---- Tests ----
 
 def test_version() -> None:
-    """Check that the pacakge version exists and parses correctly."""
+    """Check that the package version exists and parses correctly."""
     version = submanager.__version__
 
     assert version

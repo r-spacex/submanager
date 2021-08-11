@@ -102,7 +102,7 @@ def run_validate_config(
         wprint("Config validation FAILED", level=2)
         raise
     except Exception:
-        wprint("Unexpected error occured during config validation:", level=2)
+        wprint("Unexpected error occurred during config validation:", level=2)
         raise
     else:
         wprint("Config validation SUCCEEDED", level=2)

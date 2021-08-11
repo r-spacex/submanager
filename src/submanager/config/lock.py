@@ -81,7 +81,7 @@ def wait_for_lock(
         check_interval_s: float = CHECK_INTERVAL_S_DEFAULT,
         verbose: bool = False,
         ) -> bool:
-    """Attempt to aquire a lock, waiting until one is availible."""
+    """Attempt to acquire a lock, waiting until one is available."""
     config_path = Path(config_path)
     start_time = time.monotonic()
     end_time = start_time + timeout_s
@@ -92,7 +92,7 @@ def wait_for_lock(
         if acquired_lock:
             if verbose and not first_attempt:
                 time_elapsed = time.monotonic() - start_time
-                print(f"Aquired config lock after {time_elapsed} s")
+                print(f"Acquired config lock after {time_elapsed} s")
             return True
         if verbose and first_attempt:
             print(f"File {config_path.as_posix()!r} is locked; "

@@ -102,7 +102,7 @@ class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
     """Error with a fillable message."""
 
     _message_pre: ClassVar[str | None] = "Error"
-    _message_template: ClassVar[str] = "occured"
+    _message_template: ClassVar[str] = "occurred"
     _message_post: ClassVar[str | None] = None
 
     def __init__(
@@ -262,7 +262,7 @@ class AuthError(RedditError, SubManagerUserError):
 
 
 class AccountCheckAuthError(AccountCheckError, AuthError):
-    """Authorization error occured when checking the user account."""
+    """Authorization error occurred when checking the user account."""
 
 
 class RedditReadOnlyError(ErrorWithAccount, AuthError):

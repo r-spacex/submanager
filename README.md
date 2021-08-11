@@ -9,11 +9,29 @@ It includes an installable systemd service unit for real-time operation on moder
 
 
 
+<!-- markdownlint-disable -->
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [Configuration](#configuration)
+  - [Configuring credentials](#configuring-credentials)
+  - [Posting intervals](#posting-intervals)
+  - [Syncing sections](#syncing-sections)
+- [Running as a service](#running-as-a-service)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+<!-- markdownlint-restore -->
+
+
+
 ## Installation
 
 To install, first clone the repo to any desired directory with ``git`` (PyPI support coming with the next release).
 
-```
+```bash
 git clone <REPO-URL>
 cd submanager
 ```

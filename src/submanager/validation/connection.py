@@ -55,7 +55,7 @@ def check_reddit_connectivity(raise_error: bool = True) -> bool:
         if not raise_error:
             return False
         raise submanager.exceptions.RedditHTTPError(
-            message=("Recieved a HTTP error attempting to test connectivity "
+            message=("Received a HTTP error attempting to test connectivity "
                      "with Reddit; check if their servers are down"),
             message_post=error,
             ) from error

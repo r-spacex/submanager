@@ -194,5 +194,5 @@ def start_manage(
                 if time_left_s <= 0:
                     break
         except KeyboardInterrupt:
-            print("Recieved keyboard interrupt; exiting")
+            print("Received keyboard interrupt; exiting")
             break
