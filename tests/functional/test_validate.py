@@ -399,7 +399,7 @@ def test_value_error(
             )
 
 
-def test_debug_validate(
+def test_debug_error(
         run_and_check_debug: RunAndCheckDebugCallable,
         ) -> None:
     """Test that --debug allows the error to bubble up and dump traceback."""

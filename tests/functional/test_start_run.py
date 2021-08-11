@@ -95,8 +95,7 @@ TEST_CONFIGS: Final[list[RunConfigTuple]] = [
     ]
 TEST_CONFIGS_MARKED: Final = [
     pytest.param(*config[:-1], marks=config[-1])
-    if config[-1] is not None else config[:-1]
-    for config in TEST_CONFIGS
+    if config[-1] is not None else config[:-1] for config in TEST_CONFIGS
     ]
 TEST_IDS: Final[list[str]] = [
     "invalid_noskip_minimal",
@@ -143,7 +142,7 @@ def test_start_run(
 
 
 @pytest.mark.parametrize("command", COMMANDS)
-def test_debug_validate(
+def test_debug_error(
         run_and_check_debug: RunAndCheckDebugCallable,
         command: str,
         ) -> None:
