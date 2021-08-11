@@ -5,11 +5,15 @@ from __future__ import annotations
 
 # Standard library imports
 import time
+from typing import (
+    Collection,  # Import from collections.abc in Python 3.9
+    )
 
 # Local imports
 import submanager.config.dynamic
 import submanager.config.utils
 import submanager.core.initialization
+import submanager.exceptions
 import submanager.models.config
 import submanager.sync.manager
 import submanager.thread.manager
@@ -58,6 +62,43 @@ def run_initial_setup(
             dynamic_config, config_path=config_paths.dynamic)
 
     return static_config, accounts
+
+
+def run_cycle_threads(
+        thread_keys: Collection[str],
+        config_paths: submanager.models.config.ConfigPaths | None = None,
+        ) -> None:
+    """Post new threads for one or more existing managed threads."""
+    if config_paths is None:
+        config_paths = submanager.models.config.ConfigPaths()
+    thread_keys = set(thread_keys)
+
+    static_config, accounts = run_initial_setup(
+        config_paths, skip_validate=True, resync_all=False)
+    managed_threads = static_config.thread_manager.items
+
+    keys_notfound = thread_keys - managed_threads.keys()
+    if keys_notfound:
+        raise submanager.exceptions.SubManagerUserError(
+            f"Thread keys {keys_notfound!r} not found in valid keys "
+            f"{set(managed_threads.keys())!r}")
+
+    threads_tocycle = {
+        thread_key: managed_threads[thread_key] for thread_key in thread_keys}
+    with submanager.config.dynamic.LockedandLoadedDynamicConfig(
+            static_config=static_config,
+            config_path=config_paths.dynamic,
+            verbose=True,
+            ) as dynamic_config:
+        for thread_key, thread_config in threads_tocycle.items():
+            submanager.thread.manager.manage_thread(
+                thread_config=thread_config,
+                dynamic_config=dynamic_config.thread_manager.items[thread_key],
+                accounts=accounts,
+                post_new_thread=True,
+                )
+        submanager.config.utils.write_config(
+            dynamic_config, config_path=config_paths.dynamic)
 
 
 def run_manage_once(

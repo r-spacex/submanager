@@ -19,16 +19,19 @@ def manage_thread(
         thread_config: submanager.models.config.ThreadItemConfig,
         dynamic_config: submanager.models.config.DynamicThreadItemConfig,
         accounts: AccountsMap,
+        *,
+        post_new_thread: bool | None = None,
         ) -> None:
     """Manage the current thread, creating or updating it as necessary."""
     if not thread_config.enabled:
         return
 
     # Determine if its time to post a new thread
-    post_new_thread = submanager.thread.utils.should_post_new_thread(
-        thread_config=thread_config,
-        dynamic_config=dynamic_config,
-        reddit=accounts[thread_config.context.account])
+    if post_new_thread is None:
+        post_new_thread = submanager.thread.utils.should_post_new_thread(
+            thread_config=thread_config,
+            dynamic_config=dynamic_config,
+            reddit=accounts[thread_config.context.account])
 
     # If needed, post a new thread
     if post_new_thread:

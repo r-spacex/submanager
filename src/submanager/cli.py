@@ -136,6 +136,21 @@ def create_arg_parser() -> argparse.ArgumentParser:
         help="Validate disabled modules and endpoints as well as enabled ones",
         )
 
+    # Cycle the indicated threads
+    cycle_desc = "Post new threads for the managed thread(s) passed"
+    parser_cycle = subparsers.add_parser(
+        "cycle-threads",
+        description=cycle_desc,
+        help=cycle_desc,
+        argument_default=argparse.SUPPRESS,
+        )
+    parser_cycle.set_defaults(func=submanager.core.run.run_cycle_threads)
+    parser_cycle.add_argument(
+        "thread_keys",
+        nargs="+",
+        help="The keys of the threads to cycle, as listed in the config",
+        )
+
     # Run the bot once
     run_desc = "Run the bot through one cycle and exit"
     parser_run = subparsers.add_parser(
