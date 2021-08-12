@@ -9,20 +9,20 @@ import praw.models.reddit.widgets
 import prawcore.exceptions
 from typing_extensions import (
     Literal,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager.endpoint.base
 import submanager.exceptions
 from submanager.types import (
     MenuData,
-    )
+)
 
 
 class ThreadSyncEndpoint(
-        submanager.endpoint.base.SyncEndpoint,
-        submanager.endpoint.base.RevisionDateCheckable,
-        ):
+    submanager.endpoint.base.SyncEndpoint,
+    submanager.endpoint.base.RevisionDateCheckable,
+):
     """Sync endpoint reprisenting a Reddit thread (selfpost submission)."""
 
     _object: praw.models.reddit.submission.Submission
@@ -30,7 +30,8 @@ class ThreadSyncEndpoint(
     def _setup_object(self) -> praw.models.reddit.submission.Submission:
         """Set up the submission object for syncing to a thread."""
         submission: praw.models.reddit.submission.Submission = (
-            self._reddit.submission(id=self.config.endpoint_name))
+            self._reddit.submission(id=self.config.endpoint_name)
+        )
         return submission
 
     @property
@@ -55,9 +56,10 @@ class ThreadSyncEndpoint(
                 message_pre=(
                     f"Account {self.config.context.account!r} used to edit "
                     f"the post {self._object.title!r} ({self._object.id}) "
-                    f"must be the OP {self._object.author.name!r}"),
+                    f"must be the OP {self._object.author.name!r}"
+                ),
                 message_post=error,
-                ) from error
+            ) from error
         except praw.exceptions.RedditAPIException as error:
             for reddit_error in error.items:
                 if reddit_error.error_type.lower().strip() == "placeholder":
@@ -67,9 +69,10 @@ class ThreadSyncEndpoint(
                         self.config,
                         message_pre=(
                             f"Cannot edit link post {self._object.title!r} "
-                            f"({self._object.id}); must be a selfpost"),
+                            f"({self._object.id}); must be a selfpost"
+                        ),
                         message_post=error,
-                        ) from error
+                    ) from error
             raise
         else:
             return True
@@ -84,17 +87,18 @@ class ThreadSyncEndpoint(
 
 
 class WikiSyncEndpoint(
-        submanager.endpoint.base.SyncEndpoint,
-        submanager.endpoint.base.RevisionDateCheckable,
-        ):
+    submanager.endpoint.base.SyncEndpoint,
+    submanager.endpoint.base.RevisionDateCheckable,
+):
     """Sync endpoint reprisenting a Reddit wiki page."""
 
     _object: praw.models.reddit.wikipage.WikiPage
 
     def _setup_object(self) -> praw.models.reddit.wikipage.WikiPage:
         """Set up the wiki page object for syncing to a wiki page."""
-        wiki_page: praw.models.reddit.wikipage.WikiPage = (
-            self._subreddit.wiki[self.config.endpoint_name])
+        wiki_page: praw.models.reddit.wikipage.WikiPage = self._subreddit.wiki[
+            self.config.endpoint_name
+        ]
         return wiki_page
 
     @property
@@ -112,9 +116,9 @@ class WikiSyncEndpoint(
         try:
             self.edit(self.content, reason="Validation edit from Sub Manager")
         except (
-                prawcore.exceptions.Forbidden,
-                praw.exceptions.RedditAPIException,
-                ) as error:
+            prawcore.exceptions.Forbidden,
+            praw.exceptions.RedditAPIException,
+        ) as error:
             if isinstance(error, praw.exceptions.RedditAPIException):
                 for reddit_error in error.items:
                     if reddit_error.error_type.upper() == "WIKI_CREATE_ERROR":
@@ -125,11 +129,13 @@ class WikiSyncEndpoint(
                 return False
             raise submanager.exceptions.WikiPagePermissionError(
                 self.config,
-                message_pre=(f"Account {self.config.context.account!r} "
-                             "must be authorized to edit wiki page "
-                             f"{self.config.endpoint_name!r}"),
+                message_pre=(
+                    f"Account {self.config.context.account!r} "
+                    "must be authorized to edit wiki page "
+                    f"{self.config.endpoint_name!r}"
+                ),
                 message_post=error,
-                ) from error
+            ) from error
         else:
             return True
 
@@ -153,24 +159,29 @@ class MenuSyncEndpoint(submanager.endpoint.base.WidgetSyncEndpoint):
                 return widget
         raise submanager.exceptions.RedditObjectNotFoundError(
             self.config,
-            message_pre=("Menu widget not found in "
-                         f"'r/{self.config.context.subreddit}'"),
+            message_pre=(
+                f"Menu widget not found in 'r/{self.config.context.subreddit}'"
+            ),
             message_post=(
-                "You may need to create it by adding at least one menu item."),
-            )
+                "You may need to create it by adding at least one menu item."
+            ),
+        )
 
     @property
     def content(self) -> MenuData:
         """Get the current structured data in the menu widget."""
         attribute_name = "data"
         menu_data: MenuData | None = getattr(
-            self._object, attribute_name, None)
+            self._object, attribute_name, None
+        )
         if menu_data is None:
             raise submanager.exceptions.RedditModelError(
                 self.config,
-                message_pre=(f"Menu widget {self._object!r} "
-                             f"missing attribute {attribute_name!r}"),
-                )
+                message_pre=(
+                    f"Menu widget {self._object!r} "
+                    f"missing attribute {attribute_name!r}"
+                ),
+            )
         return menu_data
 
     def edit(self, new_content: object, reason: str = "") -> None:
@@ -193,23 +204,29 @@ class SidebarSyncEndpoint(submanager.endpoint.base.WidgetSyncEndpoint):
                 continue
             if widget_name == self.config.endpoint_name:
                 if isinstance(
-                        widget, submanager.endpoint.base.EditableTextWidget):
+                    widget, submanager.endpoint.base.EditableTextWidget
+                ):
                     return widget
                 raise submanager.exceptions.WidgetTypeError(
                     self.config,
-                    message_pre=(f"Widget {self.config.endpoint_name!r} "
-                                 f"has unsupported type {type(widget)!r}"),
+                    message_pre=(
+                        f"Widget {self.config.endpoint_name!r} "
+                        f"has unsupported type {type(widget)!r}"
+                    ),
                     message_post=(
-                        "Only text-content widgets are currently supported."),
-                    )
+                        "Only text-content widgets are currently supported."
+                    ),
+                )
             names.append(widget_name)
         raise submanager.exceptions.RedditObjectNotFoundError(
             self.config,
-            message_pre=(f"Sidebar widget {self.config.endpoint_name!r} "
-                         f"not found in 'r/{self.config.context.subreddit}' "
-                         f"(found widgets: {names if names else 'None'})"),
+            message_pre=(
+                f"Sidebar widget {self.config.endpoint_name!r} "
+                f"not found in 'r/{self.config.context.subreddit}' "
+                f"(found widgets: {names if names else 'None'})"
+            ),
             message_post="If this is not a typo, please create it first.",
-            )
+        )
 
     @property
     def content(self) -> str:

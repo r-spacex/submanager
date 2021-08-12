@@ -13,17 +13,18 @@ import prawcore.exceptions
 from typing_extensions import (
     Protocol,  # Added to typing in Python 3.8
     runtime_checkable,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager.exceptions
 import submanager.models.config
 from submanager.types import (
     MenuData,
-    )
+)
 
 
 # ---- Protocols ----
+
 
 @runtime_checkable
 class EditableTextWidgetModeration(Protocol):
@@ -56,6 +57,7 @@ class RevisionDateCheckable(Protocol):
 
 # ---- Base classes ----
 
+
 class SyncEndpoint(metaclass=abc.ABCMeta):
     """Abstraction of a source or target for a Reddit sync action."""
 
@@ -71,50 +73,54 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
         except submanager.exceptions.PRAW_NOTFOUND_ERRORS as error:
             raise submanager.exceptions.RedditObjectNotFoundError(
                 self.config,
-                message_pre=(f"Reddit object {self._object!r} not found"),
+                message_pre=f"Reddit object {self._object!r} not found",
                 message_post=error,
-                ) from error
+            ) from error
         except submanager.exceptions.PRAW_FORBIDDEN_ERRORS as error:
             raise submanager.exceptions.RedditObjectNotAccessibleError(
                 self.config,
                 message_pre=(
                     f"Reddit object {self._object!r} found but not accessible "
-                    f"from account {self.config.context.account!r}"),
+                    f"from account {self.config.context.account!r}"
+                ),
                 message_post=error,
-                ) from error
+            ) from error
 
     def __init__(
-            self,
-            config: submanager.models.config.EndpointConfig,
-            reddit: praw.reddit.Reddit,
-            *,
-            validate: bool = False,
-            raise_error: bool = True,
-            ) -> None:
+        self,
+        config: submanager.models.config.EndpointConfig,
+        reddit: praw.reddit.Reddit,
+        *,
+        validate: bool = False,
+        raise_error: bool = True,
+    ) -> None:
         self.config = config
         self._reddit = reddit
         self._validated: bool | None = None
 
         self._subreddit: praw.models.reddit.subreddit.Subreddit = (
-            self._reddit.subreddit(self.config.context.subreddit))
+            self._reddit.subreddit(self.config.context.subreddit)
+        )
         try:
             self._subreddit.id
         except submanager.exceptions.PRAW_NOTFOUND_ERRORS as error:
             raise submanager.exceptions.SubredditNotFoundError(
                 self.config,
                 message_pre=(
-                    f"Sub 'r/{self.config.context.subreddit}' not found"),
+                    f"Sub 'r/{self.config.context.subreddit}' not found"
+                ),
                 message_post=error,
-                ) from error
+            ) from error
         except submanager.exceptions.PRAW_FORBIDDEN_ERRORS as error:
             raise submanager.exceptions.SubredditNotAccessibleError(
                 self.config,
                 message_pre=(
                     f"Sub 'r/{self.config.context.subreddit}' found but not "
-                    f"accessible from current account "
-                    f"{self.config.context.account!r}"),
+                    "accessible from current account "
+                    f"{self.config.context.account!r}"
+                ),
                 message_post=error,
-                ) from error
+            ) from error
 
         self._object = self._setup_object()
         if validate:
@@ -138,7 +144,8 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
     def check_is_editable(self, raise_error: bool = True) -> bool | None:
         """Check if the object can be edited by the user, with validation."""
         if self._validated is None or (
-                self._validated is False and raise_error):
+            self._validated is False and raise_error
+        ):
             self.validate(raise_error=raise_error)
         if not self.is_valid:
             return None
@@ -177,7 +184,8 @@ class WidgetSyncEndpoint(SyncEndpoint, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def _setup_object(
-            self) -> praw.models.reddit.widgets.Widget | EditableTextWidget:
+        self,
+    ) -> praw.models.reddit.widgets.Widget | EditableTextWidget:
         """Set up the underlying PRAW object the endpoint will use."""
         raise NotImplementedError
 
@@ -191,9 +199,11 @@ class WidgetSyncEndpoint(SyncEndpoint, metaclass=abc.ABCMeta):
                 return False
             raise submanager.exceptions.NotAModError(
                 self.config,
-                message_pre=(f"Account {self.config.context.account!r} must "
-                             "be a moderator to update widgets"),
+                message_pre=(
+                    f"Account {self.config.context.account!r} must "
+                    "be a moderator to update widgets"
+                ),
                 message_post=error,
-                ) from error
+            ) from error
         else:
             return True

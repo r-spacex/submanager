@@ -6,7 +6,7 @@ from __future__ import annotations
 # Standard library imports
 from typing import (
     Collection,  # Import from collections.abc in Python 3.9
-    )
+)
 
 # Third party imports
 import requests
@@ -17,11 +17,12 @@ import submanager.exceptions
 from submanager.constants import (
     REDDIT_BASE_URL,
     USER_AGENT,
-    )
+)
 
 
 def get_reddit_oauth_scopes(
-        scopes: Collection[str] | None = None) -> dict[str, dict[str, str]]:
+    scopes: Collection[str] | None = None,
+) -> dict[str, dict[str, str]]:
     """Get metadata on the OAUTH scopes offered by the Reddit API."""
     # Set up the request for scopes
     scopes_endpoint = "/api/v1/scopes"
@@ -33,7 +34,8 @@ def get_reddit_oauth_scopes(
 
     # Make and process the request
     response = requests.get(
-        scopes_endpoint_url, params=query_params, headers=headers)
+        scopes_endpoint_url, params=query_params, headers=headers
+    )
     response.raise_for_status()
     response_json: dict[str, dict[str, str]] = response.json()
     return response_json
@@ -47,17 +49,21 @@ def check_reddit_connectivity(raise_error: bool = True) -> bool:
         if not raise_error:
             return False
         raise submanager.exceptions.RedditNetworkError(
-            message=("Couldn't connect to Reddit at all; "
-                     "check your internet connection"),
+            message=(
+                "Couldn't connect to Reddit at all; "
+                "check your internet connection"
+            ),
             message_post=error,
-            ) from error
+        ) from error
     except requests.exceptions.HTTPError as error:
         if not raise_error:
             return False
         raise submanager.exceptions.RedditHTTPError(
-            message=("Received a HTTP error attempting to test connectivity "
-                     "with Reddit; check if their servers are down"),
+            message=(
+                "Received a HTTP error attempting to test connectivity "
+                "with Reddit; check if their servers are down"
+            ),
             message_post=error,
-            ) from error
+        ) from error
 
     return True

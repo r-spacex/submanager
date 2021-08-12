@@ -37,6 +37,7 @@ class StrValueEnum(enum.Enum):
 
 # ---- Enum constants -----
 
+
 @enum.unique
 class ExitCode(enum.Enum):
     """Exit code signalling the type of exit from the program."""

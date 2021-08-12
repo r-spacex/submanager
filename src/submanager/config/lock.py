@@ -11,16 +11,16 @@ from pathlib import Path
 # Third party imports
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager.exceptions
 from submanager.constants import (
     CONFIG_PATH_DYNAMIC,
-    )
+)
 from submanager.types import (
     PathLikeStr,
-    )
+)
 
 
 LOCK_FILENAME_TEMPLATE: Final[str] = "~{}.lock"
@@ -30,16 +30,19 @@ TIMEOUT_S_DEFAULT: Final[float] = 60
 
 
 def generate_lock_file_path(
-        config_path: PathLikeStr = CONFIG_PATH_DYNAMIC) -> Path:
+    config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
+) -> Path:
     """Generate the path to the lock file for the given config file."""
     config_path = Path(config_path)
     lock_file_path = config_path.with_name(
-        LOCK_FILENAME_TEMPLATE.format(config_path.name))
+        LOCK_FILENAME_TEMPLATE.format(config_path.name)
+    )
     return lock_file_path
 
 
 def unlock_config(
-        config_path: PathLikeStr = CONFIG_PATH_DYNAMIC) -> bool | None:
+    config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
+) -> bool | None:
     """Unlock the config if its locked by this process."""
     lock_file_path = generate_lock_file_path(config_path)
     if not lock_file_path.exists():
@@ -54,15 +57,15 @@ def unlock_config(
     return True
 
 
-def lock_config(
-        config_path: PathLikeStr = CONFIG_PATH_DYNAMIC) -> bool:
+def lock_config(config_path: PathLikeStr = CONFIG_PATH_DYNAMIC) -> bool:
     """Lock the config if not locked by another process, optionally waiting."""
     lock_file_path = generate_lock_file_path(config_path)
     current_pid = os.getpid()
     current_pid_str = f"{current_pid}\n"
     if not lock_file_path.exists():
-        with open(lock_file_path, mode="w",
-                  encoding="utf-8", newline="\n") as lock_file:
+        with open(
+            lock_file_path, mode="w", encoding="utf-8", newline="\n"
+        ) as lock_file:
             lock_file.write(current_pid_str)
             lock_file.flush()
             os.fsync(lock_file.fileno())
@@ -74,13 +77,13 @@ def lock_config(
 
 
 def wait_for_lock(
-        config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
-        *,
-        raise_error_on_timeout: bool = True,
-        timeout_s: float = TIMEOUT_S_DEFAULT,
-        check_interval_s: float = CHECK_INTERVAL_S_DEFAULT,
-        verbose: bool = False,
-        ) -> bool:
+    config_path: PathLikeStr = CONFIG_PATH_DYNAMIC,
+    *,
+    raise_error_on_timeout: bool = True,
+    timeout_s: float = TIMEOUT_S_DEFAULT,
+    check_interval_s: float = CHECK_INTERVAL_S_DEFAULT,
+    verbose: bool = False,
+) -> bool:
     """Attempt to acquire a lock, waiting until one is available."""
     config_path = Path(config_path)
     start_time = time.monotonic()
@@ -95,8 +98,10 @@ def wait_for_lock(
                 print(f"Acquired config lock after {time_elapsed} s")
             return True
         if verbose and first_attempt:
-            print(f"File {config_path.as_posix()!r} is locked; "
-                  f"retrying for {timeout_s} s...")
+            print(
+                f"File {config_path.as_posix()!r} is locked; "
+                f"retrying for {timeout_s} s..."
+            )
             first_attempt = False
         time.sleep(check_interval_s)
 
@@ -104,4 +109,5 @@ def wait_for_lock(
         return False
     raise submanager.exceptions.LockTimeoutError(
         f"Exceeded timeout of {timeout_s} s while attempting to acquire "
-        f"a lock on config file at path {config_path.as_posix()!r}")
+        f"a lock on config file at path {config_path.as_posix()!r}"
+    )

@@ -8,7 +8,7 @@ from __future__ import annotations
 import abc
 from typing import (
     Mapping,
-    )
+)
 
 # Third party imports
 import pydantic
@@ -18,22 +18,23 @@ import submanager.models.utils
 from submanager.models.types import (
     ItemIDStr,
     StripStr,
-    )
+)
 
 
 class CustomBaseModel(
-        pydantic.BaseModel,
-        validate_all=True,
-        extra=pydantic.Extra.forbid,
-        allow_mutation=False,
-        validate_assignment=True,
-        metaclass=abc.ABCMeta,
-        ):
+    pydantic.BaseModel,
+    validate_all=True,
+    extra=pydantic.Extra.forbid,
+    allow_mutation=False,
+    validate_assignment=True,
+    metaclass=abc.ABCMeta,
+):
     """Locally-customized Pydantic BaseModel."""
 
 
 class CustomMutableBaseModel(
-        CustomBaseModel, allow_mutation=True, metaclass=abc.ABCMeta):
+    CustomBaseModel, allow_mutation=True, metaclass=abc.ABCMeta
+):
     """Custom BaseModel that allows mutation."""
 
 
@@ -53,11 +54,13 @@ class ContextConfig(CustomBaseModel):
 
     @pydantic.validator("account", pre=True)
     def check_account_found(  # pylint: disable = no-self-use, no-self-argument
-            cls, value: submanager.models.utils.MissingAccount | str) -> str:
+        cls, value: submanager.models.utils.MissingAccount | str
+    ) -> str:
         """Check that the account is present in the global accounts table."""
         if isinstance(value, submanager.models.utils.MissingAccount):
             raise ValueError(
-                f"Account key '{value}' not listed in accounts table")
+                f"Account key '{value}' not listed in accounts table"
+            )
         return value
 
 

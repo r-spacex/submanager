@@ -9,7 +9,7 @@ import re
 # Third party imports
 from typing_extensions import (
     Literal,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager.models.config
@@ -17,10 +17,11 @@ from submanager.types import (
     ChildrenData,
     MenuData,
     SectionData,
-    )
+)
 
 
 # ---- Text processing utilities ----
+
 
 def split_and_clean_text(source_text: str, split: str) -> list[str]:
     """Split the text into sections and strip each individually."""
@@ -34,9 +35,9 @@ def split_and_clean_text(source_text: str, split: str) -> list[str]:
 
 
 def extract_text(
-        pattern: re.Pattern[str] | str,
-        source_text: str,
-        ) -> str | Literal[False]:
+    pattern: re.Pattern[str] | str,
+    source_text: str,
+) -> str | Literal[False]:
     """Match the given pattern and extract the matched text as a string."""
     match = re.search(pattern, source_text)
     if not match:
@@ -46,9 +47,9 @@ def extract_text(
 
 
 def parse_menu(
-        source_text: str,
-        menu_config: submanager.models.config.MenuConfig | None = None,
-        ) -> MenuData:
+    source_text: str,
+    menu_config: submanager.models.config.MenuConfig | None = None,
+) -> MenuData:
     """Parse source Markdown text and render it into a strucured format."""
     if menu_config is None:
         menu_config = submanager.models.config.MenuConfig()
@@ -56,19 +57,20 @@ def parse_menu(
     # Cleanup menu source text
     menu_data = []
     source_text = source_text.replace("\r\n", "\n")
-    menu_sections = split_and_clean_text(
-        source_text, menu_config.split)
+    menu_sections = split_and_clean_text(source_text, menu_config.split)
 
     # Construct the data for each menu section in the source
     for menu_section in menu_sections:
         menu_subsections = split_and_clean_text(
-            menu_section, menu_config.subsplit)
+            menu_section, menu_config.subsplit
+        )
 
         # Skip if no title or menu items, otherwise add the title
         if not menu_subsections:
             continue
         title_text = extract_text(
-            menu_config.pattern_title, menu_subsections[0])
+            menu_config.pattern_title, menu_subsections[0]
+        )
         if title_text is False:
             continue
         section_data: SectionData = {"text": title_text}
@@ -76,7 +78,8 @@ def parse_menu(
         # If menu is a singular item, just add that
         if len(menu_subsections) == 1:
             url_text = extract_text(
-                menu_config.pattern_url, menu_subsections[0])
+                menu_config.pattern_url, menu_subsections[0]
+            )
             if url_text is False:
                 continue
             section_data["url"] = url_text
@@ -85,12 +88,11 @@ def parse_menu(
             children: ChildrenData = []
             for menu_child in menu_subsections[1:]:
                 title_text = extract_text(
-                    menu_config.pattern_subtitle, menu_child)
-                url_text = extract_text(
-                    menu_config.pattern_url, menu_child)
+                    menu_config.pattern_subtitle, menu_child
+                )
+                url_text = extract_text(menu_config.pattern_url, menu_child)
                 if title_text is not False and url_text is not False:
-                    children.append(
-                        {"text": title_text, "url": url_text})
+                    children.append({"text": title_text, "url": url_text})
             section_data["children"] = children
         menu_data.append(section_data)
 

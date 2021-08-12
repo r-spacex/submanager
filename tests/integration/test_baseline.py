@@ -8,13 +8,15 @@ import importlib
 import pkgutil
 from types import (
     ModuleType,
-    )
+)
 
 
 # ---- Helper functions ----
 
+
 def import_submodules_recursive(
-        package: ModuleType | str) -> dict[str, ModuleType]:
+    package: ModuleType | str,
+) -> dict[str, ModuleType]:
     """Import the submodules of the package, recursively down the tree."""
     if isinstance(package, str):
         package = importlib.import_module(package)
@@ -31,6 +33,7 @@ def import_submodules_recursive(
 
 
 # ---- Tests ----
+
 
 def test_import_all() -> None:
     """Test that all modules in the package import successfully."""

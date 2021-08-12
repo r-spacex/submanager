@@ -104,6 +104,13 @@ repos:
     name: Lint Markdown
     args: [--fix]
 
+# Format Python
+- repo: https://github.com/psf/black
+  rev: '21.7b0'
+  hooks:
+  - id: black
+    name: Format Python
+
 # Check Python
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.0.1

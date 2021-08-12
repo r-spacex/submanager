@@ -7,12 +7,12 @@ from __future__ import annotations
 from typing import (
     Any,
     Mapping,  # Import from collections.abc in Python 3.9
-    )
+)
 
 # Third party imports
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager.models.base
@@ -30,9 +30,9 @@ EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
                 "source": {"context", "uid"},
                 "target": {"context", "uid"},
                 "uid": ...,
-                },
             },
         },
+    },
     "thread_manager": {
         "items": {
             "EXAMPLE_THREAD": {
@@ -40,10 +40,10 @@ EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
                 "source": {"context", "uid"},
                 "target_context": ...,
                 "uid": ...,
-                },
             },
         },
-    }
+    },
+}
 
 
 # ---- Example elements ----
@@ -52,16 +52,18 @@ EXAMPLE_ACCOUNT_NAME: Final[str] = "EXAMPLE_USER"
 
 EXAMPLE_ACCOUNT_CONFIG: Final = submanager.models.config.AccountConfig(
     config={"site_name": "EXAMPLE_SITE_NAME"},
-    )
+)
 
-EXAMPLE_ACCOUNTS: Final = submanager.models.config.AccountsConfig({
-    EXAMPLE_ACCOUNT_NAME: EXAMPLE_ACCOUNT_CONFIG,
-    })
+EXAMPLE_ACCOUNTS: Final = submanager.models.config.AccountsConfig(
+    {
+        EXAMPLE_ACCOUNT_NAME: EXAMPLE_ACCOUNT_CONFIG,
+    }
+)
 
 EXAMPLE_CONTEXT: Final = submanager.models.base.ContextConfig(
     account="EXAMPLE_USER",
     subreddit="EXAMPLESUBREDDIT",
-    )
+)
 
 EXAMPLE_SOURCE: Final = submanager.models.config.FullEndpointConfig(
     context=EXAMPLE_CONTEXT,
@@ -69,14 +71,14 @@ EXAMPLE_SOURCE: Final = submanager.models.config.FullEndpointConfig(
     endpoint_name="EXAMPLE_SOURCE_NAME",
     replace_patterns={"https://old.reddit.com": "https://www.reddit.com"},
     uid="EXAMPLE_SOURCE",
-    )
+)
 
 EXAMPLE_TARGET: Final = submanager.models.config.FullEndpointConfig(
     context=EXAMPLE_CONTEXT,
     description="Example sync target",
     endpoint_name="EXAMPLE_TARGET_NAME",
     uid="EXAMPLE_TARGET",
-    )
+)
 
 EXAMPLE_SYNC_ITEM: Final = submanager.models.config.SyncItemConfig(
     description="Example sync item",
@@ -84,7 +86,7 @@ EXAMPLE_SYNC_ITEM: Final = submanager.models.config.SyncItemConfig(
     source=EXAMPLE_SOURCE,
     targets={"EXAMPLE_TARGET": EXAMPLE_TARGET},
     uid="EXAMPLE_SYNC_ITEM",
-    )
+)
 
 
 EXAMPLE_THREAD: Final = submanager.models.config.ThreadItemConfig(
@@ -94,14 +96,16 @@ EXAMPLE_THREAD: Final = submanager.models.config.ThreadItemConfig(
     source=EXAMPLE_SOURCE,
     target_context=EXAMPLE_CONTEXT,
     uid="EXAMPLE_THREAD",
-    )
+)
 
 
 EXAMPLE_STATIC_CONFIG: Final = submanager.models.config.StaticConfig(
     accounts=EXAMPLE_ACCOUNTS,
     context_default=EXAMPLE_CONTEXT,
     sync_manager=submanager.models.config.SyncManagerConfig(
-        items={"EXAMPLE_SYNC_ITEM": EXAMPLE_SYNC_ITEM}),
+        items={"EXAMPLE_SYNC_ITEM": EXAMPLE_SYNC_ITEM}
+    ),
     thread_manager=submanager.models.config.ThreadManagerConfig(
-        items={"EXAMPLE_THREAD": EXAMPLE_THREAD}),
-    )
+        items={"EXAMPLE_THREAD": EXAMPLE_THREAD}
+    ),
+)

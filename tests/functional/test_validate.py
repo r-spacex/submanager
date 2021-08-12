@@ -10,13 +10,13 @@ from typing import (
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
     Union,  # Not needed in Python 3.10
-    )
+)
 
 # Third party imports
 import pytest
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager.enums
@@ -24,7 +24,7 @@ import submanager.exceptions
 import submanager.models.config
 from submanager.types import (
     ConfigDict,
-    )
+)
 from tests.functional.conftest import (
     CONFIG_EXTENSIONS_BAD,
     CONFIG_EXTENSIONS_GOOD,
@@ -32,14 +32,15 @@ from tests.functional.conftest import (
     CONFIG_PATHS_ONLINE,
     RunAndCheckCLICallable,
     RunAndCheckDebugCallable,
-    )
+)
 
 
 # ---- Types ----
 
 RequestTuple = Union[Tuple[ConfigDict, Union[str, bool, None]], ConfigDict]
-ExpectedTuple = (
-    Tuple[str, Optional[Type[submanager.exceptions.SubManagerUserError]]])
+ExpectedTuple = Tuple[
+    str, Optional[Type[submanager.exceptions.SubManagerUserError]]
+]
 ParamConfigs = Dict[str, Tuple[RequestTuple, ExpectedTuple]]
 
 
@@ -58,59 +59,68 @@ OFFLINE_ONLY_ARG: Final[str] = "--offline-only"
 OFFLINE_ONLY_ARGS: Final = [
     OFFLINE_ONLY_ARG,
     pytest.param("", marks=[pytest.mark.online]),
-    ]
+]
 OFFLINE_ONLY_ARGS_SLOW: Final = [
     OFFLINE_ONLY_ARG,
     pytest.param("", marks=[pytest.mark.slow, pytest.mark.online]),
-    ]
+]
 
 # Offline validation param configs
 VALIDATION_EXPECTED: Final[ExpectedTuple] = (
-    "validat", submanager.exceptions.ConfigValidationError)
+    "validat",
+    submanager.exceptions.ConfigValidationError,
+)
 ACCOUNT_EXPECTED: Final[ExpectedTuple] = (
-    "account", submanager.exceptions.AccountConfigError)
+    "account",
+    submanager.exceptions.AccountConfigError,
+)
 READONLY_EXPECTED: Final[ExpectedTuple] = (
-    "read", submanager.exceptions.RedditReadOnlyError)
+    "read",
+    submanager.exceptions.RedditReadOnlyError,
+)
 
 BAD_VALIDATE_OFFLINE_PARAMS: Final[ParamConfigs] = {
     "non_existant_key": (
         {PSEUDORANDOM_STRING: PSEUDORANDOM_STRING},
         VALIDATION_EXPECTED,
-        ),
+    ),
     "account_int": (
         {"context_default": {"account": INT_VALUE}},
         VALIDATION_EXPECTED,
-        ),
+    ),
     "account_nomatch": (
         {"context_default": {"account": PSEUDORANDOM_STRING}},
         VALIDATION_EXPECTED,
-        ),
+    ),
     "subreddit_int": (
         {"context_default": {"subreddit": INT_VALUE}},
         VALIDATION_EXPECTED,
-        ),
+    ),
     "subreddit_missing": (
         {"context_default": {"subreddit": None}},
         VALIDATION_EXPECTED,
-        ),
+    ),
     "clientid_missing": (
         {"accounts": {"muskbot": {"config": {"client_id": None}}}},
         ACCOUNT_EXPECTED,
-        ),
+    ),
     "sitename_nomatch": (
-        {"accounts": {"muskrat": {"config": {
-            "site_name": PSEUDORANDOM_STRING}}}},
+        {
+            "accounts": {
+                "muskrat": {"config": {"site_name": PSEUDORANDOM_STRING}}
+            }
+        },
         ACCOUNT_EXPECTED,
-        ),
+    ),
     "token_missing": (
         {"accounts": {"muskbot": {"config": {"refresh_token": None}}}},
         READONLY_EXPECTED,
-        ),
+    ),
     "pw_missing": (
         {"accounts": {"muskrat": {"config": {"password": None}}}},
         READONLY_EXPECTED,
-        ),
-    }
+    ),
+}
 
 # Onlne validation param configs
 NON_ACCESSABLE_PAGE: Final[str] = "non_accessable_page"
@@ -125,30 +135,59 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
     "placebo": (
         ({}, True),
         ("succe", None),
-        ),
+    ),
     "client_id_bad": (
-        ({"accounts": {"testbot": {"config": {
-            "client_id": PSEUDORANDOM_STRING}}}}, True),
+        (
+            {
+                "accounts": {
+                    "testbot": {"config": {"client_id": PSEUDORANDOM_STRING}}
+                }
+            },
+            True,
+        ),
         ("scope", submanager.exceptions.ScopeCheckError),
-        ),
+    ),
     "subreddit_notfound": (
-        ({"context_default": {"subreddit": PSEUDORANDOM_STRING}},
-         "sync_manager.items.menus.targets.old_reddit_menu"),
+        (
+            {"context_default": {"subreddit": PSEUDORANDOM_STRING}},
+            "sync_manager.items.menus.targets.old_reddit_menu",
+        ),
         ("subreddit", submanager.exceptions.SubredditNotFoundError),
-        ),
+    ),
     "thread_source_notfound": (
-        ({"thread_manager": {"items": {"cycle_thread": {"source": {
-            "endpoint_name": PSEUDORANDOM_STRING}}}}},
-         "thread_manager.items.cycle_thread"),
+        (
+            {
+                "thread_manager": {
+                    "items": {
+                        "cycle_thread": {
+                            "source": {"endpoint_name": PSEUDORANDOM_STRING}
+                        }
+                    }
+                }
+            },
+            "thread_manager.items.cycle_thread",
+        ),
         ("found", submanager.exceptions.RedditObjectNotFoundError),
-        ),
+    ),
     "menu_notfound": (
-        ({"sync_manager": {"items": {"menus": {"targets": {
-            "new_reddit_menu": {"context": {"subreddit": NON_MOD_SUBREDDIT}},
-            }}}}},
-         "sync_manager.items.menus.targets.new_reddit_menu"),
-        ("create", submanager.exceptions.RedditObjectNotFoundError),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "menus": {
+                            "targets": {
+                                "new_reddit_menu": {
+                                    "context": {"subreddit": NON_MOD_SUBREDDIT}
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.menus.targets.new_reddit_menu",
         ),
+        ("create", submanager.exceptions.RedditObjectNotFoundError),
+    ),
     # "menu_not_writeable": (
     #     ({"sync_manager": {"items": {"menus": {"targets": {
     #         "new_reddit_menu": {"context": {"subreddit": NON_MOD_SUBREDDIT}},
@@ -157,89 +196,214 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
     #     ("mod", submanager.exceptions.NotAModError),
     #     ),
     "thread_notfound": (
-        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
-            "thread_target": {"endpoint_name": PSEUDORANDOM_STRING}}}}}},
-         "sync_manager.items.sidebar_thread.targets.thread_target"),
-        ("found", submanager.exceptions.RedditObjectNotFoundError),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "sidebar_thread": {
+                            "targets": {
+                                "thread_target": {
+                                    "endpoint_name": PSEUDORANDOM_STRING
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.sidebar_thread.targets.thread_target",
         ),
+        ("found", submanager.exceptions.RedditObjectNotFoundError),
+    ),
     "thread_notop": (
-        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
-            "thread_target": {"endpoint_name": THREAD_ID_NOT_OP}}}}}},
-         "sync_manager.items.sidebar_thread.targets.thread_target"),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "sidebar_thread": {
+                            "targets": {
+                                "thread_target": {
+                                    "endpoint_name": THREAD_ID_NOT_OP
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.sidebar_thread.targets.thread_target",
+        ),
         ("account", submanager.exceptions.NotOPError),
-        ),
+    ),
     "thread_wrong_type": (
-        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
-            "thread_target": {"endpoint_name": THREAD_ID_LINK}}}}}},
-         "sync_manager.items.sidebar_thread.targets.thread_target"),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "sidebar_thread": {
+                            "targets": {
+                                "thread_target": {
+                                    "endpoint_name": THREAD_ID_LINK
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.sidebar_thread.targets.thread_target",
+        ),
         ("link", submanager.exceptions.PostTypeError),
-        ),
+    ),
     "widget_notfound": (
-        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
-            "new_reddit_widget": {"endpoint_name": PSEUDORANDOM_STRING}}}}}},
-         "sync_manager.items.sidebar_thread.targets.new_reddit_widget"),
-        ("found", submanager.exceptions.RedditObjectNotFoundError),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "sidebar_thread": {
+                            "targets": {
+                                "new_reddit_widget": {
+                                    "endpoint_name": PSEUDORANDOM_STRING
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.sidebar_thread.targets.new_reddit_widget",
         ),
+        ("found", submanager.exceptions.RedditObjectNotFoundError),
+    ),
     "widget_wrong_type": (
-        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
-            "new_reddit_widget": {"endpoint_name": NON_SUPPORTED_WIDGET}}}}}},
-         "sync_manager.items.sidebar_thread.targets.new_reddit_widget"),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "sidebar_thread": {
+                            "targets": {
+                                "new_reddit_widget": {
+                                    "endpoint_name": NON_SUPPORTED_WIDGET
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.sidebar_thread.targets.new_reddit_widget",
+        ),
         ("type", submanager.exceptions.WidgetTypeError),
-        ),
+    ),
     "widget_notwriteable": (
-        ({"sync_manager": {"items": {"sidebar_thread": {"targets": {
-            "new_reddit_widget": {
-                "endpoint_name": NON_WRITEABLE_WIDGET,
-                "context": {"subreddit": NON_MOD_SUBREDDIT},
-                }}}}}},
-         "sync_manager.items.sidebar_thread.targets.new_reddit_widget"),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "sidebar_thread": {
+                            "targets": {
+                                "new_reddit_widget": {
+                                    "endpoint_name": NON_WRITEABLE_WIDGET,
+                                    "context": {
+                                        "subreddit": NON_MOD_SUBREDDIT
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.sidebar_thread.targets.new_reddit_widget",
+        ),
         ("mod", submanager.exceptions.NotAModError),
-        ),
+    ),
     "wiki_notfound_source": (
-        ({"sync_manager": {"items": {"cross_sub_sync": {"source": {
-            "endpoint_name": PSEUDORANDOM_STRING}}}}},
-         "sync_manager.items.cross_sub_sync.targets.index_clone"),
-        ("found", submanager.exceptions.RedditObjectNotFoundError),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "cross_sub_sync": {
+                            "source": {"endpoint_name": PSEUDORANDOM_STRING}
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.cross_sub_sync.targets.index_clone",
         ),
+        ("found", submanager.exceptions.RedditObjectNotFoundError),
+    ),
     "wiki_notaccessable_source": (
-        ({"sync_manager": {"items": {"cross_sub_sync": {"source": {
-            "endpoint_name": NON_ACCESSABLE_PAGE}}}}},
-         "sync_manager.items.cross_sub_sync.targets.index_clone"),
-        ("access", submanager.exceptions.RedditObjectNotAccessibleError),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "cross_sub_sync": {
+                            "source": {"endpoint_name": NON_ACCESSABLE_PAGE}
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.cross_sub_sync.targets.index_clone",
         ),
+        ("access", submanager.exceptions.RedditObjectNotAccessibleError),
+    ),
     "wiki_notfound_target": (
-        ({"sync_manager": {"items": {"disabled_sync_item": {"targets": {
-            "non_existant_target": {"endpoint_name": PSEUDORANDOM_STRING}}}}}},
-         "sync_manager.items.disabled_sync_item.targets.non_existant_target"),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "disabled_sync_item": {
+                            "targets": {
+                                "non_existant": {
+                                    "endpoint_name": PSEUDORANDOM_STRING
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.disabled_sync_item.targets.non_existant",
+        ),
         ("found", submanager.exceptions.RedditObjectNotFoundError),
-        ),
+    ),
     "wiki_notaccessable_target": (
-        ({},
-         "sync_manager.items.disabled_sync_item.targets.non_existant_target"),
+        (
+            {},
+            "sync_manager.items.disabled_sync_item.targets.non_existant",
+        ),
         ("access", submanager.exceptions.RedditObjectNotAccessibleError),
-        ),
+    ),
     "wiki_notwriteable_target": (
-        ({"sync_manager": {"items": {"disabled_sync_item": {"targets": {
-            "non_existant_target": {
-                "endpoint_name": NON_WRITEABLE_PAGE,
-                "context": {"subreddit": NON_MOD_SUBREDDIT},
-                }}}}}},
-         "sync_manager.items.disabled_sync_item.targets.non_existant_target"),
-        ("edit", submanager.exceptions.WikiPagePermissionError),
+        (
+            {
+                "sync_manager": {
+                    "items": {
+                        "disabled_sync_item": {
+                            "targets": {
+                                "non_existant": {
+                                    "endpoint_name": NON_WRITEABLE_PAGE,
+                                    "context": {
+                                        "subreddit": NON_MOD_SUBREDDIT
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "sync_manager.items.disabled_sync_item.targets.non_existant",
         ),
-    }
+        ("edit", submanager.exceptions.WikiPagePermissionError),
+    ),
+}
 
 
 # ---- Tests ----
 
+
 @pytest.mark.parametrize("include_disabled", INCLUDE_DISABLED_ARGS)
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 def test_generated_error(
-        run_and_check_cli: RunAndCheckCLICallable,
-        example_config: submanager.models.config.ConfigPaths,
-        minimal: str,
-        include_disabled: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    example_config: submanager.models.config.ConfigPaths,
+    minimal: str,
+    include_disabled: str,
+) -> None:
     """Test that the generated config validates false."""
     error_type: type[submanager.exceptions.SubManagerUserError]
     if minimal:
@@ -249,21 +413,25 @@ def test_generated_error(
 
     run_and_check_cli(
         cli_args=[
-            VALIDATE_COMMAND, OFFLINE_ONLY_ARG, minimal, include_disabled],
+            VALIDATE_COMMAND,
+            OFFLINE_ONLY_ARG,
+            minimal,
+            include_disabled,
+        ],
         config_paths=example_config,
         check_text="account" if minimal else "default",
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=error_type,
-        )
+    )
 
 
 @pytest.mark.parametrize("temp_config_dir", ["", "missing_dir"], indirect=True)
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 def test_config_not_found(
-        run_and_check_cli: RunAndCheckCLICallable,
-        temp_config_paths: submanager.models.config.ConfigPaths,
-        minimal: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    temp_config_paths: submanager.models.config.ConfigPaths,
+    minimal: str,
+) -> None:
     """Test that the config not being found validates false."""
     run_and_check_cli(
         cli_args=[VALIDATE_COMMAND, OFFLINE_ONLY_ARG, minimal],
@@ -271,7 +439,7 @@ def test_config_not_found(
         check_text="not found",
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=submanager.exceptions.ConfigNotFoundError,
-        )
+    )
 
 
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
@@ -279,12 +447,12 @@ def test_config_not_found(
     "temp_config_paths",
     CONFIG_EXTENSIONS_GOOD + CONFIG_EXTENSIONS_BAD,
     indirect=True,
-    )
+)
 def test_config_empty_error(
-        run_and_check_cli: RunAndCheckCLICallable,
-        empty_config: submanager.models.config.ConfigPaths,
-        minimal: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    empty_config: submanager.models.config.ConfigPaths,
+    minimal: str,
+) -> None:
     """Test that validating a config file with an unknown extension errors."""
     extension = empty_config.static.suffix.lstrip(".")
     check_error: type[submanager.exceptions.SubManagerUserError]
@@ -303,16 +471,16 @@ def test_config_empty_error(
         check_text=check_text,
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=check_error,
-        )
+    )
 
 
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 @pytest.mark.parametrize("temp_config_paths", ["json"], indirect=True)
 def test_config_list_error(
-        run_and_check_cli: RunAndCheckCLICallable,
-        list_config: submanager.models.config.ConfigPaths,
-        minimal: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    list_config: submanager.models.config.ConfigPaths,
+    minimal: str,
+) -> None:
     """Test that a config file with the wrong data structure fails validate."""
     run_and_check_cli(
         cli_args=[VALIDATE_COMMAND, OFFLINE_ONLY_ARG, minimal],
@@ -320,40 +488,45 @@ def test_config_list_error(
         check_text="structure",
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=submanager.exceptions.ConfigDataTypeError,
-        )
+    )
 
 
 @pytest.mark.parametrize("include_disabled", INCLUDE_DISABLED_ARGS)
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_OFFLINE, indirect=True)
 def test_valid_offline(
-        run_and_check_cli: RunAndCheckCLICallable,
-        file_config: submanager.models.config.ConfigPaths,
-        minimal: str,
-        include_disabled: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    file_config: submanager.models.config.ConfigPaths,
+    minimal: str,
+    include_disabled: str,
+) -> None:
     """Test that the test configs validate true in offline mode."""
     run_and_check_cli(
         cli_args=[
-            VALIDATE_COMMAND, OFFLINE_ONLY_ARG, minimal, include_disabled],
+            VALIDATE_COMMAND,
+            OFFLINE_ONLY_ARG,
+            minimal,
+            include_disabled,
+        ],
         config_paths=file_config,
         check_text="succe",
-        )
+    )
 
 
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_OFFLINE, indirect=True)
 def test_parsing_error(
-        run_and_check_cli: RunAndCheckCLICallable,
-        file_config: submanager.models.config.ConfigPaths,
-        minimal: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    file_config: submanager.models.config.ConfigPaths,
+    minimal: str,
+) -> None:
     """Test that config files with an invalid file format validate false."""
     with open(file_config.static, mode="r", encoding="utf-8") as config_file:
         config_file_text = config_file.read()
     config_file_text = config_file_text.replace('"', "", 1)
-    with open(file_config.static, mode="w",
-              encoding="utf-8", newline="\n") as config_file:
+    with open(
+        file_config.static, mode="w", encoding="utf-8", newline="\n"
+    ) as config_file:
         config_file.write(config_file_text)
 
     run_and_check_cli(
@@ -362,7 +535,7 @@ def test_parsing_error(
         check_text="pars",
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=submanager.exceptions.ConfigParsingError,
-        )
+    )
 
 
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
@@ -371,24 +544,26 @@ def test_parsing_error(
     list(BAD_VALIDATE_OFFLINE_PARAMS.values()),
     ids=list(BAD_VALIDATE_OFFLINE_PARAMS.keys()),
     indirect=["modified_config"],
-    )
+)
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_OFFLINE, indirect=True)
 def test_value_error(
-        run_and_check_cli: RunAndCheckCLICallable,
-        modified_config: submanager.models.config.ConfigPaths,
-        check_vars: ExpectedTuple,
-        minimal: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    modified_config: submanager.models.config.ConfigPaths,
+    check_vars: ExpectedTuple,
+    minimal: str,
+) -> None:
     """Test that config files with a bad value validate false."""
     check_text, check_error = check_vars
     cli_args = [VALIDATE_COMMAND, OFFLINE_ONLY_ARG, minimal]
-    if minimal and (check_error is None or (
-            check_error == submanager.exceptions.RedditReadOnlyError)):
+    if minimal and (
+        check_error is None
+        or (check_error == submanager.exceptions.RedditReadOnlyError)
+    ):
         run_and_check_cli(
             cli_args=cli_args,
             config_paths=modified_config,
             check_text="succe",
-            )
+        )
     else:
         run_and_check_cli(
             cli_args=cli_args,
@@ -396,12 +571,12 @@ def test_value_error(
             check_text=check_text,
             check_code=submanager.enums.ExitCode.ERROR_USER,
             check_error=check_error,
-            )
+        )
 
 
 def test_debug_error(
-        run_and_check_debug: RunAndCheckDebugCallable,
-        ) -> None:
+    run_and_check_debug: RunAndCheckDebugCallable,
+) -> None:
     """Test that --debug allows the error to bubble up and dump traceback."""
     run_and_check_debug([VALIDATE_COMMAND, OFFLINE_ONLY_ARG])
 
@@ -410,22 +585,21 @@ def test_debug_error(
 @pytest.mark.parametrize("offline_only", OFFLINE_ONLY_ARGS_SLOW)
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_ONLINE, indirect=True)
 def test_valid_online(
-        run_and_check_cli: RunAndCheckCLICallable,
-        file_config: submanager.models.config.ConfigPaths,
-        offline_only: str,
-        include_disabled: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    file_config: submanager.models.config.ConfigPaths,
+    offline_only: str,
+    include_disabled: str,
+) -> None:
     """Test that the test configs validate true in offline mode."""
     should_fail = bool(include_disabled and not offline_only)
     run_and_check_cli(
-        cli_args=[
-            VALIDATE_COMMAND, offline_only, include_disabled],
+        cli_args=[VALIDATE_COMMAND, offline_only, include_disabled],
         config_paths=file_config,
         check_text="access" if should_fail else "succe",
         check_exits=should_fail,
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=submanager.exceptions.RedditObjectNotAccessibleError,
-        )
+    )
 
 
 @pytest.mark.parametrize("offline_only", OFFLINE_ONLY_ARGS)
@@ -434,14 +608,14 @@ def test_valid_online(
     list(BAD_VALIDATE_ONLINE_PARAMS.values()),
     ids=list(BAD_VALIDATE_ONLINE_PARAMS.keys()),
     indirect=["modified_config"],
-    )
+)
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_ONLINE, indirect=True)
 def test_online_error(
-        run_and_check_cli: RunAndCheckCLICallable,
-        modified_config: submanager.models.config.ConfigPaths,
-        check_vars: ExpectedTuple,
-        offline_only: str,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    modified_config: submanager.models.config.ConfigPaths,
+    check_vars: ExpectedTuple,
+    offline_only: str,
+) -> None:
     """Test that config files that produce Reddit errors validate false."""
     check_text, check_error = check_vars
     cli_args = [VALIDATE_COMMAND, offline_only]
@@ -450,7 +624,7 @@ def test_online_error(
             cli_args=cli_args,
             config_paths=modified_config,
             check_text="succe",
-            )
+        )
     else:
         run_and_check_cli(
             cli_args=cli_args,
@@ -458,4 +632,4 @@ def test_online_error(
             check_text=check_text,
             check_code=submanager.enums.ExitCode.ERROR_USER,
             check_error=check_error,
-            )
+        )

@@ -8,19 +8,19 @@ from pathlib import Path
 from typing import (
     Collection,  # Import from collections.abc in Python 3.9
     Mapping,  # Import from collections.abc in Python 3.9
-    )
+)
 
 # Third party imports
 import pytest
 from _pytest.config import (
     Config,
-    )
+)
 from _pytest.config.argparsing import (
     Parser,
-    )
+)
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
-    )
+)
 
 
 # ---- Constants ----
@@ -32,6 +32,7 @@ RUN_ONLINE_OPTION: Final[str] = "--run-online"
 
 # ---- Hooks ----
 
+
 def pytest_addoption(parser: Parser) -> None:
     """Add an option to run online tests to the pytest argument parser."""
     parser.addoption(
@@ -39,11 +40,12 @@ def pytest_addoption(parser: Parser) -> None:
         action="store_true",
         default=False,
         help="Run tests that require interacting with live Reddit",
-        )
+    )
 
 
 def pytest_collection_modifyitems(
-        config: Config, items: list[pytest.Item]) -> None:
+    config: Config, items: list[pytest.Item]
+) -> None:
     """Ensure that online tests are skipped unless run online is passed."""
     if not config.getoption(RUN_ONLINE_OPTION):
         skip_online = pytest.mark.skip(reason="Needs --run-online")

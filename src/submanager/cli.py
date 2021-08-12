@@ -12,7 +12,7 @@ from typing import (
     Any,
     Callable,  # Import from collections.abc in Python 3.9
     Sequence,  # Import from collections.abc in Python 3.9
-    )
+)
 
 # Local imports
 import submanager
@@ -25,10 +25,10 @@ import submanager.utils.output
 from submanager.constants import (
     CONFIG_PATH_DYNAMIC,
     CONFIG_PATH_STATIC,
-    )
+)
 from submanager.types import (
     PathLikeStr,
-    )
+)
 
 
 def get_version_string() -> str:
@@ -45,33 +45,36 @@ def create_arg_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the CLI."""
     parser_main = argparse.ArgumentParser(
         description=(
-            "Manage subreddit threads, wiki pages, widgets, menus and more"),
-        argument_default=argparse.SUPPRESS)
+            "Manage subreddit threads, wiki pages, widgets, menus and more"
+        ),
+        argument_default=argparse.SUPPRESS,
+    )
     subparsers = parser_main.add_subparsers(
-        description="Subcommand to execute")
+        description="Subcommand to execute"
+    )
 
     # Top-level arguments
     parser_main.add_argument(
         "--version",
         action="store_true",
         help="Print the version number and exit",
-        )
+    )
     parser_main.add_argument(
         "--debug",
         action="store_true",
         default=False,
         help="Print full debug output instead of just user-friendly text",
-        )
+    )
     parser_main.add_argument(
         "--config-path",
         dest="config_path_static",
         help="The path to a custom static (user) config file to use",
-        )
+    )
     parser_main.add_argument(
         "--dynamic-config-path",
         dest="config_path_dynamic",
         help="The path to a custom dynamic (runtime) config file to use",
-        )
+    )
 
     # Get information about the current configuration
     info_desc = "Get information about the bot's configuration"
@@ -80,14 +83,13 @@ def create_arg_parser() -> argparse.ArgumentParser:
         description=info_desc,
         help=info_desc,
         argument_default=argparse.SUPPRESS,
-        )
-    parser_info.set_defaults(
-        func=submanager.core.commands.run_get_config_info)
+    )
+    parser_info.set_defaults(func=submanager.core.commands.run_get_config_info)
     parser_info.add_argument(
         "--endpoints",
         action="store_true",
         help="Get information about the config endpoints defined in the file",
-        )
+    )
 
     # Generate the config file
     generate_desc = "Generate the bot's config files"
@@ -96,19 +98,20 @@ def create_arg_parser() -> argparse.ArgumentParser:
         description=generate_desc,
         help=generate_desc,
         argument_default=argparse.SUPPRESS,
-        )
+    )
     parser_generate.set_defaults(
-        func=submanager.core.commands.run_generate_config)
+        func=submanager.core.commands.run_generate_config
+    )
     parser_generate.add_argument(
         "--force",
         action="store_true",
         help="Overwrite the existing static config with the default example",
-        )
+    )
     parser_generate.add_argument(
         "--exist-ok",
         action="store_true",
         help="Don't raise an error/warning if the config file already exists",
-        )
+    )
 
     # Validate the config file
     validate_desc = "Validate the bot's config files"
@@ -117,24 +120,25 @@ def create_arg_parser() -> argparse.ArgumentParser:
         description=validate_desc,
         help=validate_desc,
         argument_default=argparse.SUPPRESS,
-        )
+    )
     parser_validate.set_defaults(
-        func=submanager.core.commands.run_validate_config)
+        func=submanager.core.commands.run_validate_config
+    )
     parser_validate.add_argument(
         "--offline-only",
         action="store_true",
         help="Only validate the config locally; don't call out to Reddit",
-        )
+    )
     parser_validate.add_argument(
         "--minimal",
         action="store_true",
         help="Only perform the checks absolutely required for startup",
-        )
+    )
     parser_validate.add_argument(
         "--include-disabled",
         action="store_true",
         help="Validate disabled modules and endpoints as well as enabled ones",
-        )
+    )
 
     # Cycle the indicated threads
     cycle_desc = "Post new threads for the managed thread(s) passed"
@@ -143,13 +147,13 @@ def create_arg_parser() -> argparse.ArgumentParser:
         description=cycle_desc,
         help=cycle_desc,
         argument_default=argparse.SUPPRESS,
-        )
+    )
     parser_cycle.set_defaults(func=submanager.core.run.run_cycle_threads)
     parser_cycle.add_argument(
         "thread_keys",
         nargs="+",
         help="The keys of the threads to cycle, as listed in the config",
-        )
+    )
 
     # Run the bot once
     run_desc = "Run the bot through one cycle and exit"
@@ -158,19 +162,21 @@ def create_arg_parser() -> argparse.ArgumentParser:
         description=run_desc,
         help=run_desc,
         argument_default=argparse.SUPPRESS,
-        )
+    )
     parser_run.set_defaults(func=submanager.core.run.run_manage)
     parser_run.add_argument(
         "--skip-validate",
         action="store_true",
         help="Don't validate the config against Reddit prior to executing it",
-        )
+    )
     parser_run.add_argument(
         "--resync-all",
         action="store_true",
-        help=("Resync all targets and threads, even if the source hasn't been "
-              "modified; useful after adding targets & other config changes"),
-        )
+        help=(
+            "Resync all targets and threads, even if the source hasn't been "
+            "modified; useful after adding targets & other config changes"
+        ),
+    )
 
     # Start the bot running
     start_desc = "Start the bot running continuously until stopped or errored"
@@ -179,42 +185,44 @@ def create_arg_parser() -> argparse.ArgumentParser:
         description=start_desc,
         help=start_desc,
         argument_default=argparse.SUPPRESS,
-        )
+    )
     parser_start.set_defaults(func=submanager.core.run.start_manage)
     parser_start.add_argument(
         "--skip-validate",
         action="store_true",
         help="Don't validate the config against Reddit prior to executing it",
-        )
+    )
     parser_start.add_argument(
         "--repeat-interval-s",
         type=float,
         metavar="SECONDS",
-        help=("Run every SECONDS seconds; if not passed, uses the value "
-              "variable repeat_interval_s from the config file"),
-        )
+        help=(
+            "Run every SECONDS seconds; if not passed, uses the value "
+            "variable repeat_interval_s from the config file"
+        ),
+    )
     parser_start.add_argument(
         "--repeat-max-n",
         type=int,
         metavar="N",
         help="If passed, run only N times; useful for testing and debugging",
-        )
+    )
 
     return parser_main
 
 
 def run_toplevel_function(
-        func: Callable[..., None],
-        *,
-        config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
-        config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
-        **kwargs: Any,
-        ) -> None:
+    func: Callable[..., None],
+    *,
+    config_path_static: PathLikeStr = CONFIG_PATH_STATIC,
+    config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
+    **kwargs: Any,
+) -> None:
     """Dispatch to the top-level function, converting paths to objs."""
     config_paths = submanager.models.config.ConfigPaths(
         static=Path(config_path_static),
         dynamic=Path(config_path_dynamic),
-        )
+    )
     func(config_paths=config_paths, **kwargs)
 
 
@@ -232,7 +240,8 @@ def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
     except AttributeError as error:  # If function is not specified
         create_arg_parser().print_usage(file=sys.stderr)
         raise SystemExit(
-            submanager.enums.ExitCode.ERROR_PARAMETERS.value) from error
+            submanager.enums.ExitCode.ERROR_PARAMETERS.value
+        ) from error
     else:
         run_toplevel_function(**vars(parsed_args))
 
@@ -248,8 +257,9 @@ def cli(sys_argv: Sequence[str] | None = None) -> None:
         if debug:
             raise
         formatted_error = submanager.utils.output.format_error(error)
-        print(f"\n{'v' * 70}\n{formatted_error}\n{'^' * 70}\n",
-              file=sys.stderr)
+        print(
+            f"\n{'v' * 70}\n{formatted_error}\n{'^' * 70}\n", file=sys.stderr
+        )
         raise SystemExit(submanager.enums.ExitCode.ERROR_USER.value) from error
 
 

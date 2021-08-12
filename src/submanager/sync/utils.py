@@ -7,13 +7,13 @@ from __future__ import annotations
 import re
 from typing import (
     Mapping,  # Import from collections.abc in Python 3.9
-    )
+)
 
 # Third party imports
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
     Literal,  # Added to typing in Python 3.8
-    )
+)
 
 
 PATTERN_TEMPLATE: Final[str] = "[](/# {})"
@@ -39,7 +39,8 @@ def startend_to_pattern(start: str, end: str | None = None) -> str:
     """Convert a start and end string to capture everything between."""
     end = start if end is None else end
     pattern = r"(?<={start})(\s|\S)*(?={end})".format(
-        start=re.escape(start), end=re.escape(end))
+        start=re.escape(start), end=re.escape(end)
+    )
     return pattern
 
 
@@ -58,11 +59,11 @@ def pattern_to_pattern_md(pattern: str, start: str = "", end: str = "") -> str:
 
 
 def search_startend(
-        source_text: str,
-        pattern: str | Literal[False] | None = "",
-        start: str = "",
-        end: str = "",
-        ) -> re.Match[str] | Literal[False] | None:
+    source_text: str,
+    pattern: str | Literal[False] | None = "",
+    start: str = "",
+    end: str = "",
+) -> re.Match[str] | Literal[False] | None:
     """Match the text between the given Markdown pattern w/suffices."""
     if pattern is False or pattern is None or not (pattern or start or end):
         return False

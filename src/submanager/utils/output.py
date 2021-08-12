@@ -30,16 +30,16 @@ class FancyPrinter(VerbosePrinter):
     """Simple print wrapper with a few extra features."""
 
     def __init__(
-            self,
-            enable: bool = True,
-            *,
-            char: str = "#",
-            step: int = 6,
-            level: int | None = None,
-            sep: str = " ",
-            before: str = "",
-            after: str = "",
-            ) -> None:
+        self,
+        enable: bool = True,
+        *,
+        char: str = "#",
+        step: int = 6,
+        level: int | None = None,
+        sep: str = " ",
+        before: str = "",
+        after: str = "",
+    ) -> None:
         super().__init__(enable=enable)
         self.char = char
         self.step = step

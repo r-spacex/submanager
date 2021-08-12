@@ -8,7 +8,7 @@ import re
 from typing import (
     Pattern,
     TYPE_CHECKING,
-    )
+)
 
 # Third party imports
 import pydantic

@@ -9,28 +9,28 @@ from typing import (
     Optional,  # Not needed in Python 3.10
     Tuple,  # Not needed in Python 3.9
     Type,  # Not needed in Python 3.9
-    )
+)
 
 # Third party imports
 import pytest
 from _pytest.mark.structures import (
     MarkDecorator,
-    )
+)
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager.exceptions
 import submanager.models.config
 from submanager.types import (
     ConfigDict,
-    )
+)
 from tests.functional.conftest import (
     CONFIG_PATHS_ONLINE,
     RunAndCheckCLICallable,
     RunAndCheckDebugCallable,
-    )
+)
 
 
 # ---- Types ----
@@ -42,7 +42,7 @@ RunConfigTuple = Tuple[
     str,
     Optional[Type[submanager.exceptions.SubManagerUserError]],
     Optional[List[MarkDecorator]],
-    ]
+]
 
 
 # ---- Constants ----
@@ -65,7 +65,7 @@ TEST_CONFIG_VAR_NAMES: Final[list[str]] = [
     "cli_args_start",
     "check_text",
     "check_error",
-    ]
+]
 TEST_CONFIGS: Final[list[RunConfigTuple]] = [
     (
         {"accounts": None},
@@ -74,16 +74,19 @@ TEST_CONFIGS: Final[list[RunConfigTuple]] = [
         "account",
         submanager.exceptions.ConfigValidationError,
         None,
-        ),
+    ),
     (
-        {"accounts": {"testbot": {"config": {
-            "client_id": PSEUDORANDOM_STRING}}}},
+        {
+            "accounts": {
+                "testbot": {"config": {"client_id": PSEUDORANDOM_STRING}}
+            }
+        },
         [],
         [REPEAT_MAX_N_ARG, "1"],
         "scope",
         submanager.exceptions.ScopeCheckError,
         [pytest.mark.online],
-        ),
+    ),
     (
         {},
         [SKIP_VALIDATE_ARG, RESYNC_ALL_ARG],
@@ -91,38 +94,41 @@ TEST_CONFIGS: Final[list[RunConfigTuple]] = [
         "complet",
         None,
         [pytest.mark.online, pytest.mark.slow],
-        ),
-    ]
+    ),
+]
 TEST_CONFIGS_MARKED: Final = [
     pytest.param(*config[:-1], marks=config[-1])
-    if config[-1] is not None else config[:-1] for config in TEST_CONFIGS
-    ]
+    if config[-1] is not None
+    else config[:-1]
+    for config in TEST_CONFIGS
+]
 TEST_IDS: Final[list[str]] = [
     "invalid_noskip_minimal",
     "invalid_noskip_validate",
     "valid_skipvalidate",
-    ]
+]
 
 
 # ---- Tests ----
+
 
 @pytest.mark.parametrize(
     TEST_CONFIG_VAR_NAMES,
     TEST_CONFIGS_MARKED,
     ids=TEST_IDS,
     indirect=["modified_config"],
-    )
+)
 @pytest.mark.parametrize("file_config", CONFIG_PATHS_ONLINE, indirect=True)
 @pytest.mark.parametrize("command", COMMANDS)
 def test_start_run(
-        run_and_check_cli: RunAndCheckCLICallable,
-        modified_config: submanager.models.config.ConfigPaths,
-        command: str,
-        cli_args_run: list[str],
-        cli_args_start: list[str],
-        check_text: str,
-        check_error: type[BaseException] | None,
-        ) -> None:
+    run_and_check_cli: RunAndCheckCLICallable,
+    modified_config: submanager.models.config.ConfigPaths,
+    command: str,
+    cli_args_run: list[str],
+    cli_args_start: list[str],
+    check_text: str,
+    check_error: type[BaseException] | None,
+) -> None:
     """Test that the test configs validate true in offline mode."""
     if command == "run":
         cli_args = cli_args_run
@@ -138,13 +144,13 @@ def test_start_run(
         check_exits=bool(check_error),
         check_code=submanager.enums.ExitCode.ERROR_USER,
         check_error=check_error,
-        )
+    )
 
 
 @pytest.mark.parametrize("command", COMMANDS)
 def test_debug_error(
-        run_and_check_debug: RunAndCheckDebugCallable,
-        command: str,
-        ) -> None:
+    run_and_check_debug: RunAndCheckDebugCallable,
+    command: str,
+) -> None:
     """Test that --debug allows the error to bubble up and dump traceback."""
     run_and_check_debug([command])

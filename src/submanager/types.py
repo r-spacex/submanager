@@ -16,7 +16,7 @@ from typing import (
     Type,  # Not needed in Python 3.9
     TYPE_CHECKING,
     Union,  # Not needed in Python 3.10
-    )
+)
 
 # Third party imports
 import praw.reddit

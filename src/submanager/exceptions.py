@@ -9,7 +9,7 @@ import configparser
 from pathlib import Path
 from typing import (
     ClassVar,
-    )
+)
 
 # Third party imports
 import praw.exceptions
@@ -17,7 +17,7 @@ import prawcore.exceptions
 import requests.exceptions
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager.models.base
@@ -25,7 +25,7 @@ import submanager.utils.output
 from submanager.types import (
     ExceptTuple,
     PathLikeStr,
-    )
+)
 
 
 # ---- Exception groups ----
@@ -33,17 +33,17 @@ from submanager.types import (
 PRAW_NOTFOUND_ERRORS: Final[ExceptTuple] = (
     prawcore.exceptions.NotFound,
     prawcore.exceptions.Redirect,
-    )
+)
 
 PRAW_FORBIDDEN_ERRORS: Final[ExceptTuple] = (
     prawcore.exceptions.Forbidden,
     prawcore.exceptions.UnavailableForLegalReasons,
-    )
+)
 
 PRAW_RETRIVAL_ERRORS: Final[ExceptTuple] = (
     *PRAW_NOTFOUND_ERRORS,
     *PRAW_FORBIDDEN_ERRORS,
-    )
+)
 
 PRAW_AUTHORIZATION_ERRORS: Final[ExceptTuple] = (
     praw.exceptions.InvalidImplicitAuth,
@@ -52,44 +52,46 @@ PRAW_AUTHORIZATION_ERRORS: Final[ExceptTuple] = (
     prawcore.exceptions.InsufficientScope,
     prawcore.exceptions.InvalidToken,
     prawcore.exceptions.OAuthException,
-    )
+)
 
 PRAW_REDDIT_ERRORS: Final[ExceptTuple] = (
     praw.exceptions.RedditAPIException,
     prawcore.exceptions.ResponseException,
-    )
+)
 
 PRAW_ALL_ERRORS: Final[ExceptTuple] = (
     praw.exceptions.PRAWException,
     prawcore.exceptions.PrawcoreException,
     configparser.Error,
-    )
+)
 
 REQUESTS_CONNECTIVITY_ERROS: Final[ExceptTuple] = (
     requests.exceptions.ConnectionError,
     requests.exceptions.Timeout,
-    )
+)
 
 
 # ---- Base exception classes
+
 
 class SubManagerError(Exception):
     """Base class for errors raised by Sub Manager."""
 
     def __init__(
-            self,
-            message: str,
-            *,
-            message_pre: str | None = None,
-            message_post: str | BaseException | None = None,
-            ) -> None:
+        self,
+        message: str,
+        *,
+        message_pre: str | None = None,
+        message_post: str | BaseException | None = None,
+    ) -> None:
         message = message.strip(" ")
         if message_pre is not None:
             message = f"{message_pre.strip(' ')} {message}"
         if message_post is not None:
             if isinstance(message_post, BaseException):
                 message_post = submanager.utils.output.format_error(
-                    message_post)
+                    message_post
+                )
             message = f"{message}\n\n{message_post.strip(' ')}"
         super().__init__(message)
 
@@ -106,12 +108,12 @@ class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
     _message_post: ClassVar[str | None] = None
 
     def __init__(
-            self,
-            *,
-            message_pre: str | None = None,
-            message_post: str | BaseException | None = None,
-            **extra_fillables: str,
-            ) -> None:
+        self,
+        *,
+        message_pre: str | None = None,
+        message_post: str | BaseException | None = None,
+        **extra_fillables: str,
+    ) -> None:
         if message_pre is None:
             message_pre = self._message_pre
         if message_post is None:
@@ -121,7 +123,7 @@ class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
             message=message,
             message_pre=message_pre,
             message_post=message_post,
-            )
+        )
 
 
 class ErrorWithConfigItem(ErrorFillable):
@@ -131,19 +133,20 @@ class ErrorWithConfigItem(ErrorFillable):
     _message_template: ClassVar[str] = "in item {config}"
 
     def __init__(
-            self,
-            config_item: submanager.models.base.ItemConfig,
-            *,
-            message_pre: str | None = None,
-            message_post: str | BaseException | None = None,
-            **extra_fillables: str,
-            ) -> None:
+        self,
+        config_item: submanager.models.base.ItemConfig,
+        *,
+        message_pre: str | None = None,
+        message_post: str | BaseException | None = None,
+        **extra_fillables: str,
+    ) -> None:
         self.config_item = config_item
         super().__init__(
             message_pre=message_pre,
             message_post=message_post,
             config=f"{config_item.uid} - {config_item.description!r}",
-            **extra_fillables)
+            **extra_fillables,
+        )
 
 
 class SubManagerValueError(SubManagerError, ValueError):
@@ -151,6 +154,7 @@ class SubManagerValueError(SubManagerError, ValueError):
 
 
 # ---- Reddit-related exceptions ----
+
 
 class RedditError(SubManagerError):
     """Something went wrong with the data returned from the Reddit API."""
@@ -169,7 +173,8 @@ class RedditHTTPError(RedditConnectionError):
 
 
 class RedditObjectNotFoundError(
-        ErrorWithConfigItem, RedditError, SubManagerUserError):
+    ErrorWithConfigItem, RedditError, SubManagerUserError
+):
     """Could not find the object on Reddit."""
 
 
@@ -191,12 +196,14 @@ class WidgetTypeError(ErrorWithConfigItem, RedditError, SubManagerUserError):
 
 # ---- Permissions exceptions ----
 
+
 class RedditPermissionError(RedditError, SubManagerUserError):
     """Errors related to not having Reddit permissions to perform an action."""
 
 
 class RedditObjectNotAccessibleError(
-        ErrorWithConfigItem, RedditPermissionError):
+    ErrorWithConfigItem, RedditPermissionError
+):
     """Found the object but could not access it with the current account."""
 
 
@@ -218,6 +225,7 @@ class WikiPagePermissionError(ErrorWithConfigItem, RedditPermissionError):
 
 # ---- Account and authorization-related exceptions ----
 
+
 class TestPageNotFoundWarning(DeprecationWarning):
     """A sub/page checked for account authorization was not found."""
 
@@ -230,23 +238,23 @@ class ErrorWithAccount(ErrorFillable):
     """Something's wrong with the Reddit account configuration."""
 
     _message_pre: ClassVar[str] = "Error"
-    _message_template: ClassVar[str] = (
-        "with account {account_key!r}")
+    _message_template: ClassVar[str] = "with account {account_key!r}"
 
     def __init__(
-            self,
-            account_key: str,
-            *,
-            message_pre: str | None = None,
-            message_post: str | BaseException | None = None,
-            **extra_fillables: str,
-            ) -> None:
+        self,
+        account_key: str,
+        *,
+        message_pre: str | None = None,
+        message_post: str | BaseException | None = None,
+        **extra_fillables: str,
+    ) -> None:
         self.account_key = account_key
         super().__init__(
             message_pre=message_pre,
             message_post=message_post,
             account_key=account_key,
-            **extra_fillables)
+            **extra_fillables,
+        )
 
 
 class ScopeCheckError(ErrorWithAccount, RedditError, SubManagerUserError):
@@ -279,6 +287,7 @@ class InsufficientScopeError(ErrorWithConfigItem, AuthError):
 
 # ---- Config-related exceptions ----
 
+
 class ConfigError(SubManagerUserError):
     """There is a problem with the Sub Manager configuration."""
 
@@ -287,23 +296,25 @@ class ConfigErrorWithPath(ErrorFillable, ConfigError):
     """Config errors that involve a config file at a specific path."""
 
     _message_pre: ClassVar[str] = "Error"
-    _message_template: ClassVar[str] = (
-        "for config file at path {config_path!r}")
+    _message_template: ClassVar[
+        str
+    ] = "for config file at path {config_path!r}"
 
     def __init__(
-            self,
-            config_path: PathLikeStr,
-            *,
-            message_pre: str | None = None,
-            message_post: str | BaseException | None = None,
-            **extra_fillables: str,
-            ) -> None:
+        self,
+        config_path: PathLikeStr,
+        *,
+        message_pre: str | None = None,
+        message_post: str | BaseException | None = None,
+        **extra_fillables: str,
+    ) -> None:
         self.config_path = Path(config_path)
         super().__init__(
             message_pre=message_pre,
             message_post=message_post,
             config_path=self.config_path.as_posix(),
-            **extra_fillables)
+            **extra_fillables,
+        )
 
 
 class ConfigNotFoundError(ConfigErrorWithPath):
@@ -362,6 +373,7 @@ class AccountConfigError(ErrorWithAccount, ConfigError):
 
 
 # ---- Misc errors ----
+
 
 class LockTimeoutError(SubManagerError):
     """The timeout was exceeded while attempting to acquire a file lock."""

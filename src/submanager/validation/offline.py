@@ -11,13 +11,13 @@ import submanager.utils.output
 
 
 def validate_offline_config(
-        static_config: submanager.models.config.StaticConfig,
-        config_paths: submanager.models.config.ConfigPaths | None = None,
-        *,
-        error_default: bool = True,
-        raise_error: bool = True,
-        verbose: bool = False
-        ) -> bool:
+    static_config: submanager.models.config.StaticConfig,
+    config_paths: submanager.models.config.ConfigPaths | None = None,
+    *,
+    error_default: bool = True,
+    raise_error: bool = True,
+    verbose: bool = False,
+) -> bool:
     """Validate config locally without connecting to Reddit."""
     vprint = submanager.utils.output.VerbosePrinter(verbose)
     if config_paths is None:
@@ -27,7 +27,8 @@ def validate_offline_config(
     if error_default:
         vprint("Checking that config has been set up")
         if static_config.accounts == (
-                submanager.models.example.EXAMPLE_ACCOUNTS):
+            submanager.models.example.EXAMPLE_ACCOUNTS
+        ):
             if not raise_error:
                 return False
             raise submanager.exceptions.ConfigDefaultError(config_paths.static)

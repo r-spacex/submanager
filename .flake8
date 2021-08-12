@@ -21,6 +21,8 @@ ignore =
     W503,
     # D107 Ignore missing docstring in __init__
     D107,
+    # Closing bracket indentation incompatible with black
+    E133,
 count = True
 statistics = True
 jobs = 1

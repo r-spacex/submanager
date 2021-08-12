@@ -7,7 +7,7 @@ from __future__ import annotations
 import packaging.version
 from typing_extensions import (
     Final,  # Added to typing in Python 3.8
-    )
+)
 
 # Local imports
 import submanager
@@ -19,6 +19,7 @@ BASELINE_VERSION: Final[str] = "0.5.0"
 
 
 # ---- Tests ----
+
 
 def test_version() -> None:
     """Check that the package version exists and parses correctly."""

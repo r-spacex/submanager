@@ -113,7 +113,7 @@ repeat_interval_s = 60
                 description = "Non existent source"
 
             [sync_manager.items.disabled_sync_item.targets]
-                [sync_manager.items.disabled_sync_item.targets.non_existant_target]
+                [sync_manager.items.disabled_sync_item.targets.non_existant]
                     context.subreddit = "SubManagerTesting2"
                     description = "Non existent target"
                     enabled = false
