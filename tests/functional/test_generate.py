@@ -1,26 +1,27 @@
 """Test that the generate-config command works as expected in the CLI."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Third party imports
 import pytest
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports
 import submanager.core.initialization
-import submanager.validation.validate
 import submanager.enums
 import submanager.exceptions
 import submanager.models.config
+import submanager.validation.validate
 from tests.functional.conftest import (
     CONFIG_EXTENSIONS_BAD,
     DEBUG_ARGS,
     RunAndCheckCLICallable,
 )
-
 
 # ---- Constants ----
 

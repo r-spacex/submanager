@@ -1,11 +1,13 @@
 """Validate basic connectivity to Reddit."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 from typing import (
-    Collection,  # Import from collections.abc in Python 3.9
+    Collection,
 )
 
 # Third party imports

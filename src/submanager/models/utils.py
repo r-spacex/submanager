@@ -1,7 +1,9 @@
 """Tools for parsing, conversion and utilities on Pydantic models."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 
 class MissingAccount:

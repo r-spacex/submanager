@@ -2,7 +2,9 @@
 """Main-level Sub Manager entry point."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Local imports
 import submanager.cli

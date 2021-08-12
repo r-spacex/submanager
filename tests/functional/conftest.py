@@ -1,25 +1,29 @@
 """Common functional test fixtures."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import copy
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 from typing import (
+    TYPE_CHECKING,
     Any,
-    Callable,  # Import from collections.abc in Python 3.9
-    MutableMapping,  # Import from collections.abc in Python 3.9
-    Optional,  # Not needed in Python 3.10
-    Sequence,  # Import from collections.abc in Python 3.9
-    Tuple,  # Not needed in Python 3.9
-    Type,  # Not needed in Python 3.9
-    TYPE_CHECKING,  # Not needed in Python 3.9
+    Callable,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
     TypeVar,
-    Union,  # Not needed in Python 3.10
+    Union,
 )
 
 # Third party imports
@@ -28,9 +32,9 @@ from _pytest.capture import (
     CaptureResult,
 )
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
-    Literal,  # Added to typing in Python 3.8
-    Protocol,  # Added to typing in Python 3.8
+    Final,
+    Literal,
+    Protocol,
 )
 
 # Local imports
@@ -43,7 +47,6 @@ import submanager.utils.misc
 from tests.conftest import (
     PACKAGE_NAME,
 )
-
 
 # ---- Types ----
 

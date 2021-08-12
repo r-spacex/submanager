@@ -2,7 +2,9 @@
 """Base classes for building the models used by the package."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import abc

@@ -1,18 +1,19 @@
 """Common Pydantic parsing and validation types used by models."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import re
 from typing import (
-    Pattern,
     TYPE_CHECKING,
+    Pattern,
 )
 
 # Third party imports
 import pydantic
-
 
 # Hack so that mypy interprets the Pydantic validation types correctly
 

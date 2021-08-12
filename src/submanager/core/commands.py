@@ -1,10 +1,14 @@
 """Handle the high-level commands other than the core run code."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 
 # Local imports
 import submanager.config.static

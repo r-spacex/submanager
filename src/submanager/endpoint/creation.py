@@ -1,18 +1,20 @@
 """Registration and generation of sync endpoints."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 from typing import (
-    Mapping,  # Import from collections.abc in Python 3.9
+    Mapping,
 )
 
 # Third party imports
 import praw.reddit
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
-    Type,  # Not needed in Python 3.9
+    Final,
+    Type,
 )
 
 # Local imports
@@ -20,7 +22,6 @@ import submanager.endpoint.base
 import submanager.endpoint.endpoints
 import submanager.enums
 import submanager.models.config
-
 
 EndpointClass = Type[submanager.endpoint.base.SyncEndpoint]
 

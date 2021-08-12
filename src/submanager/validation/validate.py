@@ -1,7 +1,9 @@
 """Perform validation on the configuration and environment."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Local imports
 import submanager.core.initialization

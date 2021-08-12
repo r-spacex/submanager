@@ -1,7 +1,9 @@
 """Validate the configuration without making network requests."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Local imports
 import submanager.exceptions

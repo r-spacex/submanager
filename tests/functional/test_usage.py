@@ -1,13 +1,15 @@
 """Test that basic CLI usage is handled properly."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Third party imports
 import pytest
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
-    Literal,  # Added to typing in Python 3.8
+    Final,
+    Literal,
 )
 
 # Local imports
@@ -16,7 +18,6 @@ from tests.functional.conftest import (
     DEBUG_ARGS,
     RunAndCheckCLICallable,
 )
-
 
 # ---- Constants ----
 

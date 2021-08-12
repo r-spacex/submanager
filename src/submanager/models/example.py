@@ -1,23 +1,24 @@
 """Example configuration setup for the package."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 from typing import (
     Any,
-    Mapping,  # Import from collections.abc in Python 3.9
+    Mapping,
 )
 
 # Third party imports
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports
 import submanager.models.base
 import submanager.models.config
-
 
 # ---- General constants ----
 

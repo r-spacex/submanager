@@ -1,7 +1,9 @@
 """Validate source and target sync endpoint objects."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Third party imports
 import prawcore.exceptions

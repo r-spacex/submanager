@@ -1,21 +1,24 @@
 """Package-level physical, path and general global constants."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import time
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 
 # Third party imports
 import platformdirs
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports
 import submanager
-
 
 # ---- General constants ----
 

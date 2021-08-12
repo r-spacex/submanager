@@ -109,7 +109,13 @@ repos:
   rev: '21.7b0'
   hooks:
   - id: black
-    name: Format Python
+    name: Format Python with Black
+
+- repo: https://github.com/pycqa/isort
+  rev: 5.9.3
+  hooks:
+  - id: isort
+    name: Format Python imports with isort
 
 # Check Python
 - repo: https://github.com/pre-commit/pre-commit-hooks

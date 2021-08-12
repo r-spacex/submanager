@@ -1,14 +1,17 @@
 """Subreddit menu parsing and generation."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
+# Standard library imports
 # Standard libraryu imports
 import re
 
 # Third party imports
 from typing_extensions import (
-    Literal,  # Added to typing in Python 3.8
+    Literal,
 )
 
 # Local imports
@@ -18,7 +21,6 @@ from submanager.types import (
     MenuData,
     SectionData,
 )
-
 
 # ---- Text processing utilities ----
 

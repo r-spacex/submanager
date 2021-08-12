@@ -1,15 +1,19 @@
 """Load, render, generate and saving of the main static config file."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import copy
 import json
 import json.decoder
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 from typing import (
-    Collection,  # Import from collections.abc in Python 3.9
+    Collection,
     TypeVar,
 )
 

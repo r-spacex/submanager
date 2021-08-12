@@ -1,7 +1,9 @@
 """Setup and initialization code for the core routines."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Third party imports
 import praw.reddit

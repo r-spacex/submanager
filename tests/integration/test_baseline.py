@@ -1,7 +1,9 @@
 """Basic integrated smoke tests for the package."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import importlib
@@ -9,7 +11,6 @@ import pkgutil
 from types import (
     ModuleType,
 )
-
 
 # ---- Helper functions ----
 

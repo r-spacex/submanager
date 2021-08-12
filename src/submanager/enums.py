@@ -1,13 +1,15 @@
 """Common enums and enum types used throughout the package."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import enum
 
-
 # ---- Enum subclasses ----
+
 
 # Replace with StrEnum in Python 3.10 (?)
 class StrValueEnum(enum.Enum):

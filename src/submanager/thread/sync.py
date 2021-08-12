@@ -1,7 +1,9 @@
 """Sync automatically-managed threads from a source endpoint."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Local imports
 import submanager.enums

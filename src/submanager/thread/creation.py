@@ -1,7 +1,9 @@
 """Perform the tasks necessary to create a new thread and deprecate the old."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import re
@@ -12,8 +14,8 @@ import praw.models.reddit.submission
 import praw.reddit
 import prawcore.exceptions
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
-    Literal,  # Added to typing in Python 3.8
+    Final,
+    Literal,
 )
 
 # Local imports
@@ -30,7 +32,6 @@ from submanager.types import (
     AccountsMap,
     TemplateVars,
 )
-
 
 # ---- Constants ----
 

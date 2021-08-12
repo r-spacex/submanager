@@ -1,20 +1,21 @@
 """Utilities to match patterns, clean up text and prepare it for syncing."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import re
 from typing import (
-    Mapping,  # Import from collections.abc in Python 3.9
+    Mapping,
 )
 
 # Third party imports
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
-    Literal,  # Added to typing in Python 3.8
+    Final,
+    Literal,
 )
-
 
 PATTERN_TEMPLATE: Final[str] = "[](/# {})"
 

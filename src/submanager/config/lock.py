@@ -1,16 +1,20 @@
 """Handle with locking and unlocking the configuration file."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import os
 import time
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 
 # Third party imports
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports
@@ -21,7 +25,6 @@ from submanager.constants import (
 from submanager.types import (
     PathLikeStr,
 )
-
 
 LOCK_FILENAME_TEMPLATE: Final[str] = "~{}.lock"
 

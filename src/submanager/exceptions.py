@@ -1,12 +1,16 @@
 """Errors and warnings for the package."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import abc
 import configparser
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 from typing import (
     ClassVar,
 )
@@ -16,7 +20,7 @@ import praw.exceptions
 import prawcore.exceptions
 import requests.exceptions
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports
@@ -26,7 +30,6 @@ from submanager.types import (
     ExceptTuple,
     PathLikeStr,
 )
-
 
 # ---- Exception groups ----
 

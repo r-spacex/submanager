@@ -2,16 +2,20 @@
 """Main-level command handling for running on the command line."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import argparse
 import sys
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 from typing import (
     Any,
-    Callable,  # Import from collections.abc in Python 3.9
-    Sequence,  # Import from collections.abc in Python 3.9
+    Callable,
+    Sequence,
 )
 
 # Local imports

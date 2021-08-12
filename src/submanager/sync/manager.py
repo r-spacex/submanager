@@ -1,7 +1,9 @@
 """Sync between a source endpoint and one or more targets."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Local imports
 import submanager.endpoint.creation

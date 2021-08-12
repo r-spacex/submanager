@@ -1,19 +1,20 @@
 """Miscallanious utility functions and classes."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import copy
 from typing import (
     Any,
-    Callable,  # Import from collections.abc in Python 3.9
-    Collection,  # Import from collections.abc in Python 3.9
-    Mapping,  # Import from collections.abc in Python 3.9
-    MutableMapping,  # Import from collections.abc in Python 3.9
+    Callable,
+    Collection,
+    Mapping,
+    MutableMapping,
     TypeVar,
 )
-
 
 # Constants and types
 KeyType = TypeVar("KeyType")

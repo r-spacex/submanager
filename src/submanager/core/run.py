@@ -1,12 +1,14 @@
 """Start the mainloop and run the bot."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import time
 from typing import (
-    Collection,  # Import from collections.abc in Python 3.9
+    Collection,
 )
 
 # Local imports

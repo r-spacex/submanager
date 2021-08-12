@@ -1,20 +1,24 @@
 """Low level utilities to load, serialize, and save config files."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import json
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 from typing import (
-    Mapping,  # Import from collections.abc in Python 3.9
+    Mapping,
 )
 
 # Third party imports
 import pydantic
 import toml
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports

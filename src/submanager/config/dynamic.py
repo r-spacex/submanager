@@ -1,21 +1,24 @@
 """Load, render, generate and saving of the dynamic config file."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import contextlib
 import copy
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 from types import (
     TracebackType,
 )
 
 # Third party imports
 from typing_extensions import (
-    Literal,  # Added to typing in Python 3.8
+    Literal,
 )
-
 
 # Local imports
 import submanager.config.lock

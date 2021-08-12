@@ -1,7 +1,9 @@
 """Utility functions and classes for handling and printing output."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 
 def format_error(error: BaseException) -> str:

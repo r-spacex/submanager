@@ -1,21 +1,23 @@
 """Test that the validate-config command validates the configuration."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 from typing import (
-    Dict,  # Not needed in Python 3.9
-    Optional,  # Not needed in Python 3.10
-    Tuple,  # Not needed in Python 3.9
-    Type,  # Not needed in Python 3.9
-    Union,  # Not needed in Python 3.10
+    Dict,
+    Optional,
+    Tuple,
+    Type,
+    Union,
 )
 
 # Third party imports
 import pytest
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports
@@ -33,7 +35,6 @@ from tests.functional.conftest import (
     RunAndCheckCLICallable,
     RunAndCheckDebugCallable,
 )
-
 
 # ---- Types ----
 

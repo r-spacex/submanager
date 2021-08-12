@@ -1,14 +1,16 @@
 """Builtin classes for sync endpoints."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Third party imports
 import praw.models.reddit.submission
 import praw.models.reddit.widgets
 import prawcore.exceptions
 from typing_extensions import (
-    Literal,  # Added to typing in Python 3.8
+    Literal,
 )
 
 # Local imports

@@ -1,9 +1,9 @@
 """Perform the tasks necessary to create a new thread and deprecate the old."""
 
 # Future imports
-from __future__ import annotations
-
-# Standard library imports
+from __future__ import (
+    annotations,
+)
 
 # Local imports
 import submanager.models.config

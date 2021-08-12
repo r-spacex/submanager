@@ -1,15 +1,17 @@
 """Test that the cycle-thread command works as expected."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 from typing import (
-    List,  # Not needed in Python 3.9
-    Optional,  # Not needed in Python 3.10
-    Tuple,  # Not needed in Python 3.9
-    Type,  # Not needed in Python 3.9
-    Union,  # Not needed in Python 3.10
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
 )
 
 # Third party imports
@@ -18,8 +20,8 @@ from _pytest.mark.structures import (
     MarkDecorator,
 )
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
-    Literal,  # Added to typing in Python 3.8
+    Final,
+    Literal,
 )
 
 # Local imports
@@ -29,7 +31,6 @@ from tests.functional.conftest import (
     CONFIG_PATHS_ONLINE,
     RunAndCheckCLICallable,
 )
-
 
 # ---- Types ----
 

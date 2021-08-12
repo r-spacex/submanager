@@ -1,13 +1,17 @@
 """Common top-level test fixtures."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 from typing import (
-    Collection,  # Import from collections.abc in Python 3.9
-    Mapping,  # Import from collections.abc in Python 3.9
+    Collection,
+    Mapping,
 )
 
 # Third party imports
@@ -19,9 +23,8 @@ from _pytest.config.argparsing import (
     Parser,
 )
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
-
 
 # ---- Constants ----
 

@@ -1,12 +1,14 @@
 """Basic tests of invoking the main entrypoint."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Third party imports
 import pytest
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports
@@ -14,7 +16,6 @@ import submanager.enums
 from tests.functional.conftest import (
     InvokeCommandCallable,
 )
-
 
 # ---- Constants ----
 

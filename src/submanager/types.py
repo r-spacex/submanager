@@ -1,26 +1,27 @@
 """Types and type aliases used by the package."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import datetime
 import os
 from typing import (
-    Any,
-    List,  # Not needed in Python 3.9
-    Mapping,  # Import from collections.abc in Python 3.9
-    MutableMapping,  # Import from collections.abc in Python 3.9
-    NewType,
-    Tuple,  # Not needed in Python 3.9
-    Type,  # Not needed in Python 3.9
     TYPE_CHECKING,
-    Union,  # Not needed in Python 3.10
+    Any,
+    List,
+    Mapping,
+    MutableMapping,
+    NewType,
+    Tuple,
+    Type,
+    Union,
 )
 
 # Third party imports
 import praw.reddit
-
 
 if TYPE_CHECKING:
     PathLikeStr = Union["os.PathLike[str]", str]

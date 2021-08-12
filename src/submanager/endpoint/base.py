@@ -1,18 +1,20 @@
 """Base classes for sync endpoints."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import abc
 
 # Third party imports
-import praw.reddit
 import praw.models.reddit.subreddit
+import praw.reddit
 import prawcore.exceptions
 from typing_extensions import (
-    Protocol,  # Added to typing in Python 3.8
-    runtime_checkable,  # Added to typing in Python 3.8
+    Protocol,
+    runtime_checkable,
 )
 
 # Local imports
@@ -21,7 +23,6 @@ import submanager.models.config
 from submanager.types import (
     MenuData,
 )
-
 
 # ---- Protocols ----
 

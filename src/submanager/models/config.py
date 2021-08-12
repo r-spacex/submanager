@@ -3,27 +3,31 @@
 
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import datetime
 import re
-from pathlib import Path
+from pathlib import (
+    Path,
+)
 from typing import (
     Any,
-    Mapping,  # Import from collections.abc in Python 3.9
-    MutableMapping,  # Import from collections.abc in Python 3.9
+    Mapping,
+    MutableMapping,
     NewType,
-    Sequence,  # Import from collections.abc in Python 3.9
-    Union,  # Not needed in Python 3.10
+    Sequence,
+    Union,
 )
 
 # Third party imports
 import dateutil.relativedelta
 import pydantic
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
-    Literal,  # Added to typing in Python 3.8
+    Final,
+    Literal,
 )
 
 # Local imports
@@ -40,7 +44,6 @@ from submanager.models.types import (
     StrPattern,
     ThreadIDStr,
 )
-
 
 # ---- Module-level constants ----
 

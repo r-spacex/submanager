@@ -1,19 +1,21 @@
 """Validate each Reddit object registered for a configuration."""
 
 # Future imports
-from __future__ import annotations
+from __future__ import (
+    annotations,
+)
 
 # Standard library imports
 import enum
 import warnings
 from typing import (
-    Collection,  # Import from collections.abc in Python 3.9
+    Collection,
 )
 
 # Third party imports
 import praw.reddit
 from typing_extensions import (
-    Final,  # Added to typing in Python 3.8
+    Final,
 )
 
 # Local imports
@@ -22,7 +24,6 @@ import submanager.utils.output
 from submanager.types import (
     AccountsMap,
 )
-
 
 # ---- Constants and enums ----
 
