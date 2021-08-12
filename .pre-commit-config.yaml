@@ -117,6 +117,31 @@ repos:
   hooks:
   - id: flake8
     name: Lint Python with Flake8
+    additional_dependencies:
+    - 'flake8-bugbear==21.4.3'
+    - 'flake8-docstrings==1.6.0'
+    - 'pydocstyle==6.1.1'
+
+- repo: local
+  hooks:
+  - id: mypy
+    name: Lint Python with MyPy
+    entry: 'mypy .'
+    language: system
+    types: [python]
+    pass_filenames: false
+  - id: pyanalyze
+    name: Lint Python with PyAnalyze
+    entry: 'python -b -X dev -W error -m pyanalyze .'
+    args: [--autofix, --enable-all, '-d', invalid_annotation]
+    language: system
+    types: [python]
+    pass_filenames: false
+  - id: pylint
+    name: Lint Python with Pylint
+    entry: pylint
+    language: system
+    types: [python]
 
 # Check TOML
 - repo: https://github.com/pre-commit/pre-commit-hooks
