@@ -51,7 +51,7 @@ def unlock_config(
     if not lock_file_path.exists():
         return None
 
-    with open(lock_file_path, mode="r", encoding="utf-8") as lock_file:
+    with open(lock_file_path, encoding="utf-8") as lock_file:
         pid = lock_file.read()
     if int(pid.strip()) != os.getpid():
         return False
@@ -74,7 +74,7 @@ def lock_config(config_path: PathLikeStr = CONFIG_PATH_DYNAMIC) -> bool:
             os.fsync(lock_file.fileno())
     else:
         return False
-    with open(lock_file_path, mode="r", encoding="utf-8") as lock_file:
+    with open(lock_file_path, encoding="utf-8") as lock_file:
         lock_pid = lock_file.read()
     return int(lock_pid.strip()) == os.getpid()
 

@@ -522,7 +522,7 @@ def test_parsing_error(
     minimal: str,
 ) -> None:
     """Test that config files with an invalid file format validate false."""
-    with open(file_config.static, mode="r", encoding="utf-8") as config_file:
+    with open(file_config.static, encoding="utf-8") as config_file:
         config_file_text = config_file.read()
     config_file_text = config_file_text.replace('"', "", 1)
     with open(

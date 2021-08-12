@@ -34,7 +34,7 @@ def run_get_config_info(
         ("static", config_paths.static),
         ("dynamic", config_paths.dynamic),
     ]
-    pad_chars = max([len(path_item[0]) for path_item in path_items])
+    pad_chars = max(len(path_item[0]) for path_item in path_items)
     print()
     for config_name, config_path in path_items:
         config_exists = config_path.exists()

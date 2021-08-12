@@ -79,7 +79,7 @@ def write_config(
 def load_config(config_path: PathLikeStr) -> ConfigDict:
     """Load the config file at the specified path."""
     config_path = Path(config_path)
-    with open(config_path, mode="r", encoding="utf-8") as config_file:
+    with open(config_path, encoding="utf-8") as config_file:
         config: ConfigDict
         if config_path.suffix == ".json":
             raw_config: object = json.load(config_file)

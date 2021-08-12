@@ -48,7 +48,7 @@ def startend_to_pattern(start: str, end: str | None = None) -> str:
 def startend_to_pattern_md(start: str, end: str | None = None) -> str:
     """Convert start/end strings to a Markdown-"comment" capture pattern."""
     end = start if end is None else end
-    start, end = [PATTERN_TEMPLATE.format(pattern) for pattern in (start, end)]
+    start, end = (PATTERN_TEMPLATE.format(pattern) for pattern in (start, end))
     return startend_to_pattern(start, end)
 
 

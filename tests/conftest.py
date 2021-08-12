@@ -76,7 +76,7 @@ def pytest_make_parametrize_id(val: object) -> str | None:
             # static analysis: ignore[incompatible_argument]
             if len(val) == 1:
                 val_id = next(val_iter)
-            elif all((isinstance(val_item, str) for val_item in val_iter)):
+            elif all(isinstance(val_item, str) for val_item in val_iter):
                 # static analysis: ignore[incompatible_argument]
                 val_id = " ".join(val)
 
