@@ -1,0 +1,15 @@
+allow_list_rules: []
+block_list_patterns:
+- '@generated'
+- '@nolint'
+block_list_rules:
+- 'Flake8PseudoLintRule'
+- 'UsePlusForStringConcatRule'
+- 'UseTypesFromTypingRule'
+fixture_dir: ./tests
+# formatter: []
+packages:
+- fixit.rules
+repo_root: .
+rule_config: {}
+use_noqa: false

@@ -112,6 +112,17 @@ repos:
     name: Fix Python with Pyupgrade
     args: ['--py37-plus', '--keep-runtime-typing']
 
+- repo: local
+  hooks:
+  - id: fixit
+    name: Fix Python with FixIt
+    entry: python -m fixit.cli.apply_fix
+    language: python
+    types: [python]
+    require_serial: true
+    additional_dependencies:
+    - 'fixit==0.1.4'
+
 - repo: https://github.com/hakancelik96/unimport
   rev: '0.8.4'
   hooks:
