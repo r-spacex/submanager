@@ -22,7 +22,6 @@ from typing_extensions import (
 import submanager.endpoint.creation
 import submanager.endpoint.endpoints
 import submanager.enums
-import submanager.exceptions
 import submanager.models.config
 import submanager.sync.processing
 import submanager.sync.utils

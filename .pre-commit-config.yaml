@@ -104,6 +104,28 @@ repos:
     name: Lint Markdown
     args: [--fix]
 
+# Fix Python
+- repo: https://github.com/asottile/pyupgrade
+  rev: v2.23.3
+  hooks:
+  - id: pyupgrade
+    name: Fix Python with Pyupgrade
+    args: ['--py37-plus', '--keep-runtime-typing']
+
+- repo: https://github.com/hakancelik96/unimport
+  rev: '0.8.4'
+  hooks:
+  - id: unimport
+    name: Fix Python with Unimport
+    args: [--remove]
+
+- repo: https://github.com/Lucas-C/pre-commit-hooks
+  rev: v1.1.10
+  hooks:
+  - id: remove-crlf
+    name: Replace CRLF with LF post-Unimport
+    types: [python]
+
 # Format Python
 - repo: https://github.com/psf/black
   rev: '21.7b0'
@@ -116,14 +138,6 @@ repos:
   hooks:
   - id: isort
     name: Format Python imports with isort
-
-# Fix Python
-- repo: https://github.com/asottile/pyupgrade
-  rev: v2.23.3
-  hooks:
-  - id: pyupgrade
-    name: Fix Python with Pyupgrade
-    args: ['--py37-plus', '--keep-runtime-typing']
 
 # Check Python
 - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -235,7 +249,7 @@ repos:
   rev: v1.1.10
   hooks:
   - id: remove-crlf
-    name: Replace CRLFs with LF
+    name: Replace CRLFs with LF post-prettify
     types: [text]
     exclude_types: [batch]
 
