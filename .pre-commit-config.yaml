@@ -104,6 +104,19 @@ repos:
     name: Lint Markdown
     args: [--fix]
 
+# Format packaging
+- repo: https://github.com/asottile/setup-cfg-fmt
+  rev: v1.17.0
+  hooks:
+  - id: setup-cfg-fmt
+    name: Format packaging with setup-cfg-fmt
+
+# Check packaging
+- repo: https://github.com/regebro/pyroma
+  rev: '3.2'
+  hooks:
+  - id: pyroma
+
 # Fix Python
 - repo: https://github.com/asottile/pyupgrade
   rev: v2.23.3
@@ -199,11 +212,6 @@ repos:
     name: Lint Python security with Bandit
     args: ['-c', '.bandit.yml']
     require_serial: true
-
-- repo: https://github.com/regebro/pyroma
-  rev: '3.2'
-  hooks:
-  - id: pyroma
 
 - repo: local
   hooks:
