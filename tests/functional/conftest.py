@@ -8,7 +8,7 @@ from __future__ import (
 # Standard library imports
 import copy
 import shutil
-import subprocess
+import subprocess  # nosec
 import sys
 from pathlib import (
     Path,
@@ -284,7 +284,7 @@ def invoke_command(
 
     def _invoke_command(command: str) -> InvokeOutput:
         invocation: list[str] = request.param  # type: ignore[attr-defined]
-        process_result = subprocess.run(
+        process_result = subprocess.run(  # nosec
             invocation + [command],
             capture_output=True,
             check=False,
