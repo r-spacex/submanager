@@ -208,8 +208,9 @@ repos:
     name: Lint Python with Flake8
     require_serial: true
     additional_dependencies:
-    - 'wemake-python-styleguide==0.15.3'
+    - 'dlint==0.11.0'
     - 'pydocstyle==6.1.1'
+    - 'wemake-python-styleguide==0.15.3'
 
 - repo: https://github.com/PyCQA/bandit
   rev: '1.7.0'
