@@ -116,6 +116,7 @@ def test_generated_validates_false(
             raise_error=True,
             verbose=True,
         )
+
     static_config, __ = submanager.core.initialization.setup_config(
         temp_config_paths,
         verbose=True,

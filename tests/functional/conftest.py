@@ -335,7 +335,7 @@ def fixture_temp_config_paths(
     return config_paths
 
 
-@pytest.fixture
+@pytest.fixture()
 def empty_config(
     temp_config_paths: submanager.models.config.ConfigPaths,
 ) -> submanager.models.config.ConfigPaths:
@@ -350,7 +350,7 @@ def empty_config(
     return temp_config_paths
 
 
-@pytest.fixture
+@pytest.fixture()
 def list_config(
     temp_config_paths: submanager.models.config.ConfigPaths,
 ) -> submanager.models.config.ConfigPaths:
@@ -363,7 +363,7 @@ def list_config(
     return temp_config_paths
 
 
-@pytest.fixture
+@pytest.fixture()
 def example_config(
     temp_config_paths: submanager.models.config.ConfigPaths,
 ) -> submanager.models.config.ConfigPaths:
@@ -391,7 +391,7 @@ def fixture_file_config(
     return temp_config_paths
 
 
-@pytest.fixture
+@pytest.fixture()
 def modified_config(
     file_config: submanager.models.config.ConfigPaths,
     request: pytest.FixtureRequest,

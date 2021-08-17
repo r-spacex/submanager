@@ -541,7 +541,7 @@ def test_parsing_error(
 
 @pytest.mark.parametrize("minimal", MINIMAL_ARGS)
 @pytest.mark.parametrize(
-    "modified_config, check_vars",
+    ("modified_config", "check_vars"),
     list(BAD_VALIDATE_OFFLINE_PARAMS.values()),
     ids=list(BAD_VALIDATE_OFFLINE_PARAMS.keys()),
     indirect=["modified_config"],
@@ -605,7 +605,7 @@ def test_valid_online(
 
 @pytest.mark.parametrize("offline_only", OFFLINE_ONLY_ARGS)
 @pytest.mark.parametrize(
-    "modified_config, check_vars",
+    ("modified_config", "check_vars"),
     list(BAD_VALIDATE_ONLINE_PARAMS.values()),
     ids=list(BAD_VALIDATE_ONLINE_PARAMS.keys()),
     indirect=["modified_config"],

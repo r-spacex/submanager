@@ -23,9 +23,11 @@ extend_select =
     DAR,
     DUO,
     P,
+    PT,
     RST,
     T,
     WPS,
+    YTT,
 
 
 ignore =
@@ -44,11 +46,11 @@ ignore =
     # No line break before operation mutually exclusive with W504 and not PEP-8-recommended
     W503,
 
-    # Missing docstring in __init__ acceptable
-    D107,
-
     # Disable Py2-specific trailing comma checks
     C814,
+
+    # Missing docstring in __init__ acceptable
+    D107,
 
     # Line breaking handled by Black
     N400,
@@ -101,6 +103,9 @@ ignore =
 
     # Allow implicit object base class
     WPS306,
+
+    # Parameter indentation handled by Black
+    WPS317,
 
     # Allow implicit string concat
     WPS326,

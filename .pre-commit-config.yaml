@@ -137,7 +137,7 @@ repos:
     - 'fixit==0.1.4'
 
 - repo: https://github.com/hakancelik96/unimport
-  rev: '0.8.4'
+  rev: '0.8.3'
   hooks:
   - id: unimport
     name: Fix Python with Unimport
@@ -209,6 +209,8 @@ repos:
     require_serial: true
     additional_dependencies:
     - 'dlint==0.11.0'
+    - 'flake8-2020==1.6.0'
+    - 'flake8-pytest-style==1.5.0'
     - 'pydocstyle==6.1.1'
     - 'wemake-python-styleguide==0.15.3'
 

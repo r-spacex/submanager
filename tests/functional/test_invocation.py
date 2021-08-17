@@ -31,7 +31,7 @@ PARAMS_BAD: Final[list[str]] = [
 # ---- Tests ----
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 @pytest.mark.parametrize("command", PARAMS_GOOD)
 def test_invocation_good(
     invoke_command: InvokeCommandCallable,
@@ -46,7 +46,7 @@ def test_invocation_good(
     assert not process_result.stderr.strip()
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 @pytest.mark.parametrize("command", PARAMS_BAD)
 def test_invocation_bad(
     invoke_command: InvokeCommandCallable,
