@@ -38,7 +38,8 @@ from tests.functional.conftest import (
 
 # ---- Types ----
 
-RequestTuple = Union[Tuple[ConfigDict, Union[str, bool, None]], ConfigDict]
+RequestValues = Union[str, bool, None]
+RequestTuple = Union[Tuple[ConfigDict, RequestValues], ConfigDict]
 ExpectedTuple = Tuple[
     str, Optional[Type[submanager.exceptions.SubManagerUserError]]
 ]
@@ -189,13 +190,6 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
         ),
         ("create", submanager.exceptions.RedditObjectNotFoundError),
     ),
-    # "menu_not_writeable": (
-    #     ({"sync_manager": {"items": {"menus": {"targets": {
-    #         "new_reddit_menu": {"context": {"subreddit": NON_MOD_SUBREDDIT}},
-    #         }}}}},
-    #      "sync_manager.items.menus.targets.new_reddit_menu"),
-    #     ("mod", submanager.exceptions.NotAModError),
-    #     ),
     "thread_notfound": (
         (
             {
@@ -522,13 +516,13 @@ def test_parsing_error(
     minimal: str,
 ) -> None:
     """Test that config files with an invalid file format validate false."""
-    with open(file_config.static, encoding="utf-8") as config_file:
-        config_file_text = config_file.read()
+    with open(file_config.static, encoding="utf-8") as config_file_read:
+        config_file_text = config_file_read.read()
     config_file_text = config_file_text.replace('"', "", 1)
     with open(
         file_config.static, mode="w", encoding="utf-8", newline="\n"
-    ) as config_file:
-        config_file.write(config_file_text)
+    ) as config_file_write:
+        config_file_write.write(config_file_text)
 
     run_and_check_cli(
         cli_args=[VALIDATE_COMMAND, OFFLINE_ONLY_ARG, minimal],

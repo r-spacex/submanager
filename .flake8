@@ -1,8 +1,9 @@
 [flake8]
-hang_closing = True
+hang_closing = False
 max_line_length = 79
 max_doc_length = 79
 max_complexity = 15
+
 extend_exclude =
     build,
     dist,
@@ -10,22 +11,247 @@ extend_exclude =
     env,
     .mypy_cache,
     .pylint.d,
+
 extend_select =
     F,
     E,
     W,
     C,
+
     B,
+    D,
+    DAR,
+    P,
+    RST,
+    T,
+    WPS,
+
+
 ignore =
-    # W503 Line break before operation mutually exclusive with W504
+    # Bandit run separately
+    S,
+
+    # Isort run separately
+    I,
+
+    # Quotes checking handled by Black
+    Q,
+
+    # Conflicts with Black in edge cases
+    E203,
+
+    # No line break before operation mutually exclusive with W504 and not PEP-8-recommended
     W503,
-    # D107 Ignore missing docstring in __init__
+
+    # Missing docstring in __init__ acceptable
     D107,
-    # Closing bracket indentation incompatible with black
-    E133,
+
+    # Basic trailing comma handled by Black
+    C812,
+    C813,
+    C814,
+    C815,
+
+    # Line breaking handled by Black
+    N400,
+
+    # Naming checks handled by pylint
+    N801,
+    N802,
+    N803,
+    N806,
+
+    # Module name blacklist unhelpful
+    WPS100,
+
+    # Naming length check handled by pylint
+    WPS111,
+
+    # Uppercase class constants are fine
+    WPS115,
+
+    # Allow __ for unused variables
+    WPS123,
+
+    # Ignore too many imports since we have limited control over this, esp. with typing
+    WPS201,
+    WPS203,
+    WPS235,
+
+    # Complexity checks handled by Pylint
+    WPS210,
+    WPS211,
+    WPS212,
+    WPS213,
+    WPS214,
+    WPS215,
+    WPS222,
+    WPS229,
+    WPS230,
+
+    # Allow more complex f-strings for now
+    WPS237,
+
+    # Allow fully qualified imports
+    WPS301,
+
+    # Allow underscores in numbers for readability
+    WPS303,
+
+    # Don't ban f-strings
+    WPS305,
+
+    # Allow implicit object base class
+    WPS306,
+
+    # Allow implicit string concat
+    WPS326,
+
+    # Allow variables that are only used for return for clarity
+    WPS331,
+
+    # Consider allowing inline assignment operator in Python 3.8
+    # WPS332,
+
+    # Allow implicit string concat
+    WPS336,
+
+    # Allow multiline conditionals
+    WPS337,
+
+    # Don't enforce unconventional class method order
+    WPS338,
+
+    # Disallowing lines starting with dot conflicts with Black
+    WPS348,
+
+    # Disallowing assignment to slice potentially conflicts with arrays and dataframes
+    WPS362,
+
+    # Statement has no effect better handled by Pylint
+    WPS428,
+
+    # Consider allowing positional-only args in Python 3.8
+    # WPS451,
+
+    # Import collision check incompatible with fully qualified imports
+    WPS458,
+
+    # Allow mixing boolean and bitwise for numpy/pandas
+    WPS465,
+
+    # Allow negated conditions for if/else in a particular order
+    WPS504,
+
+    # Allow nested try blocks, as they sometimes need to be used
+    WPS505,
+
+per_file_ignores =
+    # Allow __version__ in package-level __init__
+    src/submanager/__init__.py: WPS410, WPS412
+
+    # Allow repeated string constants (e.g. "store_true") in CLI
+    src/submanager/cli.py: WPS226
+
+    # Ignore member limits in top-level files
+    src/submanager/constants.py: WPS202
+    src/submanager/exceptions.py: WPS202
+    src/submanager/types.py: WPS202
+
+    # Ignore too many asserts, members, mutable module constants, nested functions and magic attribute access in tests
+    tests/*.py: WPS202, WPS218, WPS407, WPS430, WPS609
+
+    ### Project-specific ignores ###
+
+    # Ignore string constant overuse, since we do a lot of munging with dicts
+    src/submanager/config/dynamic.py: WPS226
+    src/submanager/config/static.py: WPS226
+
+    # Ignore block variable overlaps due to workaround for type checker issue with pydantic
+    src/submanager/models/types.py: WPS440
+
+    # Ignore use of print in output
+    src/submanager/utils/output.py: WPS421
+
+    # Ignore over-use of string constants in validate test due to checks
+    tests/functional/test_validate.py: WPS202, WPS218, WPS226, WPS407, WPS430, WPS609
+
+
 count = True
+format = wemake
+show_source = True
 statistics = True
-jobs = 1
+
+
+# Darglint options
+
+strictness = short
+docstring_style = numpy
+
 
 # Docstrings options
+
 docstring_convention = pep257
+
+
+# Eradicate options
+
+eradicate-aggressive = False
+# eradicate-whitelist =
+# eradicate-whitelist-extend =
+
+
+# PEP 8 naming options
+ignore-names =
+    ex,
+classmethod-decorators =
+    classmethod,
+    pydantic.validator,
+    validator,
+# staticmethod-decorators =
+
+
+# RST docstrings options
+
+# rst-roles =
+    # class,
+    # func,
+    # ref,
+# rst-directives =
+    # envvar,
+    # exception,
+
+
+# Wemake options
+
+# max-name-length = 45
+i-control-code = True
+i-dont-control-code = False
+nested-classes-whitelist =
+    Config,
+# max-noqa-comments = 10
+allowed-domain-names =
+    content,
+    contents,
+    item,
+    items,
+    value,
+    values,
+# forbidden-domain-names =
+# forbidden-inline-ignore =
+
+max-module-members = 25
+max-line-complexity = 15
+# max-jones-score = 12
+# max-decorators = 5
+# max-string-usages = 5
+# max-awaits = 5
+# max-module-expressions = 7
+# max-function-expressions = 4
+# max-asserts = 5
+# max-access-level = 4
+max-cognitive-score = 21
+max-cognitive-average = 12
+# max-call-level = 3
+# max-annotation-complexity = 3
+# max-tuple-unpack-length = 4

@@ -6,6 +6,9 @@ from __future__ import (
 )
 
 # Standard library imports
+from types import (
+    MappingProxyType,
+)
 from typing import (
     Any,
     Mapping,
@@ -23,28 +26,30 @@ import submanager.models.config
 # ---- General constants ----
 
 # Fields to not output in the generated config, as they are too verbose
-# pylint: disable = consider-using-namedtuple-or-dataclass
-EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = {
-    "sync_manager": {
-        "items": {
-            "EXAMPLE_SYNC_ITEM": {
-                "source": {"context", "uid"},
-                "target": {"context", "uid"},
-                "uid": ...,
+ENDPOINT_EXCLUDE_FIELDS: Final[frozenset[str]] = frozenset(("context", "uid"))
+EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = MappingProxyType(
+    {
+        "sync_manager": {
+            "items": {
+                "EXAMPLE_SYNC_ITEM": {
+                    "source": ENDPOINT_EXCLUDE_FIELDS,
+                    "target": ENDPOINT_EXCLUDE_FIELDS,
+                    "uid": ...,
+                },
             },
         },
-    },
-    "thread_manager": {
-        "items": {
-            "EXAMPLE_THREAD": {
-                "context": ...,
-                "source": {"context", "uid"},
-                "target_context": ...,
-                "uid": ...,
+        "thread_manager": {
+            "items": {
+                "EXAMPLE_THREAD": {
+                    "context": ...,
+                    "source": ENDPOINT_EXCLUDE_FIELDS,
+                    "target_context": ...,
+                    "uid": ...,
+                },
             },
         },
-    },
-}
+    }
+)
 
 
 # ---- Example elements ----

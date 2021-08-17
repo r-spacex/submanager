@@ -16,7 +16,7 @@ from typing import (
 
 # Third party imports
 import pytest
-from _pytest.mark.structures import (
+from _pytest.mark.structures import (  # noqa: WPS436
     MarkDecorator,
 )
 from typing_extensions import (

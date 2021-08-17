@@ -64,16 +64,14 @@ def sync_one(
 
 
 def sync_all(
-    sync_manager_config: submanager.models.config.SyncManagerConfig,
-    dynamic_sync_manager_config: (
-        submanager.models.config.DynamicSyncManagerConfig
-    ),
+    manager_config: submanager.models.config.SyncManagerConfig,
+    dynamic_config: submanager.models.config.DynamicSyncManagerConfig,
     accounts: AccountsMap,
 ) -> None:
     """Sync all pairs of sources/targets (pages,threads, sections) on a sub."""
-    for sync_item_id, sync_item in sync_manager_config.items.items():
+    for sync_item_id, sync_item in manager_config.items.items():
         sync_one(
             sync_item=sync_item,
-            dynamic_config=dynamic_sync_manager_config.items[sync_item_id],
+            dynamic_config=dynamic_config.items[sync_item_id],
             accounts=accounts,
         )

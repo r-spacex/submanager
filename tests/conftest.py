@@ -16,10 +16,10 @@ from typing import (
 
 # Third party imports
 import pytest
-from _pytest.config import (
+from _pytest.config import (  # noqa: WPS436
     Config,
 )
-from _pytest.config.argparsing import (
+from _pytest.config.argparsing import (  # noqa: WPS436
     Parser,
 )
 from typing_extensions import (
@@ -31,6 +31,43 @@ from typing_extensions import (
 PACKAGE_NAME: Final[str] = "submanager"
 
 RUN_ONLINE_OPTION: Final[str] = "--run-online"
+
+
+# ---- Helpers ----
+
+
+def _get_val_id_from_collection(
+    val: Collection[object],  # noqa: WPS110
+) -> str | object:
+    """Extract a suitible test ID string from a collection, if possible."""
+    if isinstance(val, Mapping):
+        # static analysis: ignore[undefined_attribute]
+        val_iter = iter(val.values())
+    else:
+        val_iter = iter(val)
+    if len(val) == 1:
+        val_id: object = next(val_iter)
+        return val_id
+    if all(isinstance(val_item, str) for val_item in val):
+        # static analysis: ignore[incompatible_argument]
+        return " ".join(val)  # type: ignore[arg-type]
+
+    return val
+
+
+def _get_val_id(val: object) -> str | object:  # noqa: WPS110
+    """Get the ID string from an arbitrary test param object, if possible."""
+    val_name: object = getattr(val, "name", None)
+    if isinstance(val, Path):
+        return val.stem
+    # static analysis: ignore[non_boolean_in_boolean_context]
+    if val_name and isinstance(val_name, str):
+        return val_name
+    if isinstance(val, Collection):
+        # static analysis: ignore[incompatible_argument]
+        return _get_val_id_from_collection(val)
+
+    return val
 
 
 # ---- Hooks ----
@@ -57,28 +94,13 @@ def pytest_collection_modifyitems(
                 item.add_marker(skip_online)
 
 
-def pytest_make_parametrize_id(val: object) -> str | None:
+def pytest_make_parametrize_id(val: object) -> str | None:  # noqa: WPS110
     """Intelligently generate parameter IDs; hook for pytest."""
-    val_id: object = val
-    if not isinstance(val, (str, bytes)):
-        val_name: object = getattr(val, "name", None)
-        if isinstance(val, Path):
-            val_id = val.stem
-        # static analysis: ignore[non_boolean_in_boolean_context]
-        elif val_name and isinstance(val_name, str):
-            val_id = val_name
-        elif isinstance(val, Collection):
-            if isinstance(val, Mapping):
-                # static analysis: ignore[undefined_attribute]
-                val_iter = iter(val.values())
-            else:
-                val_iter = iter(val)
-            # static analysis: ignore[incompatible_argument]
-            if len(val) == 1:
-                val_id = next(val_iter)
-            elif all(isinstance(val_item, str) for val_item in val_iter):
-                # static analysis: ignore[incompatible_argument]
-                val_id = " ".join(val)
+    val_id: object
+    if isinstance(val, (str, bytes)):
+        val_id = val
+    else:
+        val_id = _get_val_id(val)
 
     if isinstance(val_id, bytes):
         return val_id.decode()

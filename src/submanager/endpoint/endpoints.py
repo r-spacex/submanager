@@ -64,20 +64,24 @@ class ThreadSyncEndpoint(
             ) from error
         except praw.exceptions.RedditAPIException as error:
             for reddit_error in error.items:
-                if reddit_error.error_type.lower().strip() == "placeholder":
-                    if not raise_error:
-                        return False
-                    raise submanager.exceptions.PostTypeError(
-                        self.config,
-                        message_pre=(
-                            f"Cannot edit link post {self._object.title!r} "
-                            f"({self._object.id}); must be a selfpost"
-                        ),
-                        message_post=error,
-                    ) from error
-            raise
-        else:
-            return True
+                error_type = reddit_error.error_type
+                if error_type.lower().strip() == "placeholder":
+                    break
+            else:
+                raise
+
+            if not raise_error:
+                return False
+            raise submanager.exceptions.PostTypeError(
+                self.config,
+                message_pre=(
+                    f"Cannot edit link post {self._object.title!r} "
+                    f"({self._object.id}); must be a selfpost"
+                ),
+                message_post=error,
+            ) from error
+
+        return True
 
     @property
     def revision_date(self) -> int:
@@ -122,11 +126,13 @@ class WikiSyncEndpoint(
             praw.exceptions.RedditAPIException,
         ) as error:
             if isinstance(error, praw.exceptions.RedditAPIException):
-                for reddit_error in error.items:
-                    if reddit_error.error_type.upper() == "WIKI_CREATE_ERROR":
-                        break
-                else:
+                expected_error = any(
+                    reddit_error.error_type.upper() == "WIKI_CREATE_ERROR"
+                    for reddit_error in error.items
+                )
+                if not expected_error:
                     raise
+
             if not raise_error:
                 return False
             raise submanager.exceptions.WikiPagePermissionError(
@@ -138,8 +144,8 @@ class WikiSyncEndpoint(
                 ),
                 message_post=error,
             ) from error
-        else:
-            return True
+
+        return True
 
     @property
     def revision_date(self) -> int:

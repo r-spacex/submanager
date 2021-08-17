@@ -81,5 +81,5 @@ def validate_config(
         if not raise_error:
             return False
         raise
-    else:
-        return True
+
+    return True

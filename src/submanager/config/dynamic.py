@@ -52,10 +52,8 @@ def render_dynamic_config(
     dynamic_config_raw["thread_manager"] = thread_manager
     thread_manager_items = thread_manager.get("items", {})
     thread_manager["items"] = thread_manager_items
-    for (
-        thread_key,
-        thread_config,
-    ) in static_config.thread_manager.items.items():
+    thread_manager_items_static = static_config.thread_manager.items
+    for thread_key, thread_config in thread_manager_items_static.items():
         thread_manager_items[thread_key] = {
             **dict(thread_config.initial),
             **thread_manager_items.get(thread_key, {}),

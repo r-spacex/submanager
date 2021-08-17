@@ -6,7 +6,6 @@ from __future__ import (
 )
 
 # Standard library imports
-import time
 from typing import (
     Collection,
 )
@@ -19,6 +18,7 @@ import submanager.exceptions
 import submanager.models.config
 import submanager.sync.manager
 import submanager.thread.manager
+import submanager.utils.output
 import submanager.validation.validate
 from submanager.constants import (
     CONFIG_PATH_DYNAMIC,
@@ -115,9 +115,13 @@ def run_manage_once(
     static_config: submanager.models.config.StaticConfig,
     accounts: AccountsMap,
     config_path_dynamic: PathLikeStr = CONFIG_PATH_DYNAMIC,
+    *,
+    verbose: bool = False,
 ) -> None:
     """Run the manage loop once, without validation checks."""
-    print("Running Sub Manager")
+    vprint = submanager.utils.output.VerbosePrinter(enable=verbose)
+
+    vprint("Running Sub Manager")
     # Lock and load dynamic config and set up session
     with submanager.config.dynamic.LockedandLoadedDynamicConfig(
         static_config=static_config,
@@ -145,7 +149,7 @@ def run_manage_once(
             submanager.config.utils.write_config(
                 dynamic_config_active, config_path=config_path_dynamic
             )
-    print("Sub Manager run complete")
+    vprint("Sub Manager run complete")
 
 
 def run_manage(
@@ -153,6 +157,7 @@ def run_manage(
     *,
     skip_validate: bool = False,
     resync_all: bool = False,
+    verbose: bool = True,
 ) -> None:
     """Load the config file and run the thread manager."""
     if config_paths is None:
@@ -164,6 +169,7 @@ def run_manage(
         static_config=static_config,
         accounts=accounts,
         config_path_dynamic=config_paths.dynamic,
+        verbose=verbose,
     )
 
 
@@ -173,10 +179,13 @@ def start_manage(
     skip_validate: bool = False,
     repeat_interval_s: float | None = None,
     repeat_max_n: int | None = None,
+    verbose: bool = True,
 ) -> None:
     """Run the mainloop of Sub Manager, performing each task in sequance."""
+    vprint = submanager.utils.output.VerbosePrinter(enable=verbose)
+
     # Load config and set up session
-    print("Starting Sub Manager")
+    vprint("Starting Sub Manager")
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
     static_config, accounts = run_initial_setup(
@@ -191,6 +200,7 @@ def start_manage(
             static_config=static_config,
             accounts=accounts,
             config_path_dynamic=config_paths.dynamic,
+            verbose=verbose,
         )
         if repeat_max_n is not None:
             repeat_max_n -= 1
@@ -198,14 +208,8 @@ def start_manage(
                 break
 
         # Wait until the desired time of the next cycle
-        time_left_s = repeat_interval_s
-        try:  # pylint: disable = too-many-try-statements
-            while True:
-                time_to_sleep_s = min((time_left_s, 1))
-                time.sleep(time_to_sleep_s)
-                time_left_s -= 1
-                if time_left_s <= 0:
-                    break
+        try:
+            submanager.utils.misc.sleep_for_interval(repeat_interval_s)
         except KeyboardInterrupt:
-            print("Received keyboard interrupt; exiting")
+            vprint("Received keyboard interrupt; exiting")
             break

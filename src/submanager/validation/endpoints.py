@@ -5,6 +5,11 @@ from __future__ import (
     annotations,
 )
 
+# Standard library imports
+from typing import (
+    Union,
+)
+
 # Third party imports
 import prawcore.exceptions
 
@@ -16,6 +21,11 @@ import submanager.utils.output
 from submanager.types import (
     AccountsMap,
 )
+
+ManagerWithEndpoints = Union[
+    submanager.models.config.SyncManagerConfig,
+    submanager.models.config.ThreadManagerConfig,
+]
 
 
 def validate_endpoint(
@@ -52,12 +62,13 @@ def validate_endpoint(
         if not raise_error:
             return False
         urls_formatted = " or ".join([f"<{url}>" for url in details_urls])
+        scopes = reddit.auth.scopes()
+        action_str = "edit" if endpoint_valid else "retrieve"
         raise submanager.exceptions.InsufficientScopeError(
             config,
             message_pre=(
-                f"Could not {'edit' if endpoint_valid else 'retrieve'} "
-                f"{config.endpoint_type} due to the OAUTH scopes "
-                f"{reddit.auth.scopes()!r} "
+                f"Could not {action_str} "
+                f"{config.endpoint_type} due to the OAUTH scopes {scopes!r} "
                 f"of the refresh token for account {config.context.account!r} "
                 "not including the scope required for this operation "
                 f"(see {urls_formatted} for details)"
@@ -68,6 +79,25 @@ def validate_endpoint(
     return endpoint_valid
 
 
+def _get_manager_endpoints(
+    manager_config: ManagerWithEndpoints,
+    *,
+    include_disabled: bool = False,
+) -> list[submanager.models.config.FullEndpointConfig]:
+    """Get each source and target endpoint that is enabled."""
+    endpoints: list[submanager.models.config.FullEndpointConfig] = []
+    if not (include_disabled or manager_config.enabled):
+        return endpoints
+    for config_item in manager_config.items.values():
+        if include_disabled or config_item.enabled:
+            endpoints.append(config_item.source)
+            if isinstance(
+                config_item, submanager.models.config.SyncItemConfig
+            ):
+                endpoints += list(config_item.targets.values())
+    return endpoints
+
+
 def get_all_endpoints(
     static_config: submanager.models.config.StaticConfig,
     *,
@@ -76,16 +106,17 @@ def get_all_endpoints(
     """Get all sync endpoints defined in the current static config."""
     all_endpoints: list[submanager.models.config.FullEndpointConfig] = []
     # Get each sync pair source and target that is enabled
-    if include_disabled or static_config.sync_manager.enabled:
-        for sync_item in static_config.sync_manager.items.values():
-            if include_disabled or sync_item.enabled:
-                all_endpoints.append(sync_item.source)
-                all_endpoints += list(sync_item.targets.values())
+    all_endpoints += _get_manager_endpoints(
+        manager_config=static_config.sync_manager,
+        include_disabled=include_disabled,
+    )
+
     # Get each thread endpoint that's enabled
-    if include_disabled or static_config.thread_manager.enabled:
-        for thread in static_config.thread_manager.items.values():
-            if include_disabled or thread.enabled:
-                all_endpoints.append(thread.source)
+    all_endpoints += _get_manager_endpoints(
+        manager_config=static_config.thread_manager,
+        include_disabled=include_disabled,
+    )
+
     # Pune the endpoints to just enabled unless told otherwise
     if not include_disabled:
         all_endpoints = [

@@ -17,6 +17,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    List,
     MutableMapping,
     Optional,
     Sequence,
@@ -28,7 +29,7 @@ from typing import (
 
 # Third party imports
 import pytest
-from _pytest.capture import (
+from _pytest.capture import (  # noqa: WPS436
     CaptureResult,
 )
 from typing_extensions import (
@@ -53,6 +54,8 @@ from tests.conftest import (
 # General types
 
 ArgType = TypeVar("ArgType")
+
+ArgList = List[str]
 
 
 # Run CLI types
@@ -103,12 +106,14 @@ InvokeCommandCallable = Callable[[str], InvokeOutput]
 
 # ---- Constants ----
 
+PARAM_ATTR: Final[str] = "param"
+
 # Argument constants
-DEBUG_ARGS: Final[list[str]] = ["", "--debug"]
+DEBUG_ARGS: Final[ArgList] = ["", "--debug"]
 
 # Invocation constants
 ENTRYPOINT_NAME: Final[str] = PACKAGE_NAME
-INVOCATION_RUNPY: Final[list[str]] = [
+INVOCATION_RUNPY: Final[ArgList] = [
     sys.executable,
     "-b",
     "-X",
@@ -116,7 +121,7 @@ INVOCATION_RUNPY: Final[list[str]] = [
     "-m",
     PACKAGE_NAME,
 ]
-INVOCATION_METHODS: Final[list[list[str]]] = [
+INVOCATION_METHODS: Final[list[ArgList]] = [
     [ENTRYPOINT_NAME],
     INVOCATION_RUNPY,
 ]
@@ -194,7 +199,7 @@ def fixture_run_cli_paths(
 
 
 @pytest.fixture(name="run_and_check_cli")
-def fixture_run_and_check_cli(
+def fixture_run_and_check_cli(  # noqa: WPS231
     run_cli_paths: RunCLIPathsCallable,
     temp_config_paths: submanager.models.config.ConfigPaths,
 ) -> RunAndCheckCLICallable:
@@ -254,7 +259,7 @@ def run_and_check_debug(
     """Test that --debug allows the error to bubble up and dump traceback."""
     check_text = "not found"
     check_error = submanager.exceptions.ConfigNotFoundError
-    debug: str = getattr(request, "param", "")
+    debug: str = getattr(request, PARAM_ATTR, "")
 
     def _test_debug_error(cli_args: Sequence[str]) -> None:
         try:
@@ -283,7 +288,7 @@ def invoke_command(
     """Invoke the passed command with a given invocation."""
 
     def _invoke_command(command: str) -> InvokeOutput:
-        invocation: list[str] = request.param  # type: ignore[attr-defined]
+        invocation: ArgList = request.param  # type: ignore[attr-defined]
         process_result = subprocess.run(  # nosec
             invocation + [command],
             capture_output=True,
@@ -305,7 +310,7 @@ def fixture_temp_config_dir(
     tmp_path: Path,
 ) -> Path:
     """Generate a set of temporary ConfigPaths."""
-    config_sub_dir: Path | str | None = getattr(request, "param", None)
+    config_sub_dir: Path | str | None = getattr(request, PARAM_ATTR, None)
     if not config_sub_dir:
         return tmp_path
     return tmp_path / config_sub_dir
@@ -366,7 +371,7 @@ def fixture_file_config(
     request: pytest.FixtureRequest,
 ) -> submanager.models.config.ConfigPaths:
     """Use a config file from the test data directory."""
-    source_path: object = getattr(request, "param", None)
+    source_path: object = getattr(request, PARAM_ATTR, None)
     # static analysis: ignore[non_boolean_in_boolean_context]
     if not source_path:
         raise ValueError("Source path must be passed via request param")
@@ -386,7 +391,7 @@ def modified_config(
 ) -> submanager.models.config.ConfigPaths:
     """Modify an existing config file and return the path."""
     # Get and check request params
-    request_param = getattr(request, "param", None)
+    request_param = getattr(request, PARAM_ATTR, None)
     if request_param is None:
         raise ValueError("Update dict must be passed via request param")
     if isinstance(request_param, Sequence):

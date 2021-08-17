@@ -28,7 +28,7 @@ from submanager.types import (
 # ---- Constants and enums ----
 
 TESTABLE_SCOPES: Final[frozenset[str]] = frozenset(
-    {"*", "identity", "read", "wikiread"}
+    ("*", "identity", "read", "wikiread")
 )
 TEST_PAGE_WIKI: Final[str] = "index"
 TEST_SUB_POST: Final[str] = "all"
@@ -84,7 +84,9 @@ def try_perform_test_request(
     elif scope_check is ScopeCheck.READ_WIKI:
         try:
             reddit.subreddit(TEST_SUB_WIKI).wiki[TEST_PAGE_WIKI].content_md
-        except submanager.exceptions.PRAW_NOTFOUND_ERRORS as error:
+        except (  # noqa: WPS440
+            submanager.exceptions.PRAW_NOTFOUND_ERRORS
+        ) as error:
             warning_message = warning_message.format(
                 test_item=(
                     f"sub 'r/{TEST_SUB_WIKI}', wiki page {TEST_PAGE_WIKI!r}"

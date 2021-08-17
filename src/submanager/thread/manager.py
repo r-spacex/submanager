@@ -21,8 +21,10 @@ def manage_thread(
     accounts: AccountsMap,
     *,
     post_new_thread: bool | None = None,
+    verbose: bool = True,
 ) -> None:
     """Manage the current thread, creating or updating it as necessary."""
+    vprint = submanager.utils.output.VerbosePrinter(enable=verbose)
     if not thread_config.enabled:
         return
 
@@ -36,7 +38,7 @@ def manage_thread(
 
     # If needed, post a new thread
     if post_new_thread:
-        print(
+        vprint(
             "Creating new thread for",
             thread_config.description,
             f"{thread_config.uid}",
@@ -54,16 +56,14 @@ def manage_thread(
 
 
 def manage_threads(
-    thread_manager_config: submanager.models.config.ThreadManagerConfig,
-    dynamic_thread_manager_config: (
-        submanager.models.config.DynamicThreadManagerConfig
-    ),
+    manager_config: submanager.models.config.ThreadManagerConfig,
+    dynamic_config: submanager.models.config.DynamicThreadManagerConfig,
     accounts: AccountsMap,
 ) -> None:
     """Check and create/update all defined threads for a sub."""
-    for thread_key, thread_config in thread_manager_config.items.items():
+    for thread_key, thread_config in manager_config.items.items():
         manage_thread(
             thread_config=thread_config,
-            dynamic_config=dynamic_thread_manager_config.items[thread_key],
+            dynamic_config=dynamic_config.items[thread_key],
             accounts=accounts,
         )

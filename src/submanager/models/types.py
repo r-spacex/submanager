@@ -47,5 +47,5 @@ else:
 
         max_length = 6
         min_length = 6
-        regex = re.compile(r"[a-z0-9]+")
+        regex = re.compile("[a-z0-9]+")
         to_lower = True

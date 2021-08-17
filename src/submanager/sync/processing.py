@@ -85,7 +85,7 @@ def process_source_endpoint(
             source_content, source_config
         )
         if source_content_subset is False:
-            print(
+            print(  # noqa: WPS421
                 "Skipping sync pattern not found in source "
                 f"{source_obj.config.description} {source_obj.config.uid}"
             )
@@ -125,7 +125,7 @@ def process_target_endpoint(
             target_content, target_config, replace_text=source_content
         )
         if target_content_processed is False:
-            print(
+            print(  # noqa: WPS421
                 "Skipping sync pattern not found in target "
                 f"{target_obj.config.description} {target_obj.config.uid}"
             )

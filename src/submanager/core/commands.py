@@ -24,8 +24,10 @@ def run_get_config_info(
     config_paths: submanager.models.config.ConfigPaths | None = None,
     *,
     endpoints: bool = False,
+    verbose: bool = True,
 ) -> None:
     """Print basic information about the current configuration."""
+    vprint = submanager.utils.output.VerbosePrinter(enable=verbose)
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
 
@@ -35,16 +37,16 @@ def run_get_config_info(
         ("dynamic", config_paths.dynamic),
     ]
     pad_chars = max(len(path_item[0]) for path_item in path_items)
-    print()
+    vprint()
     for config_name, config_path in path_items:
         config_exists = config_path.exists()
         config_status = "    [FOUND]" if config_exists else "[NOT FOUND]"
-        print(
+        vprint(
             f"{config_name.title(): >{pad_chars}} config path:",
             config_status,
             f'"{config_path.as_posix()}"',
         )
-    print()
+    vprint()
 
     # Print endpoint list information
     if endpoints:
@@ -57,12 +59,12 @@ def run_get_config_info(
         all_endpoints = submanager.validation.endpoints.get_all_endpoints(
             static_config=static_config, include_disabled=True
         )
-        print(" ###### Source/target sync endpoints ######")
+        vprint(" ###### Source/target sync endpoints ######")
         for endpoint in all_endpoints:
             enabled = endpoint in enabled_endpoints
             endpoint_status = " [ENABLED]" if enabled else "[DISABLED]"
-            print(f"{endpoint_status}  {endpoint.uid}")
-        print()
+            vprint(f"{endpoint_status}  {endpoint.uid}")
+        vprint()
 
 
 def run_generate_config(
@@ -70,8 +72,10 @@ def run_generate_config(
     *,
     force: bool = False,
     exist_ok: bool = False,
+    verbose: bool = True,
 ) -> None:
     """Generate the various config files for sub manager."""
+    vprint = submanager.utils.output.VerbosePrinter(enable=verbose)
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
     config_exists = submanager.config.static.generate_static_config(
@@ -86,7 +90,7 @@ def run_generate_config(
     else:
         action = "already exists"
     message = f"Config {action} at {config_paths.static.as_posix()!r}"
-    print(message)
+    vprint(message)
 
 
 def run_validate_config(
@@ -95,9 +99,10 @@ def run_validate_config(
     include_disabled: bool = False,
     offline_only: bool = False,
     minimal: bool = False,
+    verbose: bool = True,
 ) -> None:
     """Check if the config is valid, raising an error if it is not."""
-    wprint = submanager.utils.output.FancyPrinter()
+    wprint = submanager.utils.output.FancyPrinter(enable=verbose)
     wprint(
         "Validating configuration in "
         f"{'offline' if offline_only else 'online'} mode",

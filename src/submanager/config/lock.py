@@ -19,6 +19,7 @@ from typing_extensions import (
 
 # Local imports
 import submanager.exceptions
+import submanager.utils.output
 from submanager.constants import (
     CONFIG_PATH_DYNAMIC,
 )
@@ -26,7 +27,7 @@ from submanager.types import (
     PathLikeStr,
 )
 
-LOCK_FILENAME_TEMPLATE: Final[str] = "~{}.lock"
+LOCK_FILENAME_TEMPLATE: Final[str] = "~{file_name}.lock"
 
 CHECK_INTERVAL_S_DEFAULT: Final[float] = 0.1
 TIMEOUT_S_DEFAULT: Final[float] = 60
@@ -38,7 +39,7 @@ def generate_lock_file_path(
     """Generate the path to the lock file for the given config file."""
     config_path = Path(config_path)
     lock_file_path = config_path.with_name(
-        LOCK_FILENAME_TEMPLATE.format(config_path.name)
+        LOCK_FILENAME_TEMPLATE.format(file_name=config_path.name)
     )
     return lock_file_path
 
@@ -74,8 +75,8 @@ def lock_config(config_path: PathLikeStr = CONFIG_PATH_DYNAMIC) -> bool:
             os.fsync(lock_file.fileno())
     else:
         return False
-    with open(lock_file_path, encoding="utf-8") as lock_file:
-        lock_pid = lock_file.read()
+    with open(lock_file_path, encoding="utf-8") as lock_file_reread:
+        lock_pid = lock_file_reread.read()
     return int(lock_pid.strip()) == os.getpid()
 
 
@@ -88,6 +89,7 @@ def wait_for_lock(
     verbose: bool = False,
 ) -> bool:
     """Attempt to acquire a lock, waiting until one is available."""
+    vprint = submanager.utils.output.VerbosePrinter(enable=verbose)
     config_path = Path(config_path)
     start_time = time.monotonic()
     end_time = start_time + timeout_s
@@ -96,12 +98,12 @@ def wait_for_lock(
     while time.monotonic() <= end_time:
         acquired_lock = lock_config(config_path)
         if acquired_lock:
-            if verbose and not first_attempt:
+            if not first_attempt:
                 time_elapsed = time.monotonic() - start_time
-                print(f"Acquired config lock after {time_elapsed} s")
+                vprint(f"Acquired config lock after {time_elapsed} s")
             return True
-        if verbose and first_attempt:
-            print(
+        if first_attempt:
+            vprint(
                 f"File {config_path.as_posix()!r} is locked; "
                 f"retrying for {timeout_s} s..."
             )

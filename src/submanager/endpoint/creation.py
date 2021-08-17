@@ -6,6 +6,9 @@ from __future__ import (
 )
 
 # Standard library imports
+from types import (
+    MappingProxyType,
+)
 from typing import (
     Mapping,
 )
@@ -27,20 +30,22 @@ EndpointClass = Type[submanager.endpoint.base.SyncEndpoint]
 
 SYNC_ENDPOINT_TYPES: Final[
     Mapping[submanager.enums.EndpointType, EndpointClass]
-] = {
-    submanager.enums.EndpointType.MENU: (
-        submanager.endpoint.endpoints.MenuSyncEndpoint
-    ),
-    submanager.enums.EndpointType.THREAD: (
-        submanager.endpoint.endpoints.ThreadSyncEndpoint
-    ),
-    submanager.enums.EndpointType.WIDGET: (
-        submanager.endpoint.endpoints.SidebarSyncEndpoint
-    ),
-    submanager.enums.EndpointType.WIKI_PAGE: (
-        submanager.endpoint.endpoints.WikiSyncEndpoint
-    ),
-}
+] = MappingProxyType(
+    {
+        submanager.enums.EndpointType.MENU: (
+            submanager.endpoint.endpoints.MenuSyncEndpoint
+        ),
+        submanager.enums.EndpointType.THREAD: (
+            submanager.endpoint.endpoints.ThreadSyncEndpoint
+        ),
+        submanager.enums.EndpointType.WIDGET: (
+            submanager.endpoint.endpoints.SidebarSyncEndpoint
+        ),
+        submanager.enums.EndpointType.WIKI_PAGE: (
+            submanager.endpoint.endpoints.WikiSyncEndpoint
+        ),
+    }
+)
 
 
 def create_sync_endpoint_from_config(

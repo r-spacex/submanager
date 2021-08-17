@@ -31,6 +31,11 @@ from submanager.types import (
     PathLikeStr,
 )
 
+# ---- Constants ----
+
+DEFAULT_ERROR_MESSAGE: Final[str] = "Error"
+
+
 # ---- Exception groups ----
 
 PRAW_NOTFOUND_ERRORS: Final[ExceptTuple] = (
@@ -106,7 +111,7 @@ class SubManagerUserError(SubManagerError):
 class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
     """Error with a fillable message."""
 
-    _message_pre: ClassVar[str | None] = "Error"
+    _message_pre: ClassVar[str | None] = DEFAULT_ERROR_MESSAGE
     _message_template: ClassVar[str] = "occurred"
     _message_post: ClassVar[str | None] = None
 
@@ -132,7 +137,7 @@ class ErrorFillable(SubManagerError, metaclass=abc.ABCMeta):
 class ErrorWithConfigItem(ErrorFillable):
     """Something's wrong with an endpoint."""
 
-    _message_pre: ClassVar[str] = "Error"
+    _message_pre: ClassVar[str] = DEFAULT_ERROR_MESSAGE
     _message_template: ClassVar[str] = "in item {config}"
 
     def __init__(
@@ -240,7 +245,7 @@ class NoCommonScopesWarning(DeprecationWarning):
 class ErrorWithAccount(ErrorFillable):
     """Something's wrong with the Reddit account configuration."""
 
-    _message_pre: ClassVar[str] = "Error"
+    _message_pre: ClassVar[str] = DEFAULT_ERROR_MESSAGE
     _message_template: ClassVar[str] = "with account {account_key!r}"
 
     def __init__(
@@ -298,7 +303,7 @@ class ConfigError(SubManagerUserError):
 class ConfigErrorWithPath(ErrorFillable, ConfigError):
     """Config errors that involve a config file at a specific path."""
 
-    _message_pre: ClassVar[str] = "Error"
+    _message_pre: ClassVar[str] = DEFAULT_ERROR_MESSAGE
     _message_template: ClassVar[
         str
     ] = "for config file at path {config_path!r}"

@@ -48,6 +48,40 @@ def extract_text(
     return match_text
 
 
+def parse_section(
+    menu_section: str,
+    menu_config: submanager.models.config.MenuConfig,
+) -> SectionData:
+    """Construct the data for each menu section in the source."""
+    menu_subsections = split_and_clean_text(menu_section, menu_config.subsplit)
+
+    # Skip if no title or menu items, otherwise add the title
+    if not menu_subsections:
+        return {}
+    title_text = extract_text(menu_config.pattern_title, menu_subsections[0])
+    if title_text is False:
+        return {}
+    section_data: SectionData = {"text": title_text}
+
+    # If menu is a singular item, just add that
+    if len(menu_subsections) == 1:
+        url_text = extract_text(menu_config.pattern_url, menu_subsections[0])
+        if url_text is False:
+            return {}
+        section_data["url"] = url_text
+    # Otherwise, process each of the child menu items
+    else:
+        children: ChildrenData = []
+        for menu_child in menu_subsections[1:]:
+            title_text = extract_text(menu_config.pattern_subtitle, menu_child)
+            url_text = extract_text(menu_config.pattern_url, menu_child)
+            if title_text is not False and url_text is not False:
+                children.append({"text": title_text, "url": url_text})
+        section_data["children"] = children
+
+    return section_data
+
+
 def parse_menu(
     source_text: str,
     menu_config: submanager.models.config.MenuConfig | None = None,
@@ -61,41 +95,9 @@ def parse_menu(
     source_text = source_text.replace("\r\n", "\n")
     menu_sections = split_and_clean_text(source_text, menu_config.split)
 
-    # Construct the data for each menu section in the source
     for menu_section in menu_sections:
-        menu_subsections = split_and_clean_text(
-            menu_section, menu_config.subsplit
-        )
-
-        # Skip if no title or menu items, otherwise add the title
-        if not menu_subsections:
-            continue
-        title_text = extract_text(
-            menu_config.pattern_title, menu_subsections[0]
-        )
-        if title_text is False:
-            continue
-        section_data: SectionData = {"text": title_text}
-
-        # If menu is a singular item, just add that
-        if len(menu_subsections) == 1:
-            url_text = extract_text(
-                menu_config.pattern_url, menu_subsections[0]
-            )
-            if url_text is False:
-                continue
-            section_data["url"] = url_text
-        # Otherwise, process each of the child menu items
-        else:
-            children: ChildrenData = []
-            for menu_child in menu_subsections[1:]:
-                title_text = extract_text(
-                    menu_config.pattern_subtitle, menu_child
-                )
-                url_text = extract_text(menu_config.pattern_url, menu_child)
-                if title_text is not False and url_text is not False:
-                    children.append({"text": title_text, "url": url_text})
-            section_data["children"] = children
-        menu_data.append(section_data)
+        section_data = parse_section(menu_section, menu_config)
+        if section_data:
+            menu_data.append(section_data)
 
     return MenuData(menu_data)

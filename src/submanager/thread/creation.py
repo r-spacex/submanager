@@ -6,6 +6,7 @@ from __future__ import (
 )
 
 # Standard library imports
+import contextlib
 import re
 import time
 
@@ -34,7 +35,12 @@ from submanager.types import (
 
 # ---- Constants ----
 
-THREAD_ATTRIBUTES: Final[list[str]] = ["id", "url", "permalink", "shortlink"]
+THREAD_ATTRIBUTES: Final[tuple[str, ...]] = (
+    "id",
+    "url",
+    "permalink",
+    "shortlink",
+)
 
 
 # ---- Helper classes ----
@@ -100,12 +106,12 @@ def create_new_thread(
         thread_config.source, source_obj, dynamic_config
     )
     pattern = submanager.sync.utils.PATTERN_TEMPLATE.format(
-        f"{submanager.thread.utils.THREAD_PATTERN}{{}}"
+        pattern=f"{submanager.thread.utils.THREAD_PATTERN}{{suffix}}"
     )
     post_text = (
-        f"{pattern.format(thread_config.source.pattern_start)}\n"
+        f"{pattern.format(suffix=thread_config.source.pattern_start)}\n"
         f"{post_text}\n"
-        f"{pattern.format(thread_config.source.pattern_end)}"
+        f"{pattern.format(suffix=thread_config.source.pattern_end)}"
     )
     new_thread: praw.models.reddit.submission.Submission = (
         accounts[thread_config.target_context.account]
@@ -141,10 +147,9 @@ def handle_pin_thread(
     # Get currently pinned threads
     current_pins: list[praw.models.reddit.submission.Submission] = []
     for pin_n in range(1, 3):
-        try:
+        # Ignore if no pinned thread
+        with contextlib.suppress(prawcore.exceptions.NotFound):
             current_pins.append(subreddit_mod.sticky(number=pin_n))
-        except prawcore.exceptions.NotFound:  # Ignore if no pinned thread
-            pass
 
     # Get current pinned thread ids and determine current thread status
     pinned_thread_ids = [thread.id for thread in current_pins]
@@ -164,7 +169,7 @@ def handle_pin_thread(
     try:
         thread_context_mod.new_thread.mod.sticky(state=True, bottom=bottom_pin)
     except prawcore.exceptions.BadRequest as error:
-        print(
+        print(  # noqa: WPS421
             f"Attempt to pin thread {thread_context_mod.new_thread.title!r} "
             "failed the first time due to an error; retrying. "
             "The error was:"
@@ -270,7 +275,7 @@ def handle_new_thread(
     template_vars = submanager.thread.utils.generate_template_vars(
         thread_config, dynamic_config
     )
-    _new_thread = create_new_thread(
+    new_thread = create_new_thread(
         thread_config=thread_config,
         dynamic_config=dynamic_config,
         accounts=accounts,
@@ -281,7 +286,7 @@ def handle_new_thread(
     thread_context = ThreadContext(
         thread_config=thread_config,
         accounts=accounts,
-        new_thread_id=_new_thread.id,
+        new_thread_id=new_thread.id,
         current_thread_id=dynamic_config.thread_id,
     )
     if thread_config.approve_new:

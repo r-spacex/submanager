@@ -49,9 +49,8 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     sync_item: StrMap
 
     # Fill the defaults in each sync item
-    for sync_key, sync_item in (
-        raw_config.get("sync_manager", {}).get("items", {}).items()
-    ):
+    sync_manager_items = raw_config.get("sync_manager", {}).get("items", {})
+    for sync_key, sync_item in sync_manager_items.items():
         sync_defaults_item: StrMap = (
             submanager.utils.misc.update_dict_recursive(
                 sync_defaults, sync_item.pop("defaults", {})
@@ -78,9 +77,10 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     thread: StrMap
 
     # Fill the defaults in each managed thread
-    for thread_key, thread in (
-        raw_config.get("thread_manager", {}).get("items", {}).items()
-    ):
+    thread_manager_items = raw_config.get("thread_manager", {}).get(
+        "items", {}
+    )
+    for thread_key, thread in thread_manager_items.items():
         thread.update(
             submanager.utils.misc.update_dict_recursive(
                 thread_defaults, thread
@@ -176,7 +176,7 @@ def load_static_config(
     # Render static config
     try:
         static_config = render_static_config(raw_config)
-    except pydantic.ValidationError as error:
+    except pydantic.ValidationError as error:  # noqa: WPS440
         raise submanager.exceptions.ConfigValidationError(
             config_path, message_post=error
         ) from error

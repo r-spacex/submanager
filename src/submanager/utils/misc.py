@@ -7,6 +7,7 @@ from __future__ import (
 
 # Standard library imports
 import copy
+import time
 from typing import (
     Any,
     Callable,
@@ -20,7 +21,41 @@ from typing import (
 KeyType = TypeVar("KeyType")
 
 
+# ---- General utilities ----
+
+
+def sleep_for_interval(sleep_interval: float) -> None:
+    """Sleep for the designated interval in small increments."""
+    time_left_s = sleep_interval
+    while True:
+        time_to_sleep_s = min((time_left_s, 1))
+        time.sleep(time_to_sleep_s)
+        time_left_s -= 1
+        if time_left_s <= 0:
+            return
+
+
 # ---- Dictionary handling code ----
+
+
+def _process_dict_items_inner(
+    dict_toprocess: MutableMapping[KeyType, Any],
+    fn_torun: Callable[..., Any],
+    *,
+    fn_kwargs: Mapping[str, Any],
+    keys_match: Collection[str] | None,
+) -> None:
+    """Inner function to call recursively to handle dict items."""
+    for key, value in dict_toprocess.items():
+        if isinstance(value, MutableMapping):
+            _process_dict_items_inner(
+                dict_toprocess=value,
+                fn_torun=fn_torun,
+                fn_kwargs=fn_kwargs,
+                keys_match=keys_match,
+            )
+        elif keys_match is None or key in keys_match:
+            dict_toprocess[key] = fn_torun(value, **fn_kwargs)
 
 
 def process_dict_items_recursive(
@@ -37,25 +72,11 @@ def process_dict_items_recursive(
     if not inplace:
         dict_toprocess = copy.deepcopy(dict_toprocess)
 
-    def _process_dict_items_inner(
-        dict_toprocess: MutableMapping[KeyType, Any],
-        fn_torun: Callable[..., Any],
-        fn_kwargs: Mapping[str, Any],
-    ) -> None:
-        for key, value in dict_toprocess.items():
-            if isinstance(value, MutableMapping):
-                _process_dict_items_inner(
-                    dict_toprocess=value,
-                    fn_torun=fn_torun,
-                    fn_kwargs=fn_kwargs,
-                )
-            elif keys_match is None or key in keys_match:
-                dict_toprocess[key] = fn_torun(value, **fn_kwargs)
-
     _process_dict_items_inner(
         dict_toprocess=dict_toprocess,
         fn_torun=fn_torun,
         fn_kwargs=fn_kwargs,
+        keys_match=keys_match,
     )
     return dict_toprocess
 

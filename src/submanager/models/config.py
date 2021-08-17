@@ -53,7 +53,7 @@ DEFAULT_REDIRECT_TEMPLATE: Final[
 This thread is no longer being updated, and has been replaced by:
 
 # [{post_title}]({thread_url})
-"""
+"""  # noqa: E800
 
 
 # ---- Standalone models ----
@@ -239,7 +239,7 @@ class StaticConfig(submanager.models.base.CustomBaseModel):
     thread_manager: ThreadManagerConfig = ThreadManagerConfig()
 
     @pydantic.validator("accounts")
-    def check__has_accounts(  # pylint: disable = no-self-use, no-self-argument
+    def check_has_accounts(  # pylint: disable = no-self-use, no-self-argument
         cls, value: AccountsConfig
     ) -> AccountsConfig:
         """Validate that at least one user account is defined."""

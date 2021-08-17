@@ -24,13 +24,13 @@ def import_submodules_recursive(
     if not package.__spec__:
         raise ImportError("Package must have a valid spec")
     search_path = package.__spec__.submodule_search_locations
-    results = {}
+    found_submodules = {}
     for module_info in pkgutil.walk_packages(search_path):
         full_name = f"{package.__name__}.{module_info.name}"
-        results[full_name] = importlib.import_module(full_name)
+        found_submodules[full_name] = importlib.import_module(full_name)
         if module_info.ispkg:
-            results.update(import_submodules_recursive(full_name))
-    return results
+            found_submodules.update(import_submodules_recursive(full_name))
+    return found_submodules
 
 
 # ---- Tests ----
@@ -38,7 +38,7 @@ def import_submodules_recursive(
 
 def test_import_all() -> None:
     """Test that all modules in the package import successfully."""
-    results = import_submodules_recursive("submanager")
+    found_submodules = import_submodules_recursive("submanager")
 
-    assert results
-    assert next(iter(results))
+    assert found_submodules
+    assert next(iter(found_submodules))

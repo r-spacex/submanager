@@ -5,6 +5,11 @@ from __future__ import (
     annotations,
 )
 
+# Standard library imports
+from typing import (
+    Tuple,
+)
+
 # Third party imports
 import praw.reddit
 
@@ -20,6 +25,11 @@ from submanager.constants import (
 from submanager.types import (
     AccountsMap,
 )
+
+StaticDynamicTuple = Tuple[
+    submanager.models.config.StaticConfig,
+    submanager.models.config.DynamicConfig,
+]
 
 
 def setup_accounts(
@@ -54,10 +64,7 @@ def setup_config(
     config_paths: submanager.models.config.ConfigPaths | None = None,
     *,
     verbose: bool = False,
-) -> tuple[
-    submanager.models.config.StaticConfig,
-    submanager.models.config.DynamicConfig,
-]:
+) -> StaticDynamicTuple:
     """Load the config and set up the accounts mapping."""
     vprint = submanager.utils.output.VerbosePrinter(verbose)
     if config_paths is None:

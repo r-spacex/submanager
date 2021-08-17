@@ -26,7 +26,7 @@ class StrValueEnum(enum.Enum):
         return str(self.value)
 
     @classmethod
-    def _missing_(cls, value: object) -> StrValueEnum | None:
+    def _missing_(cls, value: object) -> StrValueEnum | None:  # noqa: WPS120
         """Handle case-insensitive lookup of enum values."""
         if not isinstance(value, str):
             return None

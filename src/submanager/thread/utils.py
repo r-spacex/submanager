@@ -31,15 +31,16 @@ def generate_template_vars(
     dynamic_config: submanager.models.config.DynamicThreadItemConfig,
 ) -> TemplateVars:
     """Generate the title and post templates."""
+    thread_id_previous = (
+        "" if not dynamic_config.thread_id else dynamic_config.thread_id
+    )
     template_vars: TemplateVars = {
         "current_datetime": datetime.datetime.now(datetime.timezone.utc),
         "current_datetime_local": datetime.datetime.now(),
         "subreddit": thread_config.context.subreddit,
         "thread_number": dynamic_config.thread_number,
         "thread_number_previous": dynamic_config.thread_number - 1,
-        "thread_id_previous": ""
-        if not dynamic_config.thread_id
-        else dynamic_config.thread_id,
+        "thread_id_previous": thread_id_previous,
     }
     template_vars["post_title"] = thread_config.post_title_template.format(
         **template_vars
@@ -77,7 +78,7 @@ def should_post_new_thread(
     if interval_n is None:
         previous_n: int = getattr(last_post_timestamp, interval_unit)
         current_n: int = getattr(current_datetime, interval_unit)
-        interval_exceeded = not previous_n == current_n
+        interval_exceeded = previous_n != current_n
     else:
         delta_kwargs: dict[str, int] = {f"{interval_unit}s": interval_n}
         relative_timedelta = dateutil.relativedelta.relativedelta(

@@ -173,9 +173,9 @@ class SyncEndpoint(metaclass=abc.ABCMeta):
             if not raise_error:
                 return False
             raise
-        else:
-            self._validated = True
-            return True
+
+        self._validated = True
+        return True
 
 
 class WidgetSyncEndpoint(SyncEndpoint, metaclass=abc.ABCMeta):
@@ -206,5 +206,5 @@ class WidgetSyncEndpoint(SyncEndpoint, metaclass=abc.ABCMeta):
                 ),
                 message_post=error,
             ) from error
-        else:
-            return True
+
+        return True

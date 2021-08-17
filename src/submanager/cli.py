@@ -42,7 +42,8 @@ def get_version_string() -> str:
 
 def print_version_string() -> None:
     """Print the package's version string."""
-    print(get_version_string())
+    version_string = get_version_string()
+    submanager.utils.output.VerbosePrinter(enable=True)(version_string)
 
 
 def create_arg_parser() -> argparse.ArgumentParser:
@@ -247,22 +248,25 @@ def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
             submanager.enums.ExitCode.ERROR_PARAMETERS.value
         ) from error
     else:
-        run_toplevel_function(**vars(parsed_args))
+        run_toplevel_function(**vars(parsed_args))  # noqa: WPS421
 
 
 def cli(sys_argv: Sequence[str] | None = None) -> None:
     """Perform the CLI parsing and execute dispatch."""
     parser_main = create_arg_parser()
     parsed_args = parser_main.parse_args(sys_argv)
-    debug: bool = vars(parsed_args).pop("debug")
+    debug: bool = vars(parsed_args).pop("debug")  # noqa: WPS421
     try:
         handle_parsed_args(parsed_args)
     except submanager.exceptions.SubManagerUserError as error:
         if debug:
             raise
         formatted_error = submanager.utils.output.format_error(error)
-        print(
-            f"\n{'v' * 70}\n{formatted_error}\n{'^' * 70}\n", file=sys.stderr
+        line_length = 70
+        sep_line = f"\n{'v' * line_length}\n"
+        print(  # noqa: WPS421
+            f"{sep_line}{formatted_error}{sep_line}",
+            file=sys.stderr,
         )
         raise SystemExit(submanager.enums.ExitCode.ERROR_USER.value) from error
 

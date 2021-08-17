@@ -31,7 +31,7 @@ from submanager.types import (
     PathLikeStr,
 )
 
-SUPPORTED_CONFIG_FORMATS: Final[frozenset[str]] = frozenset({"json", "toml"})
+SUPPORTED_CONFIG_FORMATS: Final[frozenset[str]] = frozenset(("json", "toml"))
 
 
 def serialize_config(
