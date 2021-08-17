@@ -84,7 +84,8 @@ def pytest_addoption(parser: Parser) -> None:
 
 
 def pytest_collection_modifyitems(
-    config: Config, items: list[pytest.Item]
+    config: Config,
+    items: list[pytest.Item],
 ) -> None:
     """Ensure that online tests are skipped unless run online is passed."""
     if not config.getoption(RUN_ONLINE_OPTION):

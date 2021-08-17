@@ -43,7 +43,7 @@ def generate_template_vars(
         "thread_id_previous": thread_id_previous,
     }
     template_vars["post_title"] = thread_config.post_title_template.format(
-        **template_vars
+        **template_vars,
     )
     return template_vars
 
@@ -62,7 +62,7 @@ def should_post_new_thread(
 
     # Process the interval and the current thread
     interval_unit, interval_n = submanager.models.utils.process_raw_interval(
-        thread_config.new_thread_interval
+        thread_config.new_thread_interval,
     )
     current_thread: praw.models.reddit.submission.Submission = (
         reddit.submission(id=dynamic_config.thread_id)
@@ -70,7 +70,8 @@ def should_post_new_thread(
 
     # Get last post and current timestamp
     last_post_timestamp = datetime.datetime.fromtimestamp(
-        current_thread.created_utc, tz=datetime.timezone.utc
+        current_thread.created_utc,
+        tz=datetime.timezone.utc,
     )
     current_datetime = datetime.datetime.now(datetime.timezone.utc)
 
@@ -82,7 +83,7 @@ def should_post_new_thread(
     else:
         delta_kwargs: dict[str, int] = {f"{interval_unit}s": interval_n}
         relative_timedelta = dateutil.relativedelta.relativedelta(
-            **delta_kwargs  # type: ignore[arg-type]
+            **delta_kwargs,  # type: ignore[arg-type]
         )
         interval_exceeded = current_datetime > (
             last_post_timestamp + relative_timedelta

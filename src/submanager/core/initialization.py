@@ -53,7 +53,8 @@ def setup_accounts(
             )
         except submanager.exceptions.PRAW_ALL_ERRORS as error:
             raise submanager.exceptions.AccountConfigError(
-                account_key=account_key, message_post=error
+                account_key=account_key,
+                message_post=error,
             ) from error
         reddit.validate_on_submit = True
         accounts[account_key] = reddit
@@ -73,17 +74,18 @@ def setup_config(
     # Load the configuration
     vprint(
         "Loading static configuration at path "
-        f"{config_paths.static.as_posix()!r}"
+        f"{config_paths.static.as_posix()!r}",
     )
     static_config = submanager.config.static.load_static_config(
-        config_paths.static
+        config_paths.static,
     )
     vprint(
         "Loading dynamic configuration at path "
-        f"{config_paths.dynamic.as_posix()!r}"
+        f"{config_paths.dynamic.as_posix()!r}",
     )
     dynamic_config = submanager.config.dynamic.load_dynamic_config(
-        static_config=static_config, config_path=config_paths.dynamic
+        static_config=static_config,
+        config_path=config_paths.dynamic,
     )
 
     return static_config, dynamic_config

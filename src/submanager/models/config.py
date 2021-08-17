@@ -132,7 +132,8 @@ class SyncItemConfig(submanager.models.base.ItemConfig):
 
     @pydantic.validator("targets")
     def check_has_targets(  # pylint: disable = no-self-use, no-self-argument
-        cls, value: Mapping[StripStr, FullEndpointConfig]
+        cls,
+        value: Mapping[StripStr, FullEndpointConfig],
     ) -> Mapping[StripStr, FullEndpointConfig]:
         """Validate that at least one target is defined for each sync pair."""
         if not value:
@@ -157,7 +158,8 @@ class ThreadItemConfig(submanager.models.base.ItemWithContextConfig):
     link_update_pages: Sequence[StripStr] = []
     new_thread_interval: Union[NonEmptyStr, Literal[False]] = "monthly"
     pin_mode: Union[
-        submanager.enums.PinMode, pydantic.StrictBool
+        submanager.enums.PinMode,
+        pydantic.StrictBool,
     ] = submanager.enums.PinMode.AUTO
     post_title_template: StripStr = (
         "{subreddit} Discussion Thread (#{thread_number})"
@@ -184,28 +186,29 @@ class ThreadItemConfig(submanager.models.base.ItemWithContextConfig):
             # If a fixed interval, check unit against datetime attributes
             try:
                 interval_value: int = getattr(
-                    datetime.datetime.now(), interval_unit
+                    datetime.datetime.now(),
+                    interval_unit,
                 )
             except AttributeError as error:
                 raise ValueError(
                     f"Interval unit {interval_unit} "
-                    "must be a datetime attribute"
+                    "must be a datetime attribute",
                 ) from error
             if not isinstance(interval_value, int):
                 raise TypeError(
                     f"Interval value {interval_value!r} for unit "
                     f"{interval_unit!r} must be an integer, "
-                    f"not {type(interval_value)!r}"
+                    f"not {type(interval_value)!r}",
                 )
         else:
             # If an offset interval, check against relativedelta kwargs
             delta_kwargs: dict[str, int] = {f"{interval_unit}s": interval_n}
             dateutil.relativedelta.relativedelta(
-                **delta_kwargs  # type: ignore[arg-type]
+                **delta_kwargs,  # type: ignore[arg-type]
             )
             if interval_n < 1:
                 raise ValueError(
-                    f"Interval n has invalid nonpositive value {interval_n!r}"
+                    f"Interval n has invalid nonpositive value {interval_n!r}",
                 )
         return raw_interval
 
@@ -240,7 +243,8 @@ class StaticConfig(submanager.models.base.CustomBaseModel):
 
     @pydantic.validator("accounts")
     def check_has_accounts(  # pylint: disable = no-self-use, no-self-argument
-        cls, value: AccountsConfig
+        cls,
+        value: AccountsConfig,
     ) -> AccountsConfig:
         """Validate that at least one user account is defined."""
         if not value:
@@ -258,13 +262,15 @@ class DynamicSyncItemConfig(submanager.models.base.DynamicItemConfig):
 
 
 class DynamicThreadItemConfig(
-    DynamicSyncItemConfig, InitialThreadConfig, allow_mutation=True
+    DynamicSyncItemConfig,
+    InitialThreadConfig,
+    allow_mutation=True,
 ):
     """Dynamically-updated configuration for managed threads."""
 
 
 class DynamicSyncManagerConfig(
-    submanager.models.base.DynamicItemManagerConfig
+    submanager.models.base.DynamicItemManagerConfig,
 ):
     """Dynamically updated configuration for the Sync Manager module."""
 
@@ -272,7 +278,7 @@ class DynamicSyncManagerConfig(
 
 
 class DynamicThreadManagerConfig(
-    submanager.models.base.DynamicItemManagerConfig
+    submanager.models.base.DynamicItemManagerConfig,
 ):
     """Dynamically updated configuration for the Thread Manager module."""
 

@@ -98,7 +98,7 @@ class SubManagerError(Exception):
         if message_post is not None:
             if isinstance(message_post, BaseException):
                 message_post = submanager.utils.output.format_error(
-                    message_post
+                    message_post,
                 )
             message = f"{message}\n\n{message_post.strip(' ')}"
         super().__init__(message)
@@ -181,7 +181,9 @@ class RedditHTTPError(RedditConnectionError):
 
 
 class RedditObjectNotFoundError(
-    ErrorWithConfigItem, RedditError, SubManagerUserError
+    ErrorWithConfigItem,
+    RedditError,
+    SubManagerUserError,
 ):
     """Could not find the object on Reddit."""
 
@@ -210,7 +212,8 @@ class RedditPermissionError(RedditError, SubManagerUserError):
 
 
 class RedditObjectNotAccessibleError(
-    ErrorWithConfigItem, RedditPermissionError
+    ErrorWithConfigItem,
+    RedditPermissionError,
 ):
     """Found the object but could not access it with the current account."""
 

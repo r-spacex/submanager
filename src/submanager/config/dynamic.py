@@ -60,7 +60,7 @@ def render_dynamic_config(
         }
 
     dynamic_config = submanager.models.config.DynamicConfig.parse_obj(
-        dynamic_config_raw
+        dynamic_config_raw,
     )
     return dynamic_config
 
@@ -73,24 +73,27 @@ def load_dynamic_config(
     config_path = Path(config_path)
     if not config_path.exists():
         dynamic_config = render_dynamic_config(
-            static_config=static_config, dynamic_config_raw={}
+            static_config=static_config,
+            dynamic_config_raw={},
         )
         submanager.config.utils.write_config(
-            dynamic_config, config_path=config_path
+            dynamic_config,
+            config_path=config_path,
         )
     else:
         dynamic_config_raw = dict(
-            submanager.config.utils.load_config(config_path)
+            submanager.config.utils.load_config(config_path),
         )
         dynamic_config = render_dynamic_config(
-            static_config=static_config, dynamic_config_raw=dynamic_config_raw
+            static_config=static_config,
+            dynamic_config_raw=dynamic_config_raw,
         )
 
     return dynamic_config
 
 
 class LockedandLoadedDynamicConfig(
-    contextlib.AbstractContextManager[submanager.models.config.DynamicConfig]
+    contextlib.AbstractContextManager[submanager.models.config.DynamicConfig],
 ):
     """Return the dynamic config if and when it can be locked."""
 

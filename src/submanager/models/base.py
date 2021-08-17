@@ -35,7 +35,9 @@ class CustomBaseModel(
 
 
 class CustomMutableBaseModel(
-    CustomBaseModel, allow_mutation=True, metaclass=abc.ABCMeta
+    CustomBaseModel,
+    allow_mutation=True,
+    metaclass=abc.ABCMeta,
 ):
     """Custom BaseModel that allows mutation."""
 
@@ -56,12 +58,13 @@ class ContextConfig(CustomBaseModel):
 
     @pydantic.validator("account", pre=True)
     def check_account_found(  # pylint: disable = no-self-use, no-self-argument
-        cls, value: submanager.models.utils.MissingAccount | str
+        cls,
+        value: submanager.models.utils.MissingAccount | str,
     ) -> str:
         """Check that the account is present in the global accounts table."""
         if isinstance(value, submanager.models.utils.MissingAccount):
             raise ValueError(
-                f"Account key '{value}' not listed in accounts table"
+                f"Account key '{value}' not listed in accounts table",
             )
         return value
 

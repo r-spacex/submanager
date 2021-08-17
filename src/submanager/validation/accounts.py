@@ -28,7 +28,7 @@ from submanager.types import (
 # ---- Constants and enums ----
 
 TESTABLE_SCOPES: Final[frozenset[str]] = frozenset(
-    ("*", "identity", "read", "wikiread")
+    ("*", "identity", "read", "wikiread"),
 )
 TEST_PAGE_WIKI: Final[str] = "index"
 TEST_SUB_POST: Final[str] = "all"
@@ -275,7 +275,9 @@ def validate_accounts(
         )
         if account_valid and not offline_only:
             account_valid = validate_account(
-                reddit, account_key=account_key, raise_error=raise_error
+                reddit,
+                account_key=account_key,
+                raise_error=raise_error,
             )
         accounts_valid[account_key] = account_valid
     return accounts_valid

@@ -49,7 +49,7 @@ def serialize_config(
     else:
         raise submanager.exceptions.ConfigError(
             f"Output format {output_format!r} must be in "
-            f"{set(SUPPORTED_CONFIG_FORMATS)}"
+            f"{set(SUPPORTED_CONFIG_FORMATS)}",
         )
     return serialized_config
 
@@ -63,14 +63,19 @@ def write_config(
     config_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         serialized_config = serialize_config(
-            config=config, output_format=config_path.suffix[1:]
+            config=config,
+            output_format=config_path.suffix[1:],
         )
     except submanager.exceptions.ConfigError as error:
         raise submanager.exceptions.ConfigExtensionError(
-            config_path, message_post=error
+            config_path,
+            message_post=error,
         ) from error
     with open(
-        config_path, mode="w", encoding="utf-8", newline="\n"
+        config_path,
+        mode="w",
+        encoding="utf-8",
+        newline="\n",
     ) as config_file:
         config_file.write(serialized_config)
     return serialized_config
@@ -89,7 +94,8 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
                     f"not a {type(raw_config)!r}"
                 )
                 raise submanager.exceptions.ConfigDataTypeError(
-                    config_path, message_pre=format_message
+                    config_path,
+                    message_pre=format_message,
                 )
             config = dict(raw_config)
 
@@ -100,7 +106,7 @@ def load_config(config_path: PathLikeStr) -> ConfigDict:
                 config_path,
                 message_post=submanager.exceptions.ConfigError(
                     f"Input format {config_path.suffix!r} must be in "
-                    f"{set(SUPPORTED_CONFIG_FORMATS)}"
+                    f"{set(SUPPORTED_CONFIG_FORMATS)}",
                 ),
             )
     return config

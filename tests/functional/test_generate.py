@@ -51,7 +51,8 @@ def test_config_doesnt_exist(
 
     assert temp_config_paths.static.exists()
     submanager.core.initialization.setup_config(
-        temp_config_paths, verbose=True
+        temp_config_paths,
+        verbose=True,
     )
 
 
@@ -79,7 +80,9 @@ def test_config_exists(
 
 
 @pytest.mark.parametrize(
-    "temp_config_paths", CONFIG_EXTENSIONS_BAD, indirect=True
+    "temp_config_paths",
+    CONFIG_EXTENSIONS_BAD,
+    indirect=True,
 )
 def test_unknown_extension_error(
     run_and_check_cli: RunAndCheckCLICallable,
@@ -114,7 +117,8 @@ def test_generated_validates_false(
             verbose=True,
         )
     static_config, __ = submanager.core.initialization.setup_config(
-        temp_config_paths, verbose=True
+        temp_config_paths,
+        verbose=True,
     )
     with pytest.raises(submanager.exceptions.AccountConfigError):
         submanager.core.initialization.setup_accounts(

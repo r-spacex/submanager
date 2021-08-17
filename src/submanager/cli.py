@@ -55,7 +55,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         argument_default=argparse.SUPPRESS,
     )
     subparsers = parser_main.add_subparsers(
-        description="Subcommand to execute"
+        description="Subcommand to execute",
     )
 
     # Top-level arguments
@@ -105,7 +105,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         argument_default=argparse.SUPPRESS,
     )
     parser_generate.set_defaults(
-        func=submanager.core.commands.run_generate_config
+        func=submanager.core.commands.run_generate_config,
     )
     parser_generate.add_argument(
         "--force",
@@ -127,7 +127,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
         argument_default=argparse.SUPPRESS,
     )
     parser_validate.set_defaults(
-        func=submanager.core.commands.run_validate_config
+        func=submanager.core.commands.run_validate_config,
     )
     parser_validate.add_argument(
         "--offline-only",
@@ -245,7 +245,7 @@ def handle_parsed_args(parsed_args: argparse.Namespace) -> None:
     except AttributeError as error:  # If function is not specified
         create_arg_parser().print_usage(file=sys.stderr)
         raise SystemExit(
-            submanager.enums.ExitCode.ERROR_PARAMETERS.value
+            submanager.enums.ExitCode.ERROR_PARAMETERS.value,
         ) from error
     else:
         run_toplevel_function(**vars(parsed_args))  # noqa: WPS421

@@ -39,7 +39,7 @@ def generate_lock_file_path(
     """Generate the path to the lock file for the given config file."""
     config_path = Path(config_path)
     lock_file_path = config_path.with_name(
-        LOCK_FILENAME_TEMPLATE.format(file_name=config_path.name)
+        LOCK_FILENAME_TEMPLATE.format(file_name=config_path.name),
     )
     return lock_file_path
 
@@ -68,7 +68,10 @@ def lock_config(config_path: PathLikeStr = CONFIG_PATH_DYNAMIC) -> bool:
     current_pid_str = f"{current_pid}\n"
     if not lock_file_path.exists():
         with open(
-            lock_file_path, mode="w", encoding="utf-8", newline="\n"
+            lock_file_path,
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
         ) as lock_file:
             lock_file.write(current_pid_str)
             lock_file.flush()
@@ -105,7 +108,7 @@ def wait_for_lock(
         if first_attempt:
             vprint(
                 f"File {config_path.as_posix()!r} is locked; "
-                f"retrying for {timeout_s} s..."
+                f"retrying for {timeout_s} s...",
             )
             first_attempt = False
         time.sleep(check_interval_s)
@@ -114,5 +117,5 @@ def wait_for_lock(
         return False
     raise submanager.exceptions.LockTimeoutError(
         f"Exceeded timeout of {timeout_s} s while attempting to acquire "
-        f"a lock on config file at path {config_path.as_posix()!r}"
+        f"a lock on config file at path {config_path.as_posix()!r}",
     )

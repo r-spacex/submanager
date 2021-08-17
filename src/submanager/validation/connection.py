@@ -36,7 +36,9 @@ def get_reddit_oauth_scopes(
 
     # Make and process the request
     response = requests.get(
-        scopes_endpoint_url, params=query_params, headers=headers
+        scopes_endpoint_url,
+        params=query_params,
+        headers=headers,
     )
     response.raise_for_status()
     response_json: dict[str, dict[str, str]] = response.json()

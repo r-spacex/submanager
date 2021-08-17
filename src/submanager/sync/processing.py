@@ -27,10 +27,12 @@ def process_source_text(
 ) -> str:
     """Perform text processing operations on the source text."""
     source_text = submanager.sync.utils.replace_patterns(
-        source_text, endpoint_config.replace_patterns
+        source_text,
+        endpoint_config.replace_patterns,
     )
     source_text = submanager.sync.utils.truncate_lines(
-        source_text, endpoint_config.truncate_lines
+        source_text,
+        endpoint_config.truncate_lines,
     )
     return source_text
 
@@ -82,16 +84,18 @@ def process_source_endpoint(
     source_content = source_obj.content
     if isinstance(source_content, str):
         source_content_subset = handle_endpoint_pattern(
-            source_content, source_config
+            source_content,
+            source_config,
         )
         if source_content_subset is False:
             print(  # noqa: WPS421
                 "Skipping sync pattern not found in source "
-                f"{source_obj.config.description} {source_obj.config.uid}"
+                f"{source_obj.config.description} {source_obj.config.uid}",
             )
             return False
         source_content_processed = process_source_text(
-            source_content_subset, source_config
+            source_content_subset,
+            source_config,
         )
         return source_content_processed
 
@@ -122,12 +126,14 @@ def process_target_endpoint(
     # If they're both text, process the replacements
     elif isinstance(source_content, str) and isinstance(target_content, str):
         target_content_processed = handle_endpoint_pattern(
-            target_content, target_config, replace_text=source_content
+            target_content,
+            target_config,
+            replace_text=source_content,
         )
         if target_content_processed is False:
             print(  # noqa: WPS421
                 "Skipping sync pattern not found in target "
-                f"{target_obj.config.description} {target_obj.config.uid}"
+                f"{target_obj.config.description} {target_obj.config.uid}",
             )
             return False
         return target_content_processed

@@ -157,8 +157,14 @@ repos:
   - id: black
     name: Format Python with Black
 
+- repo: https://github.com/asottile/add-trailing-comma
+  rev: v2.1.0
+  hooks:
+  - id: add-trailing-comma
+    args: [--py36-plus]
+
 - repo: https://github.com/pycqa/isort
-  rev: 5.9.3
+  rev: '5.9.3'
   hooks:
   - id: isort
     name: Format Python imports with isort

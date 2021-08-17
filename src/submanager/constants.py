@@ -37,10 +37,14 @@ START_TIME: Final[float] = time.monotonic()
 # ---- Path constants ----
 
 USER_CONFIG_DIR: Final[Path] = platformdirs.user_config_path(
-    appname=PACKAGE_NAME, appauthor=PACKAGE_NAME, roaming=True
+    appname=PACKAGE_NAME,
+    appauthor=PACKAGE_NAME,
+    roaming=True,
 )
 USER_STATE_DIR: Final[Path] = platformdirs.user_state_path(
-    appname=PACKAGE_NAME, appauthor=PACKAGE_NAME, roaming=True
+    appname=PACKAGE_NAME,
+    appauthor=PACKAGE_NAME,
+    roaming=True,
 )
 
 CONFIG_PATH_STATIC: Final[Path] = USER_CONFIG_DIR / "config.toml"

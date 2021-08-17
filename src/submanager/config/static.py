@@ -53,20 +53,23 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     for sync_key, sync_item in sync_manager_items.items():
         sync_defaults_item: StrMap = (
             submanager.utils.misc.update_dict_recursive(
-                sync_defaults, sync_item.pop("defaults", {})
+                sync_defaults,
+                sync_item.pop("defaults", {}),
             )
         )
         sync_item["uid"] = f"sync_manager.items.{sync_key}"
         sync_item["source"] = submanager.utils.misc.update_dict_recursive(
-            sync_defaults_item, sync_item.get("source", {})
+            sync_defaults_item,
+            sync_item.get("source", {}),
         )
         sync_item["source"]["uid"] = sync_item["uid"] + ".source"
         target_config: StrMap
         for target_key, target_config in sync_item.get("targets", {}).items():
             target_config.update(
                 submanager.utils.misc.update_dict_recursive(
-                    sync_defaults_item, target_config
-                )
+                    sync_defaults_item,
+                    target_config,
+                ),
             )
             target_config["uid"] = sync_item["uid"] + f".targets.{target_key}"
 
@@ -78,17 +81,20 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
 
     # Fill the defaults in each managed thread
     thread_manager_items = raw_config.get("thread_manager", {}).get(
-        "items", {}
+        "items",
+        {},
     )
     for thread_key, thread in thread_manager_items.items():
         thread.update(
             submanager.utils.misc.update_dict_recursive(
-                thread_defaults, thread
-            )
+                thread_defaults,
+                thread,
+            ),
         )
         thread["uid"] = f"thread_manager.items.{thread_key}"
         thread["source"] = submanager.utils.misc.update_dict_recursive(
-            {"context": thread.get("context", {})}, thread["source"]
+            {"context": thread.get("context", {})},
+            thread["source"],
         )
         thread["source"]["uid"] = thread["uid"] + ".source"
         thread["target_context"] = {
@@ -137,7 +143,8 @@ def check_static_config(
         if not raise_error:
             return False
         raise submanager.exceptions.ConfigEmptyError(
-            config_path, message_post=generate_message
+            config_path,
+            message_post=generate_message,
         )
 
     return True
@@ -168,7 +175,8 @@ def load_static_config(
         toml.decoder.TomlDecodeError,
     ) as error:
         raise submanager.exceptions.ConfigParsingError(
-            config_path, message_post=error
+            config_path,
+            message_post=error,
         ) from error
 
     check_static_config(raw_config, config_path=config_path, raise_error=True)
@@ -178,7 +186,8 @@ def load_static_config(
         static_config = render_static_config(raw_config)
     except pydantic.ValidationError as error:  # noqa: WPS440
         raise submanager.exceptions.ConfigValidationError(
-            config_path, message_post=error
+            config_path,
+            message_post=error,
         ) from error
 
     return static_config
@@ -200,9 +209,10 @@ def generate_static_config(
             raise submanager.exceptions.ConfigExistsError(config_path)
 
     example_config = submanager.models.example.EXAMPLE_STATIC_CONFIG.dict(
-        exclude=submanager.models.example.EXAMPLE_EXCLUDE_FIELDS
+        exclude=submanager.models.example.EXAMPLE_EXCLUDE_FIELDS,
     )
     submanager.config.utils.write_config(
-        config=example_config, config_path=config_path
+        config=example_config,
+        config_path=config_path,
     )
     return config_exists

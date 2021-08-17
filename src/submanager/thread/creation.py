@@ -103,10 +103,12 @@ def create_new_thread(
         reddit=accounts[thread_config.source.context.account],
     )
     post_text = submanager.sync.processing.process_source_endpoint(
-        thread_config.source, source_obj, dynamic_config
+        thread_config.source,
+        source_obj,
+        dynamic_config,
     )
     pattern = submanager.sync.utils.PATTERN_TEMPLATE.format(
-        pattern=f"{submanager.thread.utils.THREAD_PATTERN}{{suffix}}"
+        pattern=f"{submanager.thread.utils.THREAD_PATTERN}{{suffix}}",
     )
     post_text = (
         f"{pattern.format(suffix=thread_config.source.pattern_start)}\n"
@@ -172,7 +174,7 @@ def handle_pin_thread(
         print(  # noqa: WPS421
             f"Attempt to pin thread {thread_context_mod.new_thread.title!r} "
             "failed the first time due to an error; retrying. "
-            "The error was:"
+            "The error was:",
         )
         submanager.utils.output.print_error(error)
         thread_context_mod.new_thread.mod.approve()
@@ -249,11 +251,11 @@ def add_redirect_messages(
     if thread_config.redirect_op:
         current_text = thread_context.post.current_thread.selftext
         thread_context.post.current_thread.edit(
-            f"{redirect_message}\n\n{current_text}"
+            f"{redirect_message}\n\n{current_text}",
         )
     if thread_config.redirect_sticky:
         redirect_comment = thread_context.mod.current_thread.reply(
-            redirect_message
+            redirect_message,
         )
         redirect_comment.mod.distinguish(sticky=True)
 
@@ -273,7 +275,8 @@ def handle_new_thread(
 
     # Generate template variables, title and post text and post
     template_vars = submanager.thread.utils.generate_template_vars(
-        thread_config, dynamic_config
+        thread_config,
+        dynamic_config,
     )
     new_thread = create_new_thread(
         thread_config=thread_config,

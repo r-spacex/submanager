@@ -34,10 +34,13 @@ CUSTOM_CONFIG_PATH_IDS: Final[list[str]] = ["default_paths", "custom_paths"]
 
 @pytest.mark.parametrize("debug", DEBUG_ARGS)
 @pytest.mark.parametrize(
-    "custom_config_paths", CUSTOM_CONFIG_PATHS, ids=CUSTOM_CONFIG_PATH_IDS
+    "custom_config_paths",
+    CUSTOM_CONFIG_PATHS,
+    ids=CUSTOM_CONFIG_PATH_IDS,
 )
 @pytest.mark.parametrize(
-    "command", HELP_COMMANDS + GOOD_COMMANDS + BAD_COMMANDS
+    "command",
+    HELP_COMMANDS + GOOD_COMMANDS + BAD_COMMANDS,
 )
 def test_command_usage(
     run_and_check_cli: RunAndCheckCLICallable,

@@ -51,13 +51,15 @@ def run_get_config_info(
     # Print endpoint list information
     if endpoints:
         static_config, __ = submanager.core.initialization.setup_config(
-            config_paths=config_paths
+            config_paths=config_paths,
         )
         enabled_endpoints = submanager.validation.endpoints.get_all_endpoints(
-            static_config=static_config, include_disabled=False
+            static_config=static_config,
+            include_disabled=False,
         )
         all_endpoints = submanager.validation.endpoints.get_all_endpoints(
-            static_config=static_config, include_disabled=True
+            static_config=static_config,
+            include_disabled=True,
         )
         vprint(" ###### Source/target sync endpoints ######")
         for endpoint in all_endpoints:
@@ -79,7 +81,9 @@ def run_generate_config(
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
     config_exists = submanager.config.static.generate_static_config(
-        config_path=config_paths.static, force=force, exist_ok=exist_ok
+        config_path=config_paths.static,
+        force=force,
+        exist_ok=exist_ok,
     )
 
     # Generate the appropriate message depending on what happened

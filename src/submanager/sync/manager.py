@@ -29,7 +29,9 @@ def sync_one(
         reddit=accounts[sync_item.source.context.account],
     )
     source_content = submanager.sync.processing.process_source_endpoint(
-        sync_item.source, source_obj, dynamic_config
+        sync_item.source,
+        source_obj,
+        dynamic_config,
     )
     if source_content is False:
         return

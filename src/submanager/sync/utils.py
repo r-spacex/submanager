@@ -40,7 +40,8 @@ def startend_to_pattern(start: str, end: str | None = None) -> str:
     """Convert a start and end string to capture everything between."""
     end = start if end is None else end
     pattern = r"(?<={start})(\s|\S)*(?={end})".format(
-        start=re.escape(start), end=re.escape(end)
+        start=re.escape(start),
+        end=re.escape(end),
     )
     return pattern
 

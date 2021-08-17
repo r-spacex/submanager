@@ -41,7 +41,8 @@ from tests.functional.conftest import (
 RequestValues = Union[str, bool, None]
 RequestTuple = Union[Tuple[ConfigDict, RequestValues], ConfigDict]
 ExpectedTuple = Tuple[
-    str, Optional[Type[submanager.exceptions.SubManagerUserError]]
+    str,
+    Optional[Type[submanager.exceptions.SubManagerUserError]],
 ]
 ParamConfigs = Dict[str, Tuple[RequestTuple, ExpectedTuple]]
 
@@ -109,8 +110,8 @@ BAD_VALIDATE_OFFLINE_PARAMS: Final[ParamConfigs] = {
     "sitename_nomatch": (
         {
             "accounts": {
-                "muskrat": {"config": {"site_name": PSEUDORANDOM_STRING}}
-            }
+                "muskrat": {"config": {"site_name": PSEUDORANDOM_STRING}},
+            },
         },
         ACCOUNT_EXPECTED,
     ),
@@ -142,8 +143,8 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
         (
             {
                 "accounts": {
-                    "testbot": {"config": {"client_id": PSEUDORANDOM_STRING}}
-                }
+                    "testbot": {"config": {"client_id": PSEUDORANDOM_STRING}},
+                },
             },
             True,
         ),
@@ -162,10 +163,10 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                 "thread_manager": {
                     "items": {
                         "cycle_thread": {
-                            "source": {"endpoint_name": PSEUDORANDOM_STRING}
-                        }
-                    }
-                }
+                            "source": {"endpoint_name": PSEUDORANDOM_STRING},
+                        },
+                    },
+                },
             },
             "thread_manager.items.cycle_thread",
         ),
@@ -179,12 +180,14 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                         "menus": {
                             "targets": {
                                 "new_reddit_menu": {
-                                    "context": {"subreddit": NON_MOD_SUBREDDIT}
+                                    "context": {
+                                        "subreddit": NON_MOD_SUBREDDIT,
+                                    },
                                 },
-                            }
-                        }
-                    }
-                }
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.menus.targets.new_reddit_menu",
         ),
@@ -198,12 +201,12 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                         "sidebar_thread": {
                             "targets": {
                                 "thread_target": {
-                                    "endpoint_name": PSEUDORANDOM_STRING
-                                }
-                            }
-                        }
-                    }
-                }
+                                    "endpoint_name": PSEUDORANDOM_STRING,
+                                },
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.sidebar_thread.targets.thread_target",
         ),
@@ -217,12 +220,12 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                         "sidebar_thread": {
                             "targets": {
                                 "thread_target": {
-                                    "endpoint_name": THREAD_ID_NOT_OP
-                                }
-                            }
-                        }
-                    }
-                }
+                                    "endpoint_name": THREAD_ID_NOT_OP,
+                                },
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.sidebar_thread.targets.thread_target",
         ),
@@ -236,12 +239,12 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                         "sidebar_thread": {
                             "targets": {
                                 "thread_target": {
-                                    "endpoint_name": THREAD_ID_LINK
-                                }
-                            }
-                        }
-                    }
-                }
+                                    "endpoint_name": THREAD_ID_LINK,
+                                },
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.sidebar_thread.targets.thread_target",
         ),
@@ -255,12 +258,12 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                         "sidebar_thread": {
                             "targets": {
                                 "new_reddit_widget": {
-                                    "endpoint_name": PSEUDORANDOM_STRING
-                                }
-                            }
-                        }
-                    }
-                }
+                                    "endpoint_name": PSEUDORANDOM_STRING,
+                                },
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.sidebar_thread.targets.new_reddit_widget",
         ),
@@ -274,12 +277,12 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                         "sidebar_thread": {
                             "targets": {
                                 "new_reddit_widget": {
-                                    "endpoint_name": NON_SUPPORTED_WIDGET
-                                }
-                            }
-                        }
-                    }
-                }
+                                    "endpoint_name": NON_SUPPORTED_WIDGET,
+                                },
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.sidebar_thread.targets.new_reddit_widget",
         ),
@@ -295,13 +298,13 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                                 "new_reddit_widget": {
                                     "endpoint_name": NON_WRITEABLE_WIDGET,
                                     "context": {
-                                        "subreddit": NON_MOD_SUBREDDIT
+                                        "subreddit": NON_MOD_SUBREDDIT,
                                     },
-                                }
-                            }
-                        }
-                    }
-                }
+                                },
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.sidebar_thread.targets.new_reddit_widget",
         ),
@@ -313,10 +316,10 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                 "sync_manager": {
                     "items": {
                         "cross_sub_sync": {
-                            "source": {"endpoint_name": PSEUDORANDOM_STRING}
-                        }
-                    }
-                }
+                            "source": {"endpoint_name": PSEUDORANDOM_STRING},
+                        },
+                    },
+                },
             },
             "sync_manager.items.cross_sub_sync.targets.index_clone",
         ),
@@ -328,10 +331,10 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                 "sync_manager": {
                     "items": {
                         "cross_sub_sync": {
-                            "source": {"endpoint_name": NON_ACCESSABLE_PAGE}
-                        }
-                    }
-                }
+                            "source": {"endpoint_name": NON_ACCESSABLE_PAGE},
+                        },
+                    },
+                },
             },
             "sync_manager.items.cross_sub_sync.targets.index_clone",
         ),
@@ -345,12 +348,12 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                         "disabled_sync_item": {
                             "targets": {
                                 "non_existant": {
-                                    "endpoint_name": PSEUDORANDOM_STRING
-                                }
-                            }
-                        }
-                    }
-                }
+                                    "endpoint_name": PSEUDORANDOM_STRING,
+                                },
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.disabled_sync_item.targets.non_existant",
         ),
@@ -373,13 +376,13 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                                 "non_existant": {
                                     "endpoint_name": NON_WRITEABLE_PAGE,
                                     "context": {
-                                        "subreddit": NON_MOD_SUBREDDIT
+                                        "subreddit": NON_MOD_SUBREDDIT,
                                     },
-                                }
-                            }
-                        }
-                    }
-                }
+                                },
+                            },
+                        },
+                    },
+                },
             },
             "sync_manager.items.disabled_sync_item.targets.non_existant",
         ),
@@ -520,7 +523,10 @@ def test_parsing_error(
         config_file_text = config_file_read.read()
     config_file_text = config_file_text.replace('"', "", 1)
     with open(
-        file_config.static, mode="w", encoding="utf-8", newline="\n"
+        file_config.static,
+        mode="w",
+        encoding="utf-8",
+        newline="\n",
     ) as config_file_write:
         config_file_write.write(config_file_text)
 

@@ -50,13 +50,15 @@ def validate_endpoint(
         # Create and validate each endpoint for read and write status
         endpoint = (
             submanager.endpoint.creation.create_sync_endpoint_from_config(
-                config=config, reddit=reddit, validate=False
+                config=config,
+                reddit=reddit,
+                validate=False,
             )
         )
         endpoint_valid = endpoint.validate(raise_error=raise_error)
         if endpoint_valid and check_editable:
             endpoint_valid = bool(
-                endpoint.check_is_editable(raise_error=raise_error)
+                endpoint.check_is_editable(raise_error=raise_error),
             )
     except prawcore.exceptions.InsufficientScope as error:
         if not raise_error:
@@ -92,7 +94,8 @@ def _get_manager_endpoints(
         if include_disabled or config_item.enabled:
             endpoints.append(config_item.source)
             if isinstance(
-                config_item, submanager.models.config.SyncItemConfig
+                config_item,
+                submanager.models.config.SyncItemConfig,
             ):
                 endpoints += list(config_item.targets.values())
     return endpoints
@@ -137,7 +140,8 @@ def validate_endpoints(
     vprint = submanager.utils.output.VerbosePrinter(verbose)
     vprint("Extracting all endpoints from config")
     all_endpoints = get_all_endpoints(
-        static_config=static_config, include_disabled=include_disabled
+        static_config=static_config,
+        include_disabled=include_disabled,
     )
 
     # Check if each endpoint is valid
@@ -145,7 +149,9 @@ def validate_endpoints(
     for endpoint in all_endpoints:
         vprint(f"Validating endpoint {endpoint.uid!r}")
         endpoint_valid = validate_endpoint(
-            config=endpoint, accounts=accounts, raise_error=raise_error
+            config=endpoint,
+            accounts=accounts,
+            raise_error=raise_error,
         )
         endpoints_valid[endpoint.uid] = endpoint_valid
 

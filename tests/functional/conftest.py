@@ -61,7 +61,9 @@ ArgList = List[str]
 # Run CLI types
 
 ConfigPathValues = Union[
-    submanager.models.config.ConfigPaths, Literal[False], None
+    submanager.models.config.ConfigPaths,
+    Literal[False],
+    None,
 ]
 CheckErrorValues = Union[Type[BaseException], Literal[False], None]
 
@@ -218,7 +220,7 @@ def fixture_run_and_check_cli(  # noqa: WPS231
             config_paths = temp_config_paths
         if check_exits is None:
             check_exits = bool(
-                (check_code and check_code.value) or check_error
+                (check_code and check_code.value) or check_error,
             )
 
         # Run CLI command
@@ -317,7 +319,8 @@ def fixture_temp_config_dir(
 
 
 @pytest.fixture(
-    name="temp_config_paths", params=CONFIG_EXTENSIONS_GOOD_GENERATE
+    name="temp_config_paths",
+    params=CONFIG_EXTENSIONS_GOOD_GENERATE,
 )
 def fixture_temp_config_paths(
     request: pytest.FixtureRequest,
@@ -338,7 +341,10 @@ def empty_config(
 ) -> submanager.models.config.ConfigPaths:
     """Generate an empty config file in a temp directory."""
     with open(
-        temp_config_paths.static, mode="w", encoding="utf-8", newline="\n"
+        temp_config_paths.static,
+        mode="w",
+        encoding="utf-8",
+        newline="\n",
     ) as static_config_file:
         static_config_file.write("\n")
     return temp_config_paths
@@ -351,7 +357,8 @@ def list_config(
     """Generate a list config file in a temp directory."""
     config_data: Any = ["spam", "eggs"]
     submanager.config.utils.write_config(
-        config_data, config_path=temp_config_paths.static
+        config_data,
+        config_path=temp_config_paths.static,
     )
     return temp_config_paths
 
@@ -378,7 +385,7 @@ def fixture_file_config(
     if not isinstance(source_path, (Path, str)):
         raise TypeError(
             f"Source path {source_path!r} must be Path or str, "
-            f"not {type(source_path)!r}"
+            f"not {type(source_path)!r}",
         )
     shutil.copyfile(source_path, temp_config_paths.static)
     return temp_config_paths
@@ -402,7 +409,7 @@ def modified_config(
     if not isinstance(update_dict, MutableMapping):
         raise TypeError(
             f"Update dict {update_dict!r} must be a mapping, "
-            f"not {type(update_dict)!r}"
+            f"not {type(update_dict)!r}",
         )
 
     # Disable all items if requested
@@ -432,7 +439,8 @@ def modified_config(
         inplace=False,
     )
     submanager.config.utils.write_config(
-        config_data_modified, config_path=file_config.static
+        config_data_modified,
+        config_path=file_config.static,
     )
 
     return file_config

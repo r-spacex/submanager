@@ -44,7 +44,9 @@ def manage_thread(
             f"{thread_config.uid}",
         )
         submanager.thread.creation.handle_new_thread(
-            thread_config, dynamic_config, accounts
+            thread_config,
+            dynamic_config,
+            accounts,
         )
     # Otherwise, sync the current thread
     else:

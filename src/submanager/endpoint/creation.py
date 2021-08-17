@@ -44,7 +44,7 @@ SYNC_ENDPOINT_TYPES: Final[
         submanager.enums.EndpointType.WIKI_PAGE: (
             submanager.endpoint.endpoints.WikiSyncEndpoint
         ),
-    }
+    },
 )
 
 

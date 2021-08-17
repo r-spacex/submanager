@@ -48,7 +48,7 @@ EXAMPLE_EXCLUDE_FIELDS: Final[Mapping[str | int, Any]] = MappingProxyType(
                 },
             },
         },
-    }
+    },
 )
 
 
@@ -63,7 +63,7 @@ EXAMPLE_ACCOUNT_CONFIG: Final = submanager.models.config.AccountConfig(
 EXAMPLE_ACCOUNTS: Final = submanager.models.config.AccountsConfig(
     {
         EXAMPLE_ACCOUNT_NAME: EXAMPLE_ACCOUNT_CONFIG,
-    }
+    },
 )
 
 EXAMPLE_CONTEXT: Final = submanager.models.base.ContextConfig(
@@ -109,9 +109,9 @@ EXAMPLE_STATIC_CONFIG: Final = submanager.models.config.StaticConfig(
     accounts=EXAMPLE_ACCOUNTS,
     context_default=EXAMPLE_CONTEXT,
     sync_manager=submanager.models.config.SyncManagerConfig(
-        items={"EXAMPLE_SYNC_ITEM": EXAMPLE_SYNC_ITEM}
+        items={"EXAMPLE_SYNC_ITEM": EXAMPLE_SYNC_ITEM},
     ),
     thread_manager=submanager.models.config.ThreadManagerConfig(
-        items={"EXAMPLE_THREAD": EXAMPLE_THREAD}
+        items={"EXAMPLE_THREAD": EXAMPLE_THREAD},
     ),
 )

@@ -46,11 +46,8 @@ ignore =
     # Missing docstring in __init__ acceptable
     D107,
 
-    # Basic trailing comma handled by Black
-    C812,
-    C813,
+    # Disable Py2-specific trailing comma checks
     C814,
-    C815,
 
     # Line breaking handled by Black
     N400,

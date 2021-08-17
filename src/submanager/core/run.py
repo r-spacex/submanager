@@ -51,7 +51,7 @@ def run_initial_setup(
         dynamic_config,
     ) = submanager.core.initialization.setup_config(config_paths=config_paths)
     accounts = submanager.core.initialization.setup_accounts(
-        static_config.accounts
+        static_config.accounts,
     )
 
     # Reset the source timestamps so all items get resynced
@@ -59,12 +59,13 @@ def run_initial_setup(
         dynamic_items: list[
             submanager.models.config.DynamicSyncItemConfig
         ] = list(dynamic_config.sync_manager.items.values()) + list(
-            dynamic_config.thread_manager.items.values()
+            dynamic_config.thread_manager.items.values(),
         )
         for item in dynamic_items:
             item.source_timestamp = 0
         submanager.config.utils.write_config(
-            dynamic_config, config_path=config_paths.dynamic
+            dynamic_config,
+            config_path=config_paths.dynamic,
         )
 
     return static_config, accounts
@@ -80,7 +81,9 @@ def run_cycle_threads(
     thread_keys = set(thread_keys)
 
     static_config, accounts = run_initial_setup(
-        config_paths, skip_validate=True, resync_all=False
+        config_paths,
+        skip_validate=True,
+        resync_all=False,
     )
     managed_threads = static_config.thread_manager.items
 
@@ -88,7 +91,7 @@ def run_cycle_threads(
     if keys_notfound:
         raise submanager.exceptions.SubManagerUserError(
             f"Thread keys {keys_notfound!r} not found in valid keys "
-            f"{set(managed_threads.keys())!r}"
+            f"{set(managed_threads.keys())!r}",
         )
 
     threads_tocycle = {
@@ -107,7 +110,8 @@ def run_cycle_threads(
                 post_new_thread=True,
             )
         submanager.config.utils.write_config(
-            dynamic_config, config_path=config_paths.dynamic
+            dynamic_config,
+            config_path=config_paths.dynamic,
         )
 
 
@@ -147,7 +151,8 @@ def run_manage_once(
         # Write out the dynamic config if it changed
         if dynamic_config_active != dynamic_config:
             submanager.config.utils.write_config(
-                dynamic_config_active, config_path=config_path_dynamic
+                dynamic_config_active,
+                config_path=config_path_dynamic,
             )
     vprint("Sub Manager run complete")
 
@@ -163,7 +168,9 @@ def run_manage(
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
     static_config, accounts = run_initial_setup(
-        config_paths, skip_validate=skip_validate, resync_all=resync_all
+        config_paths,
+        skip_validate=skip_validate,
+        resync_all=resync_all,
     )
     run_manage_once(
         static_config=static_config,
@@ -189,7 +196,9 @@ def start_manage(
     if config_paths is None:
         config_paths = submanager.models.config.ConfigPaths()
     static_config, accounts = run_initial_setup(
-        config_paths, skip_validate=skip_validate, resync_all=True
+        config_paths,
+        skip_validate=skip_validate,
+        resync_all=True,
     )
     if repeat_interval_s is None:
         repeat_interval_s = static_config.repeat_interval_s

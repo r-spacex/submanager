@@ -180,7 +180,9 @@ class MenuSyncEndpoint(submanager.endpoint.base.WidgetSyncEndpoint):
         """Get the current structured data in the menu widget."""
         attribute_name = "data"
         menu_data: MenuData | None = getattr(
-            self._object, attribute_name, None
+            self._object,
+            attribute_name,
+            None,
         )
         if menu_data is None:
             raise submanager.exceptions.RedditModelError(
@@ -212,7 +214,8 @@ class SidebarSyncEndpoint(submanager.endpoint.base.WidgetSyncEndpoint):
                 continue
             if widget_name == self.config.endpoint_name:
                 if isinstance(
-                    widget, submanager.endpoint.base.EditableTextWidget
+                    widget,
+                    submanager.endpoint.base.EditableTextWidget,
                 ):
                     return widget
                 raise submanager.exceptions.WidgetTypeError(
