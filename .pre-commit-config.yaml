@@ -224,6 +224,18 @@ repos:
 
 - repo: local
   hooks:
+  - id: check-env-activated
+    name: Check that a suitable Python env is activated
+    entry: 'python tools/check_env_activated.py'
+    language: system
+    types: [python]
+    pass_filenames: false
+  - id: enable-praw-typehints
+    name: Enable PRAW type hints
+    entry: 'python tools/enable_praw_typehints.py'
+    language: system
+    types: [python]
+    pass_filenames: false
   - id: mypy
     name: Lint Python with MyPy
     entry: 'mypy .'

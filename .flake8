@@ -179,6 +179,9 @@ per_file_ignores =
     # Ignore over-use of string constants in validate test due to checks
     tests/functional/test_validate.py: WPS202, WPS218, WPS226, WPS407, WPS430, WPS609
 
+    # Disable strict WPS enforcement on tools scripts
+    tools/*.py: WPS
+
 
 count = True
 format = wemake
