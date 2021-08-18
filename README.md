@@ -5,7 +5,7 @@ Its initial application was to automatically generate, create, pin and update th
 Additionally, it can be used to automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
 It includes an installable systemd service unit for real-time operation on modern Linux distributions, which is used in production for the r/SpaceX subreddit, or can be run by any other means you choose on your system.
 
-**Legal Disclaimer**: For the avoidance of doubt, Sub Manager and the r/SpaceX organization and subreddit have no affiliation with nor are endorsed by [Reddit](https://www.reddit.com) or [SpaceX](https://www.spacex.com), which are trademarks of their respective companies.
+**Legal Disclaimer**: For the avoidance of doubt, Sub Manager and the r/SpaceX Github org and subreddit are unofficial fan creations, and have no affiliation with nor endorsement by [Reddit](https://www.reddit.com) or [SpaceX](https://www.spacex.com), which are trademarks of their respective companies.
 
 
 
@@ -29,6 +29,8 @@ It includes an installable systemd service unit for real-time operation on moder
 
 ## Installation
 
+**Note**: You may need to substitute ``python3`` for ``python`` in the commands below on some Linux distros where ``python`` isn't mapped to ``python3`` (yet).
+
 To install, first clone the repo to any desired directory with ``git`` (PyPI support coming with the next release).
 
 ```bash
@@ -37,22 +39,22 @@ cd submanager
 ```
 
 Then, while it can be installed in your system Python, we highly recommend you create and activate a virtual environment to avoid any conflicts with other packages on your system or causing any other issues.
-Using the standard tool ``venv``, you can create an environment as follows (you'll need to use ``python3`` instead of ``python`` on many Linux distros):
+Using the standard tool ``venv``, you can create an environment as follows:
 
 ```bash
-python -m venv env
+python -m venv your-env-name
 ```
 
 And activate it with the following on Linux and macOS
 
 ```bash
-source env/bin/activate
+source your-env-name/bin/activate
 ```
 
 or on Windows (cmd),
 
 ```cmd
-.\env\Scripts\activate.bat
+.\your-env-name\Scripts\activate.bat
 ```
 
 Of course you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc).
@@ -60,22 +62,22 @@ Of course you're free to use any environment management tool of your choice (con
 To install the package, with your environment activated, simply run
 
 ```bash
-pip install .
+python -m pip install .
 ```
 
 
 
 ## Usage
 
-To run Sub Manager, you'll need to activate the appropriate environment you created previously, and then run its main entrypoint.
-For example,
+To use Sub Manager, you'll need to activate the appropriate environment you created previously, and then execute its main entrypoint.
+For example, with venv,
 
 ```bash
-source env/bin/activate
-submanager --help
+source your-env-name/bin/activate
+submanager <command>
 ```
 
-To see the various command-line options available, pass it the ``--help`` flag.
+To see the various commands and options available, pass it the ``--help`` flag.
 
 
 ## Contributing

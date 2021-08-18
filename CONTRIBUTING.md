@@ -13,11 +13,11 @@ You should be familiar with the basics of using ``git`` and Github, though this 
 - [Setting Up a Development Environment](#setting-up-a-development-environment)
   - [Fork and clone the repo](#fork-and-clone-the-repo)
   - [Create and activate a fresh venv](#create-and-activate-a-fresh-venv)
-  - [Install Sub Manager in dev mode](#install-sub-manager-in-dev-mode)
+  - [Install Sub Manager in editable mode](#install-sub-manager-in-editable-mode)
   - [Enable the Pre-Commit hooks](#enable-the-pre-commit-hooks)
 - [Running Tests](#running-tests)
 - [Git Branches](#git-branches)
-- [Submitting a PR](#submitting-a-pr)
+- [Submitting a Pull Request](#submitting-a-pull-request)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 <!-- markdownlint-restore -->
@@ -36,6 +36,8 @@ Thanks!
 
 
 ## Setting Up a Development Environment
+
+**Note**: You may need to substitute ``python3`` for ``python`` in the commands below on some Linux distros where ``python`` isn't mapped to ``python3`` (yet).
 
 ### Fork and clone the repo
 
@@ -56,49 +58,49 @@ git remote add upstream https://github.com/r-spacex/submanager.git
 ### Create and activate a fresh venv
 
 While it can be installed in your system Python, particularly for development installs we highly recommend you create and activate a virtual environment to avoid any conflicts with other packages on your system or causing any other issues.
-Using the standard tool ``venv``, you can create an environment as follows (you'll need to use ``python3`` instead of ``python`` on many Linux distros):
+Using the standard tool ``venv``, you can create an environment as follows:
 
 ```bash
-python -m venv env
+python -m venv your-env-name
 ```
 
 And activate it with the following on Linux and macOS
 
 ```bash
-source env/bin/activate
+source your-env-name/bin/activate
 ```
 
 or on Windows (cmd),
 
 ```cmd
-.\env\Scripts\activate.bat
+.\your-env-name\Scripts\activate.bat
 ```
 
 Of course, you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc).
 
 
-### Install Sub Manager in dev mode
+### Install Sub Manager in editable mode
 
-To install the package in editable ("development") mode (where updates to the source files will be reflected in the installed package) and include the dependencies used for development, run
+To install the package in editable ("development") mode, where updates to the source files will be reflected in the installed package, and include the dependencies used for development, run
 
 ```bash
-pip install -e .[lint,test]
+python -m pip install -e .[lint,test]
 ```
 
-You can then run Sub Manager as normal, with the ``submanager`` command.
-When you make changes in your local copy of the git repository, they will be reflecting in your installed copy as soon as you re-run it.
+You can then run Sub Manager as normal with the ``submanager`` command, though running with ``python -b -X dev -m submanager`` is recommended to enable Python's development mode for easier debugging, as well as show any warnings your changes cause (note that any warnings, other than the unclosed socket error caused by PRAW, will fail the checks when submitting a pull request, and its usually much easier to find and resolve them early).
+When you make changes in your local copy of the git repository, they will be reflected in your installed copy as soon as you re-run it.
 
-While Windows and macOS are supported for development and use alongside Linux, running as a persistent system service is an exercise for the user.
+While Windows and macOS are supported for development and use alongside Linux, built-in support for running as a system service is not currently included, and is left to the user.
 
 
 ### Enable the Pre-Commit hooks
 
+You'll need to install the pre-commit hooks before committing any changes, as they both auto-generate/update specific files and run a comprehensive series of checks to help you find likely errors and enforce the project's code quality guidelines and style guide; they are also run in CI, and will fail the build if any don't pass or modify any files.
 This repository uses [Pre-Commit](https://pre-commit.com/) to install, configure and update a suite of pre-commit hooks that check for common problems and issues, and fix many of them automatically.
 Pre-commit itself is installed with the above command, and the hooks should be enabled by running the following from the root of this repo:
 
 ```bash
-pre-commit install
-pre-commit install --hook-type commit-msg
+pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
 
 The hooks will be automatically run against any new/changed files every time you commit.
@@ -109,7 +111,7 @@ If you made one or more commits before installing the hooks (not recommended), y
 pre-commit run --all-files
 ```
 
-**Note**: Most of the hooks fix the problems they detect automatically (the hook output will say ``files were modified by this hook``, but no errors/warnings will be listed), but they will still abort the commit so you can double-check everything first.
+**Note**: Many of the hooks fix the problems they detect automatically (the hook output will say ``Files were modified by this hook``, but no errors/warnings will be listed), but they will still abort the commit so you can double-check everything first.
 Once you're satisfied, ``git add .`` and commit again.
 
 
@@ -118,8 +120,10 @@ Once you're satisfied, ``git add .`` and commit again.
 
 This package uses the [Pytest](https://pytest.org) framework for its unit and integration tests, which are located inside the ``tests/`` directory in the root of the project.
 As you might expect, unit tests, which mirror the structure of the package and test individual components, are found in the `unit` subdirectory, while integration tests, which test the functionality of the package as a whole, like in the `integration` subdirectory, and functional tests, which test the package's behavior though the user-facing CLI, are in the `functional` subdirectory.
+We **strongly** suggest you run the full test suite before every commit (it should only take around 10 seconds without the online tests), as while our pre-commit suite catches most errors, it is impossible to statically determine whether the code does what it is intended to without a test suite.
+
 Currently, given the project's development status, it has a substantial test suite but is primarily focused on high-level functional testing, with more granular unit and integration tests to be added later.
-We welcome contributions of all three kinds of tests to expand our coverage, increase reliability, and ensure we don't experience any regressions.
+We ask that, at a minimum, any new commands or CLI options come with functional tests, and welcome contributions of all three kinds of tests for new or existing functionality to expand our coverage, increase reliability, and ensure we don't experience any regressions.
 If you need help writing tests, please let us know, and we'll be happy to guide you.
 
 To run the tests (minus the online ones that require network connectivity and an authorized Reddit account to interact with the test subreddit), install the development dependencies as above, and then simply execute
@@ -162,7 +166,7 @@ You should also submit bugfixes to the release branch or ``master`` for errors t
 
 
 
-## Submitting a PR
+## Submitting a Pull Request
 
 To start working on a new PR, you need to execute these commands, filling in the branch names where appropriate (``<BASE-BRANCH>`` is the branch you're basing your work against, e.g. ``master``, while ``<FEATURE-BRANCH>`` is the branch you'll be creating to store your changes, e.g. ``fix-startup-bug`` or ``add-widget-support``:
 
@@ -172,17 +176,18 @@ git pull upstream <BASE-BRANCH>
 git checkout -b <FEATURE-BRANCH>
 ```
 
-Once you've made and tested your changes, commit them with a descriptive message of 74 characters or less written in the imperative tense, with a capitalized first letter and no period at the end.
+Once you've made and tested your changes, commit them with a descriptive message of 74 characters or less written in the imperative tense, with a capitalized first letter and no period at the end (our pre-commit hooks will check that for you, so make sure to install them).
 For example:
 
 ```bash
 git commit -am "Fix bug reading configuration on Windows"
 ```
 
-Finally, push them to your fork, and create a pull request to the r-spacex/submanager repository on Github:
+Finally, push them to your fork:
 
 ```bash
 git push -u origin <FEATURE-BRANCH>
 ```
 
-That's it!
+...and create a pull request to the r-spacex/submanager repository on Github, and we'll take it from there.
+Thanks!
