@@ -18,6 +18,7 @@ import submanager.exceptions
 import submanager.models.config
 import submanager.sync.manager
 import submanager.thread.manager
+import submanager.utils.misc
 import submanager.utils.output
 import submanager.validation.validate
 from submanager.constants import (
@@ -218,7 +219,7 @@ def start_manage(
 
         # Wait until the desired time of the next cycle
         try:
-            submanager.utils.dicthelpers.sleep_for_interval(repeat_interval_s)
+            submanager.utils.misc.sleep_for_interval(repeat_interval_s)
         except KeyboardInterrupt:
             vprint("Received keyboard interrupt; exiting")
             break

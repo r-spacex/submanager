@@ -1,4 +1,4 @@
-"""Miscellaneous utility functions and classes."""
+"""Dictionary recursive processing and updating functions."""
 
 # Future imports
 from __future__ import (
@@ -7,7 +7,6 @@ from __future__ import (
 
 # Standard library imports
 import copy
-import time
 from typing import (
     Any,
     Callable,
@@ -17,25 +16,7 @@ from typing import (
     TypeVar,
 )
 
-# Constants and types
 KeyType = TypeVar("KeyType")
-
-
-# ---- General utilities ----
-
-
-def sleep_for_interval(sleep_interval: float) -> None:
-    """Sleep for the designated interval in small increments."""
-    time_left_s = sleep_interval
-    while True:
-        time_to_sleep_s = min((time_left_s, 1))
-        time.sleep(time_to_sleep_s)
-        time_left_s -= 1
-        if time_left_s <= 0:
-            return
-
-
-# ---- Dictionary handling code ----
 
 
 def _process_items_inner(
