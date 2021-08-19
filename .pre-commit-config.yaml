@@ -175,11 +175,6 @@ repos:
   hooks:
   - id: check-ast
     name: Check Python
-  - id: check-builtin-literals
-    args: ['--no-allow-dict-kwargs']
-  - id: check-docstring-first
-  - id: debug-statements
-    name: Check debug statements
   - id: name-tests-test
     name: Check that test files start with test
     args: ['--django']
@@ -187,18 +182,12 @@ repos:
 - repo: https://github.com/pre-commit/pygrep-hooks
   rev: v1.9.0
   hooks:
-  - id: python-check-blanket-noqa
-    name: Check blanket noqa
   - id: python-check-blanket-type-ignore
     name: Check blanket type ignore
   - id: python-check-mock-methods
     name: Check for bad mock methods
-  - id: python-no-eval
-    name: Check for eval
   - id: python-no-log-warn
     name: Check for logger.warn
-  - id: python-use-type-annotations
-    name: Check for type comments
 
 # Lint Python
 - repo: https://github.com/pycqa/flake8
