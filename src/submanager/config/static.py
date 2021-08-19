@@ -27,7 +27,7 @@ import submanager.config.utils
 import submanager.exceptions
 import submanager.models.config
 import submanager.models.example
-import submanager.utils.misc
+import submanager.utils.dicthelpers
 from submanager.constants import (
     CONFIG_PATH_STATIC,
 )
@@ -42,7 +42,7 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     """Fill in the defaults of a raw static config dictionary."""
     context_default: StrMap = raw_config.get("context_default", {})
 
-    sync_defaults: StrMap = submanager.utils.misc.update_dict_recursive(
+    sync_defaults: StrMap = submanager.utils.dicthelpers.update_recursive(
         {"context": context_default},
         raw_config.get("sync_manager", {}).pop("defaults", {}),
     )
@@ -52,13 +52,13 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     sync_manager_items = raw_config.get("sync_manager", {}).get("items", {})
     for sync_key, sync_item in sync_manager_items.items():
         sync_defaults_item: StrMap = (
-            submanager.utils.misc.update_dict_recursive(
+            submanager.utils.dicthelpers.update_recursive(
                 sync_defaults,
                 sync_item.pop("defaults", {}),
             )
         )
         sync_item["uid"] = f"sync_manager.items.{sync_key}"
-        sync_item["source"] = submanager.utils.misc.update_dict_recursive(
+        sync_item["source"] = submanager.utils.dicthelpers.update_recursive(
             sync_defaults_item,
             sync_item.get("source", {}),
         )
@@ -66,14 +66,14 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
         target_config: StrMap
         for target_key, target_config in sync_item.get("targets", {}).items():
             target_config.update(
-                submanager.utils.misc.update_dict_recursive(
+                submanager.utils.dicthelpers.update_recursive(
                     sync_defaults_item,
                     target_config,
                 ),
             )
             target_config["uid"] = sync_item["uid"] + f".targets.{target_key}"
 
-    thread_defaults: StrMap = submanager.utils.misc.update_dict_recursive(
+    thread_defaults: StrMap = submanager.utils.dicthelpers.update_recursive(
         {"context": context_default},
         raw_config.get("thread_manager", {}).pop("defaults", {}),
     )
@@ -86,13 +86,13 @@ def fill_static_config_defaults(raw_config: ConfigDict) -> ConfigDict:
     )
     for thread_key, thread in thread_manager_items.items():
         thread.update(
-            submanager.utils.misc.update_dict_recursive(
+            submanager.utils.dicthelpers.update_recursive(
                 thread_defaults,
                 thread,
             ),
         )
         thread["uid"] = f"thread_manager.items.{thread_key}"
-        thread["source"] = submanager.utils.misc.update_dict_recursive(
+        thread["source"] = submanager.utils.dicthelpers.update_recursive(
             {"context": thread.get("context", {})},
             thread["source"],
         )
@@ -123,7 +123,7 @@ def replace_value_with_missing(
 def replace_missing_account_keys(raw_config: ConfigDict) -> ConfigDict:
     """Replace missing account keys with a special class for validation."""
     account_keys: Collection[str] = raw_config.get("accounts", {}).keys()
-    raw_config = submanager.utils.misc.process_dict_items_recursive(
+    raw_config = submanager.utils.dicthelpers.process_items_recursive(
         dict(raw_config),
         fn_torun=replace_value_with_missing,
         fn_kwargs={"valid_account_keys": account_keys},

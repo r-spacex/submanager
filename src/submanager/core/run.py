@@ -218,7 +218,7 @@ def start_manage(
 
         # Wait until the desired time of the next cycle
         try:
-            submanager.utils.misc.sleep_for_interval(repeat_interval_s)
+            submanager.utils.dicthelpers.sleep_for_interval(repeat_interval_s)
         except KeyboardInterrupt:
             vprint("Received keyboard interrupt; exiting")
             break

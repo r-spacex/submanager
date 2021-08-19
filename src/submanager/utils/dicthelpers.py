@@ -1,4 +1,4 @@
-"""Miscallanious utility functions and classes."""
+"""Miscellaneous utility functions and classes."""
 
 # Future imports
 from __future__ import (
@@ -38,7 +38,7 @@ def sleep_for_interval(sleep_interval: float) -> None:
 # ---- Dictionary handling code ----
 
 
-def _process_dict_items_inner(
+def _process_items_inner(
     dict_toprocess: MutableMapping[KeyType, Any],
     fn_torun: Callable[..., Any],
     *,
@@ -48,7 +48,7 @@ def _process_dict_items_inner(
     """Inner function to call recursively to handle dict items."""
     for key, value in dict_toprocess.items():
         if isinstance(value, MutableMapping):
-            _process_dict_items_inner(
+            _process_items_inner(
                 dict_toprocess=value,
                 fn_torun=fn_torun,
                 fn_kwargs=fn_kwargs,
@@ -58,7 +58,7 @@ def _process_dict_items_inner(
             dict_toprocess[key] = fn_torun(value, **fn_kwargs)
 
 
-def process_dict_items_recursive(
+def process_items_recursive(
     dict_toprocess: MutableMapping[KeyType, Any],
     fn_torun: Callable[..., Any],
     *,
@@ -72,7 +72,7 @@ def process_dict_items_recursive(
     if not inplace:
         dict_toprocess = copy.deepcopy(dict_toprocess)
 
-    _process_dict_items_inner(
+    _process_items_inner(
         dict_toprocess=dict_toprocess,
         fn_torun=fn_torun,
         fn_kwargs=fn_kwargs,
@@ -81,7 +81,7 @@ def process_dict_items_recursive(
     return dict_toprocess
 
 
-def update_dict_recursive(
+def update_recursive(
     base: MutableMapping[KeyType, Any],
     update: MutableMapping[KeyType, Any],
     *,
@@ -97,7 +97,7 @@ def update_dict_recursive(
             base[update_key] = update_value
         # If both the bsae value and update value are dicts, recurse into them
         elif isinstance(update_value, MutableMapping):
-            base[update_key] = update_dict_recursive(base_value, update_value)
+            base[update_key] = update_recursive(base_value, update_value)
         # If the base balue is a dict but the update value is not, replace it
         else:
             base[update_key] = update_value

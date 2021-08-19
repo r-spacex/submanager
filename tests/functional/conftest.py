@@ -44,7 +44,7 @@ import submanager.config.static
 import submanager.config.utils
 import submanager.enums
 import submanager.models.config
-import submanager.utils.misc
+import submanager.utils.dicthelpers
 from tests.conftest import (
     PACKAGE_NAME,
 )
@@ -416,7 +416,7 @@ def modified_config(
     config_data = submanager.config.utils.load_config(file_config.static)
     if disable_all:
         config_data_modified = (
-            submanager.utils.misc.process_dict_items_recursive(
+            submanager.utils.dicthelpers.process_items_recursive(
                 dict(config_data),
                 fn_torun=lambda value: False,
                 keys_match={"enabled"},
@@ -433,7 +433,7 @@ def modified_config(
         config_data_modified = copy.deepcopy(dict(config_data))
 
     # Modify config and write it back
-    config_data_modified = submanager.utils.misc.update_dict_recursive(
+    config_data_modified = submanager.utils.dicthelpers.update_recursive(
         base=config_data_modified,
         update=dict(update_dict),
         inplace=False,
