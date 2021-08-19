@@ -25,6 +25,7 @@ from typing_extensions import (
 import submanager.exceptions
 from submanager.constants import (
     CONFIG_PATH_DYNAMIC,
+    SECURE_DIR_MODE,
 )
 from submanager.types import (
     ConfigDict,
@@ -60,7 +61,7 @@ def write_config(
 ) -> str:
     """Write the passed config to the specified config path."""
     config_path = Path(config_path)
-    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.parent.mkdir(mode=SECURE_DIR_MODE, parents=True, exist_ok=True)
     try:
         serialized_config = serialize_config(
             config=config,

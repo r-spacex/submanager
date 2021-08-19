@@ -36,6 +36,9 @@ START_TIME: Final[float] = time.monotonic()
 
 # ---- Path constants ----
 
+SECURE_DIR_MODE: Final[int] = 0o770
+SECURE_FILE_MODE: Final[int] = 0o660
+
 USER_CONFIG_DIR: Final[Path] = platformdirs.user_config_path(
     appname=PACKAGE_NAME,
     appauthor=PACKAGE_NAME,

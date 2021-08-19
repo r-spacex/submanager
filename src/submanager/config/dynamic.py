@@ -6,7 +6,6 @@ from __future__ import (
 )
 
 # Standard library imports
-import contextlib
 import copy
 from pathlib import (
     Path,
@@ -14,6 +13,9 @@ from pathlib import (
 from types import (
     TracebackType,
 )
+from typing import (
+    ContextManager,
+    )
 
 # Third party imports
 from typing_extensions import (
@@ -93,7 +95,7 @@ def load_dynamic_config(
 
 
 class LockedandLoadedDynamicConfig(
-    contextlib.AbstractContextManager[submanager.models.config.DynamicConfig],
+    ContextManager[submanager.models.config.DynamicConfig],
 ):
     """Return the dynamic config if and when it can be locked."""
 

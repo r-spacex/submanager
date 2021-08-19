@@ -263,9 +263,9 @@ def cli(sys_argv: Sequence[str] | None = None) -> None:
             raise
         formatted_error = submanager.utils.output.format_error(error)
         line_length = 70
-        sep_line = f"\n{'v' * line_length}\n"
+        sep_top, sep_bottom = (f"{sep * line_length}" for sep in ("v", "^"))
         print(  # noqa: WPS421
-            f"{sep_line}{formatted_error}{sep_line}",
+            f"\n{sep_top}\n{formatted_error}\n{sep_bottom}\n",
             file=sys.stderr,
         )
         raise SystemExit(submanager.enums.ExitCode.ERROR_USER.value) from error

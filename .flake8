@@ -247,7 +247,7 @@ allowed-domain-names =
 # forbidden-inline-ignore =
 
 max-module-members = 25
-max-line-complexity = 15
+max-line-complexity = 16
 # max-jones-score = 12
 # max-decorators = 5
 # max-string-usages = 5
