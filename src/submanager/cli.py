@@ -96,6 +96,27 @@ def create_arg_parser() -> argparse.ArgumentParser:
         help="Get information about the config endpoints defined in the file",
     )
 
+    # Install a systemd user service to run Sub Manager
+    info_desc = "Install a Systemd service to run automatically (Linux only)"
+    parser_service = subparsers.add_parser(
+        "install-service",
+        description=info_desc,
+        help=info_desc,
+        argument_default=argparse.SUPPRESS,
+    )
+    parser_service.set_defaults(
+        func=submanager.core.commands.run_install_service,
+    )
+    parser_service.add_argument(
+        "suffix",
+        nargs="?",
+        help="A suffix to append to the service name, for multiple services",
+    )
+    parser_service.add_argument(
+        "--output-dir",
+        help="The directory to output the service unit to, if not the default",
+    )
+
     # Generate the config file
     generate_desc = "Generate the bot's config files"
     parser_generate = subparsers.add_parser(

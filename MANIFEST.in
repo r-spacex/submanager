@@ -3,4 +3,4 @@ include LICENSE.txt
 include README.md
 include ROADMAP.md
 include src/submanager/py.typed
-include submanager.service
+include src/submanager/submanager.service

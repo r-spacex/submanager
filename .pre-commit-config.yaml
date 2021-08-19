@@ -228,6 +228,7 @@ repos:
   - id: mypy
     name: Lint Python with MyPy
     entry: 'mypy .'
+    args: ['--platform', linux]
     language: system
     types: [python]
     pass_filenames: false

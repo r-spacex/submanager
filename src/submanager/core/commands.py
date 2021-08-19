@@ -6,11 +6,20 @@ from __future__ import (
 )
 
 # Standard library imports
+import importlib.resources
+import sys
 from pathlib import (
     Path,
 )
 
+# Third party imports
+import platformdirs
+from typing_extensions import (
+    Final,
+)
+
 # Local imports
+import submanager
 import submanager.config.static
 import submanager.core.initialization
 import submanager.exceptions
@@ -18,6 +27,20 @@ import submanager.models.config
 import submanager.utils.output
 import submanager.validation.endpoints
 import submanager.validation.validate
+from submanager.constants import (
+    SECURE_DIR_MODE,
+    SECURE_FILE_MODE,
+)
+from submanager.types import (
+    PathLikeStr,
+)
+
+# ---- Constants ----
+
+USER_CONFIG_PATH: Final[Path] = platformdirs.user_config_path()
+SYSTEMD_USER_DIR: Final[Path] = USER_CONFIG_PATH / "systemd" / "user"
+SERVICE_FILENAME_INPUT: Final[str] = "submanager.service"
+SERVICE_FILENAME_OUTPUT: Final[str] = "submanager{suffix}.service"
 
 
 def run_get_config_info(
@@ -67,6 +90,63 @@ def run_get_config_info(
             endpoint_status = " [ENABLED]" if enabled else "[DISABLED]"
             vprint(f"{endpoint_status}  {endpoint.uid}")
         vprint()
+
+
+def run_install_service(
+    config_paths: submanager.models.config.ConfigPaths | None = None,
+    suffix: str | None = None,
+    *,
+    output_dir: PathLikeStr = SYSTEMD_USER_DIR,
+    verbose: bool = True,
+) -> None:
+    """Install a Systemd user service on a Linux machine."""
+    if not sys.platform.startswith("linux"):
+        raise submanager.exceptions.SubManagerUserError(
+            "Service install not currently supported on non-Linux platforms",
+        )
+
+    # Set up variables and paths
+    vprint = submanager.utils.output.VerbosePrinter(enable=verbose)
+    if config_paths is None:
+        config_paths = submanager.models.config.ConfigPaths()
+    output_dir = Path(output_dir)
+    if suffix:
+        suffix = f"-{suffix}"
+    else:
+        suffix = ""
+    output_dir.mkdir(mode=SECURE_DIR_MODE, parents=True, exist_ok=True)
+    output_path = output_dir / SERVICE_FILENAME_OUTPUT.format(suffix=suffix)
+
+    # Load service file content
+    with importlib.resources.open_text(
+        submanager,
+        SERVICE_FILENAME_INPUT,
+        encoding="utf-8",
+    ) as service_file_input:
+        service_content = service_file_input.read()
+
+    # Replace variables in content
+    service_content = service_content.format(
+        interpreter_path=Path(sys.executable).as_posix(),
+        config_path_static=config_paths.static.as_posix(),
+        config_path_dynamic=config_paths.dynamic.as_posix(),
+    )
+
+    # Write service file content
+    with open(
+        output_path,
+        mode="w",
+        encoding="utf-8",
+        newline="\n",
+    ) as service_file_output:
+        service_file_output.write(service_content)
+    output_path.chmod(SECURE_FILE_MODE)
+
+    # Print information
+    vprint(f"Generated service unit at path {output_path.as_posix()!r}\n")
+    vprint(f"Use `systemctl --user <command> {output_path.stem}` to interact")
+    vprint("For example, `enable`, `disable`, `start`, `stop` and `status`")
+    vprint(f"Use `journalctl --user -xe -u {output_path.stem}` for the log\n")
 
 
 def run_generate_config(
