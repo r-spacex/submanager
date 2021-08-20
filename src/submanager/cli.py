@@ -116,6 +116,11 @@ def create_arg_parser() -> argparse.ArgumentParser:
         "--output-dir",
         help="The directory to output the service unit to, if not the default",
     )
+    parser_service.add_argument(
+        "--force-unsupported",
+        action="store_true",
+        help="Attempt to install the service even on unsupported platforms",
+    )
 
     # Generate the config file
     generate_desc = "Generate the bot's config files"

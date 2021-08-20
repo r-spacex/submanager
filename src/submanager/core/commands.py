@@ -97,11 +97,12 @@ def run_install_service(
     suffix: str | None = None,
     *,
     output_dir: PathLikeStr = SYSTEMD_USER_DIR,
+    force_unsupported: bool = False,
     verbose: bool = True,
 ) -> None:
     """Install a Systemd user service on a Linux machine."""
-    if not sys.platform.startswith("linux"):
-        raise submanager.exceptions.SubManagerUserError(
+    if not (force_unsupported or sys.platform.startswith("linux")):
+        raise submanager.exceptions.PlatformUnsupportedError(
             "Service install not currently supported on non-Linux platforms",
         )
 

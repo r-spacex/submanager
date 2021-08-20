@@ -388,3 +388,7 @@ class AccountConfigError(ErrorWithAccount, ConfigError):
 
 class LockTimeoutError(SubManagerError):
     """The timeout was exceeded while attempting to acquire a file lock."""
+
+
+class PlatformUnsupportedError(SubManagerUserError):
+    """The operation is unsupported for the current platform."""
