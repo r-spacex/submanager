@@ -189,6 +189,12 @@ repos:
   - id: python-no-log-warn
     name: Check for logger.warn
 
+- repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+  rev: v1.2.0
+  hooks:
+  - id: python-safety-dependencies-check
+    files: 'requirements.txt'
+
 # Lint Python
 - repo: https://github.com/pycqa/flake8
   rev: '3.9.2'
