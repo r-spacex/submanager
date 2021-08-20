@@ -53,12 +53,16 @@ class ThreadSyncEndpoint(
         except prawcore.exceptions.Forbidden as error:
             if not raise_error:
                 return False
+            account = self.config.context.account
+            post_title = self._object.title
+            post_id = self._object.id
+            author_name = self._object.author.name
             raise submanager.exceptions.NotOPError(
                 self.config,
                 message_pre=(
-                    f"Account {self.config.context.account!r} used to edit "
-                    f"the post {self._object.title!r} ({self._object.id}) "
-                    f"must be the OP {self._object.author.name!r}"
+                    f"Account {account!r} used to edit "
+                    f"the post {post_title!r} ({post_id}) "
+                    f"must be the OP {author_name!r}"
                 ),
                 message_post=error,
             ) from error
@@ -229,12 +233,15 @@ class SidebarSyncEndpoint(submanager.endpoint.base.WidgetSyncEndpoint):
                     ),
                 )
             names.append(widget_name)
+        endpoint_name = self.config.endpoint_name
+        subreddit_name = self.config.context.subreddit
+        widget_names = names if names else "None"
         raise submanager.exceptions.RedditObjectNotFoundError(
             self.config,
             message_pre=(
-                f"Sidebar widget {self.config.endpoint_name!r} "
-                f"not found in 'r/{self.config.context.subreddit}' "
-                f"(found widgets: {names if names else 'None'})"
+                f"Sidebar widget {endpoint_name!r} "
+                f"not found in 'r/{subreddit_name}' "
+                f"(found widgets: {widget_names})"
             ),
             message_post="If this is not a typo, please create it first.",
         )

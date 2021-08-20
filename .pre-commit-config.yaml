@@ -234,7 +234,7 @@ repos:
   - id: pyanalyze
     name: Lint Python with PyAnalyze
     entry: 'python -b -X dev -W error -m pyanalyze .'
-    args: [--autofix, --enable-all, '-d', invalid_annotation]
+    args: [--autofix, --enable-all, '-d', invalid_annotation, '-d', unsupported_operation]
     language: system
     types: [python]
     pass_filenames: false

@@ -15,7 +15,7 @@ from types import (
 )
 from typing import (
     ContextManager,
-    )
+)
 
 # Third party imports
 from typing_extensions import (

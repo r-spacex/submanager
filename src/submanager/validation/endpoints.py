@@ -63,15 +63,17 @@ def validate_endpoint(
     except prawcore.exceptions.InsufficientScope as error:
         if not raise_error:
             return False
-        urls_formatted = " or ".join([f"<{url}>" for url in details_urls])
-        scopes = reddit.auth.scopes()
         action_str = "edit" if endpoint_valid else "retrieve"
+        endpoint_type = config.endpoint_type
+        scopes = reddit.auth.scopes()
+        account = config.context.account
+        urls_formatted = " or ".join([f"<{url}>" for url in details_urls])
         raise submanager.exceptions.InsufficientScopeError(
             config,
             message_pre=(
-                f"Could not {action_str} "
-                f"{config.endpoint_type} due to the OAUTH scopes {scopes!r} "
-                f"of the refresh token for account {config.context.account!r} "
+                f"Could not {action_str} "  # noqa: WPS221
+                f"{endpoint_type} due to the OAUTH scopes {scopes!r} "
+                f"of the refresh token for account {account!r} "
                 "not including the scope required for this operation "
                 f"(see {urls_formatted} for details)"
             ),

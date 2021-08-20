@@ -110,11 +110,14 @@ def create_new_thread(
     pattern = submanager.sync.utils.PATTERN_TEMPLATE.format(
         pattern=f"{submanager.thread.utils.THREAD_PATTERN}{{suffix}}",
     )
-    post_text = (
-        f"{pattern.format(suffix=thread_config.source.pattern_start)}\n"
-        f"{post_text}\n"
-        f"{pattern.format(suffix=thread_config.source.pattern_end)}"
-    )
+    start_suffix = thread_config.source.pattern_start
+    end_suffix = thread_config.source.pattern_end
+    post_lines = [
+        pattern.format(suffix=start_suffix),
+        str(post_text),
+        pattern.format(suffix=end_suffix),
+    ]
+    post_text = "\n".join(post_lines)
     new_thread: praw.models.reddit.submission.Submission = (
         accounts[thread_config.target_context.account]
         .subreddit(thread_config.target_context.subreddit)
