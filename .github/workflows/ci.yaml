@@ -37,7 +37,10 @@ jobs:
       uses: syphar/restore-virtualenv@v1
       id: env
     - name: Print basic Python info
-      run: 'python -c "import sys; print(sys.executable, sys.version)"'
+      shell: python
+      run: |
+        import sys
+        print(sys.executable, sys.version, sep='\n')
     - name: Install baseline deps
       run: python -m pip install --upgrade pip setuptools wheel
     - name: Install development dependencies
@@ -50,12 +53,15 @@ jobs:
       uses: pre-commit/action@v2.0.3
 
   test:
-    name: Test Python ${{ matrix.python-version }} ${{ matrix.os }}
+    name: Test Python ${{ matrix.python-version }} ${{ matrix.os }} ${{ matrix.online }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
+        - os: ubuntu-latest
+          python-version: '3.9'
+          online: 'ONLINE'
         - os: ubuntu-latest
           python-version: '3.9'
         - os: ubuntu-latest
@@ -77,7 +83,10 @@ jobs:
       uses: syphar/restore-virtualenv@v1
       id: env
     - name: Print basic Python info
-      run: 'python -c "import sys; print(sys.executable, sys.version)"'
+      shell: python
+      run: |
+        import sys
+        print(sys.executable, sys.version, sep='\n')
     - name: Install baseline deps
       run: python -m pip install --upgrade pip setuptools wheel
     - name: Install build deps
@@ -89,7 +98,14 @@ jobs:
       run: 'echo dist/*.whl | xargs -I % pip install --upgrade %[test]'
     - name: Pip check
       run: pip check
-    - name: Run Pytest
+    - name: Run offline tests
       run: python -bb -X dev -W error -m pytest
+    - name: Run online tests
+      if: matrix.online == 'ONLINE'
+      env:
+        praw_client_id: ${{ secrets.TESTBOT_CLIENT_ID }}
+        praw_client_secret: ${{ secrets.TESTBOT_CLIENT_SECRET }}
+        praw_refresh_token: ${{ secrets.TESTBOT_REFRESH_TOKEN }}
+      run: 'python -bb -X dev -W error -m pytest --run-online -m "online"'
     - name: Twine check
       run: twine check --strict dist/*
