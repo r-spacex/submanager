@@ -3,7 +3,7 @@
 Sub Manager is a bot framework for Reddit to automate a variety of tasks on one or more subreddits, and can be configured and run without writing any code.
 Its initial application was to automatically generate, create, pin and update threads, as well as related tasks.
 Additionally, it can be used to automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
-It includes an installable systemd service unit for real-time operation on modern Linux distributions, which is used in production for the r/SpaceX subreddit, or can be run by any other means you choose on your system.
+It includes support for automatically installing a Systemd service unit for real-time operation on modern Linux distributions, which is used in production for the r/SpaceX subreddit, and it can also be run by any other means you choose on your system.
 
 **Legal Disclaimer**: For the avoidance of doubt, Sub Manager and the r/SpaceX Github org and subreddit are unofficial fan creations, and have no affiliation with nor endorsement by [Reddit](https://www.reddit.com) or [SpaceX](https://www.spacex.com), which are trademarks of their respective companies.
 
@@ -45,7 +45,7 @@ Using the standard tool ``venv``, you can create an environment as follows:
 python -m venv your-env-name
 ```
 
-And activate it with the following on Linux and macOS
+And activate it with the following on Linux and macOS,
 
 ```bash
 source your-env-name/bin/activate
@@ -59,7 +59,13 @@ or on Windows (cmd),
 
 Of course you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc).
 
-To install the package, with your environment activated, simply run
+To install the latest pinned known-good versions of the dependencies (optional, but recommended), use the included ``requirements.txt`` file:
+
+```bash
+python -m pip -r requirements.txt
+```
+
+Finally, install the package itself (and its dependencies, if not installed in the previous step):
 
 ```bash
 python -m pip install .
@@ -144,9 +150,11 @@ Conversely, any ``replace_patterns`` for a specific target are applied after (an
 
 ## Running as a service
 
-The provided systemd unit file, `submanager.service` in the project root, allows easily running it as a user service; just copy it to the ``~/.config/systemd/user`` directory (creating it if it doesn't already exist).
-It currently assumes the virtual environment ``submanager`` is installed in lives at ``~/bots/submanager/env``; you can modify it to specify the names and paths on your system.
-It can be enabled and started in the typical way,
+To install a Systemd user service that will run Sub Manager automatically, activate your Sub Manager environment and simply run the ``submanager install-service`` command.
+By default, this will install a user-level service named ``submanager.service`` which will run Sub Manager with the primary configuration.
+If you'd like to install another service with a different config, specify the config file path as usual with ``--config-path``, and (if you don't want the service to overwrite the default one, so you can run as many as you want at once), a custom ``suffix``; the resulting service will be named ``submanager-<suffix>.service``.
+
+The installed service can be enabled and started in the typical way,
 
 ```bash
 systemctl --user daemon-reload
@@ -154,4 +162,11 @@ systemctl --user enable submanager
 systemctl --user start submanager
 ```
 
-Note that there are [a few considerations to keep in mind](https://wiki.archlinux.org/index.php/systemd/User#Automatic_start-up_of_systemd_user_instances) when running as a user instance of systemd, most notably to get it to autostart on boot rather than login and persist after the user is logged out (e.g. on a server, VPS or other unattended box).
+and you can check its status and log, respectively, with the usual
+
+```bash
+systemctl --user status submanager
+journalctl --user -xe -u submanager
+```
+
+Note that there are [a few considerations to keep in mind](https://wiki.archlinux.org/index.php/systemd/User#Automatic_start-up_of_systemd_user_instances) when running as a user instance of Systemd, most notably to get it to autostart on boot rather than login and persist after the user is logged out (e.g. on a server, VPS or other unattended box).

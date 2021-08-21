@@ -14,7 +14,7 @@ You should be familiar with the basics of using ``git`` and Github, though this 
   - [Fork and clone the repo](#fork-and-clone-the-repo)
   - [Create and activate a fresh venv](#create-and-activate-a-fresh-venv)
   - [Install Sub Manager in editable mode](#install-sub-manager-in-editable-mode)
-  - [Enable the Pre-Commit hooks](#enable-the-pre-commit-hooks)
+  - [Install the required Pre-Commit hooks](#install-the-required-pre-commit-hooks)
 - [Running Tests](#running-tests)
 - [Git Branches](#git-branches)
 - [Submitting a Pull Request](#submitting-a-pull-request)
@@ -81,7 +81,13 @@ Of course, you're free to use any environment management tool of your choice (co
 
 ### Install Sub Manager in editable mode
 
-To install the package in editable ("development") mode, where updates to the source files will be reflected in the installed package, and include the dependencies used for development, run
+To get the consistent pinned versions of the development dependencies (optional, but recommended), first install the deps from the requirements file,
+
+```bash
+python -m pip -r requirements-dev.txt
+```
+
+To install the package in editable ("development") mode, where updates to the source files will be reflected in the installed package, and include any additional dependencies used for development, run
 
 ```bash
 python -m pip install -e .[lint,test]
@@ -93,7 +99,7 @@ When you make changes in your local copy of the git repository, they will be ref
 While Windows and macOS are supported for development and use alongside Linux, built-in support for running as a system service is not currently included, and is left to the user.
 
 
-### Enable the Pre-Commit hooks
+### Install the required Pre-Commit hooks
 
 You'll need to install the pre-commit hooks before committing any changes, as they both auto-generate/update specific files and run a comprehensive series of checks to help you find likely errors and enforce the project's code quality guidelines and style guide; they are also run in CI, and will fail the build if any don't pass or modify any files.
 This repository uses [Pre-Commit](https://pre-commit.com/) to install, configure and update a suite of pre-commit hooks that check for common problems and issues, and fix many of them automatically.
