@@ -13,9 +13,7 @@ astroid==2.6.6
 asynq==1.4.0
     # via pyanalyze
 attrs==21.2.0
-    # via
-    #   pyanalyze
-    #   pytest
+    # via pyanalyze
 backports.entry-points-selectable==1.1.0
     # via virtualenv
 certifi==2021.5.30
@@ -40,8 +38,6 @@ idna==3.2
     # via requests
 importlib-resources==5.2.2
     # via typeshed-client
-iniconfig==1.1.1
-    # via pytest
 isort==5.9.3
     # via pylint
 lazy-object-proxy==1.6.0
@@ -57,24 +53,16 @@ mypy-extensions==0.4.3
     #   typing-inspect
 nodeenv==1.6.0
     # via pre-commit
-packaging==21.0
-    # via
-    #   pytest
-    #   submanager (setup.py)
 platformdirs==2.2.0
     # via
     #   submanager (setup.py)
     #   virtualenv
-pluggy==0.13.1
-    # via pytest
 praw==7.4.0
     # via submanager (setup.py)
 prawcore==2.3.0
     # via praw
 pre-commit==2.14.0
     # via submanager (setup.py)
-py==1.10.0
-    # via pytest
 pyanalyze==0.3.1
     # via submanager (setup.py)
 pydantic==1.8.2
@@ -82,10 +70,6 @@ pydantic==1.8.2
 pygments==2.10.0
     # via asynq
 pylint==2.9.6
-    # via submanager (setup.py)
-pyparsing==2.4.7
-    # via packaging
-pytest==6.2.4
     # via submanager (setup.py)
 python-dateutil==2.8.2
     # via submanager (setup.py)
@@ -110,7 +94,6 @@ toml==0.10.2
     #   mypy
     #   pre-commit
     #   pylint
-    #   pytest
     #   submanager (setup.py)
 typed-ast==1.4.3
     # via typeshed-client

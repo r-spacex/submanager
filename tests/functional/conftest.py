@@ -291,7 +291,7 @@ def invoke_command(
 
     def _invoke_command(command: str) -> InvokeOutput:
         invocation: ArgList = request.param  # type: ignore[attr-defined]
-        process_result = subprocess.run(  # nosec
+        process_result = subprocess.run(
             invocation + [command],
             capture_output=True,
             check=False,

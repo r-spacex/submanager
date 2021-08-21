@@ -4,19 +4,35 @@
 #
 #    python tools/generate_requirements_files.py
 #
+attrs==21.2.0
+    # via pytest
 certifi==2021.5.30
     # via requests
 charset-normalizer==2.0.4
     # via requests
 idna==3.2
     # via requests
+iniconfig==1.1.1
+    # via pytest
+packaging==21.0
+    # via
+    #   pytest
+    #   submanager (setup.py)
 platformdirs==2.2.0
     # via submanager (setup.py)
+pluggy==0.13.1
+    # via pytest
 praw==7.4.0
     # via submanager (setup.py)
 prawcore==2.3.0
     # via praw
+py==1.10.0
+    # via pytest
 pydantic==1.8.2
+    # via submanager (setup.py)
+pyparsing==2.4.7
+    # via packaging
+pytest==6.2.4
     # via submanager (setup.py)
 python-dateutil==2.8.2
     # via submanager (setup.py)
@@ -28,7 +44,9 @@ requests==2.26.0
 six==1.16.0
     # via python-dateutil
 toml==0.10.2
-    # via submanager (setup.py)
+    # via
+    #   pytest
+    #   submanager (setup.py)
 typing-extensions==3.10.0.0
     # via
     #   pydantic
