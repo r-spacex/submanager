@@ -55,23 +55,6 @@ repos:
     exclude: '\.gitattributes'
     args: ['-L', 'complet,generat', --write-changes]
 
-# Prettify Bash scripts
-- repo: https://github.com/lovesegfault/beautysh
-  rev: 'v6.1.0'
-  hooks:
-  - id: beautysh
-    name: Beautify Bash scripts
-
-# Lint Bash scripts
-- repo: https://github.com/openstack/bashate
-  rev: '2.0.0'
-  hooks:
-  - id: bashate
-    name: Lint Bash scripts
-    stages: [manual]
-    verbose: false
-    args: [--max-line-length, '80']
-
 # Pretty-format INI
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
   rev: v2.1.0

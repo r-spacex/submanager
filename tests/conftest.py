@@ -6,6 +6,7 @@ from __future__ import (
 )
 
 # Standard library imports
+import configparser
 from pathlib import (
     Path,
 )
@@ -31,6 +32,14 @@ from typing_extensions import (
 PACKAGE_NAME: Final[str] = "submanager"
 
 RUN_ONLINE_OPTION: Final[str] = "--run-online"
+
+PRAW_INI_FILENAME: Final[str] = "praw.ini"
+TEST_SITE_NAME: Final[str] = "testbot"
+DUMMY_ACCOUNT_CONFIG: Final[dict[str, str]] = {
+    "client_id": "abcdefgABCDEFG",
+    "client_secret": "abcdefghijklmnopqrstuvwxyzABCD",
+    "refresh_token": "123456789100-abcdefghijklmnopqrstuvwxyzABCD",
+}
 
 
 # ---- Helpers ----
@@ -81,6 +90,28 @@ def pytest_addoption(parser: Parser) -> None:
         default=False,
         help="Run tests that require interacting with live Reddit",
     )
+
+
+def pytest_configure(config: Config) -> None:
+    """Add a temporary local PRAW.ini with the testbot site if not found."""
+    if not config.getoption(RUN_ONLINE_OPTION):
+        praw_config = configparser.ConfigParser()
+        praw_config[TEST_SITE_NAME] = DUMMY_ACCOUNT_CONFIG
+        with open(
+            Path() / PRAW_INI_FILENAME,
+            "w",
+            encoding="utf-8",
+        ) as praw_ini_file:
+            praw_config.write(praw_ini_file)
+
+
+def pytest_unconfigure(
+    config: Config,  # pylint: disable = unused-argument
+) -> None:
+    """Remove the temporary PRAW.ini in the working directory."""
+    praw_ini_path = Path() / PRAW_INI_FILENAME
+    if praw_ini_path.exists():
+        praw_ini_path.unlink()
 
 
 def pytest_collection_modifyitems(

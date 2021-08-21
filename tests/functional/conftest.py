@@ -200,7 +200,7 @@ def fixture_run_cli_paths(
     return _run_cli_paths
 
 
-@pytest.fixture(name="run_and_check_cli")
+@pytest.fixture(name="run_and_check_cli")  # noqa: WPS231
 def fixture_run_and_check_cli(  # noqa: WPS231
     run_cli_paths: RunCLIPathsCallable,
     temp_config_paths: submanager.models.config.ConfigPaths,
