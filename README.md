@@ -1,5 +1,33 @@
 # Sub Manager
 
+
+<!-- Project status -->
+[![License](https://img.shields.io/github/license/r-spacex/submanager?label=License)](https://github.com/r-spacex/submanager/blob/master/LICENSE.txt)
+[![GitHub version](https://img.shields.io/github/v/tag/r-spacex/submanager?include_prereleases&label=GitHub)](https://github.com/r-spacex/submanager/releases)
+[![PyPI version](https://img.shields.io/pypi/v/submanager?label=PyPI)](https://pypi.org/project/submanager/)
+[![PyPI status](https://img.shields.io/pypi/status/submanager?label=Status)](https://pypi.org/project/submanager/)
+[![PyPI wheel](https://img.shields.io/pypi/wheel/submanager?label=Wheel)](https://pypi.org/project/submanager/)
+[![PyPI Python version](https://img.shields.io/pypi/pyversions/submanager?label=Python)](https://pypi.org/project/submanager/)
+[![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/spacex?label=r%2FSpaceX%20Subs)](https://www.reddit.com/r/spacex/)
+
+<!-- Build status -->
+[![Tests status](https://github.com/r-spacex/submanager/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/test.yaml)
+[![Lint status](https://github.com/r-spacex/submanager/actions/workflows/lint.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/lint.yaml)
+[![Semgrep scan](https://github.com/r-spacex/submanager/actions/workflows/semgrep-analysis.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/semgrep-analysis.yaml)
+[![CodeQL analysis](https://github.com/r-spacex/submanager/actions/workflows/codeql-analysis.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/codeql-analysis.yaml)
+[![Pylint score](https://img.shields.io/badge/Pylint-10.0-brightgreen.svg)](https://www.pylint.org/)
+[![Checked with MyPy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
+[![Pre-Commit](https://img.shields.io/badge/Pre--Commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
+
+<!-- Conventions followed -->
+[![Maintainer](https://img.shields.io/badge/Maintainer-CAM--Gerlach-blue)](https://github.com/CAM-Gerlach)
+[![Framework](https://img.shields.io/badge/Framework-PRAW-orange.svg)](https://github.com/pytest-dev/pytest)
+[![Tests Pytest](https://img.shields.io/badge/Testing-Pytest-blue.svg)](https://pytest.org/)
+[![Code style Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Code style wemake](https://img.shields.io/badge/style-wemake-000000.svg)](https://wemake-python-stylegui.de/en/stable/)
+[![Awesome badges](https://img.shields.io/badge/Badges-Awesome-brightgreen.svg)](https://github.com/Naereen/badges)
+
+
 Sub Manager is a bot framework for Reddit to automate a variety of tasks on one or more subreddits, and can be configured and run without writing any code.
 Its initial application was to automatically generate, create, pin and update threads, as well as related tasks.
 Additionally, it can be used to automatically sync and reformat content between wiki pages, widgets and threads, as well as marked sections of the same (including the sub's sidebar and other content).
