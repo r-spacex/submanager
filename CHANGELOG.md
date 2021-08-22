@@ -1,73 +1,108 @@
-# Sub Manager Changelog
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 
 
 <!-- markdownlint-disable -->
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-- [Version 0.5.1 (2021-06-15)](#version-051-2021-06-15)
-- [Version 0.5.0 (2021-05-18)](#version-050-2021-05-18)
-- [Version 0.4.0 (2021-03-24)](#version-040-2021-03-24)
-- [Version 0.3.1 (2021-03-01)](#version-031-2021-03-01)
-- [Version 0.3.0 (2021-02-08)](#version-030-2021-02-08)
-- [Version 0.2.2 (2021-02-01)](#version-022-2021-02-01)
-- [Version 0.2.1 (2021-01-22)](#version-021-2021-01-22)
-- [Version 0.1.2 (2021-01-20)](#version-012-2021-01-20)
-- [Version 0.1.1 (2021-01-20)](#version-011-2021-01-20)
-- [Version 0.1.0 (2021-01-01)](#version-010-2021-01-01)
+- [[0.5.1] - 2021-06-15](#051---2021-06-15)
+  - [Fixed](#fixed)
+- [[0.5.0] - 2021-05-18](#050---2021-05-18)
+  - [Added](#added)
+  - [Changed](#changed)
+- [[0.4.0] - 2021-03-24](#040---2021-03-24)
+  - [Added](#added-1)
+  - [Changed](#changed-1)
+- [[0.3.1] - 2021-03-01](#031---2021-03-01)
+  - [Changed](#changed-2)
+  - [Fixed](#fixed-1)
+- [[0.3.0] - 2021-02-08](#030---2021-02-08)
+  - [Added](#added-2)
+  - [Changed](#changed-3)
+- [[0.2.2] - 2021-02-01](#022---2021-02-01)
+  - [Added](#added-3)
+  - [Fixed](#fixed-2)
+- [[0.2.1] - 2021-01-22](#021---2021-01-22)
+  - [Added](#added-4)
+  - [Fixed](#fixed-3)
+- [0.2.0 - 2021-01-21](#020---2021-01-21)
+  - [Added](#added-5)
+  - [Changed](#changed-4)
+  - [Fixed](#fixed-4)
+- [[0.1.2] - 2021-01-20](#012---2021-01-20)
+  - [Changed](#changed-5)
+- [[0.1.1] - 2021-01-20](#011---2021-01-20)
+  - [Added](#added-6)
+  - [Changed](#changed-6)
+  - [Fixed](#fixed-5)
+- [[0.1.0] - 2021-01-01](#010---2021-01-01)
+  - [Added](#added-7)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 <!-- markdownlint-restore -->
 
 
 
-## Version 0.5.1 (2021-06-15)
+## [0.5.1] - 2021-06-15
 
-Bufix release with the following changes:
+### Fixed
 
 * Fix a bug with disabling top-level sync pair items
-* Add docstrings to more functions and fix existing
+* Fix docstrings and add to more functions
 
 
 
-## Version 0.5.0 (2021-05-18)
+## [0.5.0] - 2021-05-18
 
-Major feature release with many config-breaking changes.
+### Added
 
-New features:
+* Multi-account support, per-source, target and sync/thread
+* Multi-subreddit support with similar granularity, to allow sync between subs
+* Ability to leave a customizable OP message and/or sticky when replacing a thread
+* Flexible config inheritance (source/target <- task <- module <- global)
+* Full refresh token handling to support new Reddit OAUTH changes
 
-* Add multi-account support, per-source, target and sync/thread
-* Add multi-subreddit support with similar granularity, to allow sync between subs
-* Add ability to leave a customizable OP message and/or sticky when replacing a thread
-* Enable flexible config inheritance (source/target <- task <- module <- global)
 
-Under the hood:
+### Changed
 
-* Add full refresh token handling to support new Reddit OAUTH changes
 * Fully reorganize config to be much cleaner and more flexible
 * Majorly refactor code for much greater extendability going forward
 * Further update README, ROADMAP, documentation and metafiles
 
 
 
-## Version 0.4.0 (2021-03-24)
+## [0.4.0] - 2021-03-24
 
-Enhancement release with the following changes:
+### Added
 
-* Support both fixed and floating time intervals for posting megathreads
-* Support arbitrary integer periods for floating post intervals
-* Add support for N weekly posting frequency
+* Fixed and floating time intervals for posting megathreads
+* Arbitrary integer periods for floating post intervals
+* Support for N weekly posting frequency
+
+
+### Changed
+
 * Refactor and implement much more sophisticated post interval parsing
 * Update documentation to describe configuration and post intervals in more detail
 * Update roadmap to reflect re-prioritization
 
 
 
-## Version 0.3.1 (2021-03-01)
+## [0.3.1] - 2021-03-01
 
-Bugfix release with the following changes:
+### Changed
 
 * Replace ``tomlkit`` with ``toml`` to fix strange bugs with PRAW
+
+
+### Fixed
+
 * Fix bug with unsticky of old megathread not having mod permissions
 * Fix bug with not updating megathread URLs correctly
 * Optimize link update to use generator
@@ -75,78 +110,88 @@ Bugfix release with the following changes:
 
 
 
-## Version 0.3.0 (2021-02-08)
+## [0.3.0] - 2021-02-08
 
-Major feature and refactoring release with many config/API changes.
+### Added
 
-New features:
+* Sync to/from New Reddit sidebar widgets
+* Sync to/from thread OPs
+* Sync to new Reddit menus
+* Support for managing multiple independent megathreads
+* Full sync endpoint features for megathreads
+* Broader and more granular enable/disable options
+* CHANGELOG tracking releases
 
-* Support sync to/from New Reddit sidebar widgets
-* Support sync to/from thread OPs
-* Support sync to new Reddit menus
-* Add support for managing multiple independent megathreads
-* Enable full sync endpoint features for megathreads
-* Add broader and more granular enable/disable options
 
-Under the hood:
+### Changed
 
 * Use sync module as backend for megathread update
 * Split static and dynamic config files and objects
 * Make static config human-editable TOML
 * Reorganize and streamline config schema
 * Hugely refactor code
-* Add CHANGELOG tracking releases
 
 
 
-## Version 0.2.2 (2021-02-01)
+## [0.2.2] - 2021-02-01
 
-Bugfix and enhancement release with the following changes:
+### Added
 
-* Add support for updating megathread links in wiki, sidebar/menu and removal messages
-* Add basic error handling (restart, etc) to systemd service unit (to recover from random Reddit errors)
+* Support for updating megathread links in wiki, sidebar/menu and removal messages
+* Basic error handling (restart, etc) to systemd service unit (to recover from random Reddit errors)
+
+
+### Fixed
+
 * Set unbuffered output so the systemd journal/syslog output is updated in real time
 * Fix reliability issues with unstickying and stickying the correct sticky
 
 
 
-## Version 0.2.1 (2021-01-22)
+## [0.2.1] - 2021-01-22
 
-Bugfix and enhancement release with the following changes:
+### Added
 
-* Add option to enable/disable megathread manager module
+* Option to enable/disable megathread manager module
+* Requirements.txt for dependencies
+* Systemd service unit
+* README with documentation
+* ROADMAP with project roadmap
+* LICENSE with MIT License
+* Git metafiles
+
+
+### Fixed
+
 * Recheck date more reliably every run
-* Add requirements.txt for dependencies
-* Add provided systemd service unit
-* Add README with documentation
-* Add ROADMAP with project roadmap
-* Add LICENSE with MIT License
-* Add Git metafiles
 
 
+## 0.2.0 - 2021-01-21
 
-Version 0.2.0 (2021-01-21)
+### Added
 
-Major feature release with a major new module.
-
-Add new Sync Manager module:
-
+* New Sync Manager module
 * Sync arbitrary source wiki pages to target wiki pages
 * Sync full pages or subsections designated by special marker comments
-* Supports multiple targets per source page with custom settings
+* Support multiple targets per source page with custom settings
 * Customizable pattern replacements (i.e. for reformatting, etc) between them
+* Accompanying config for sync manager
 
-Under the hood:
 
-* Add accompanying config for sync manager
+### Changed
+
 * Major code refactoring to support current and future changes
-* Various minor bug fixes
+
+
+### Fixed
+
+* Fix various minor bugs
 
 
 
-## Version 0.1.2 (2021-01-20)
+## [0.1.2] - 2021-01-20
 
-Performance and minor enhancement release with the following changes:
+### Changed
 
 * Automatically update config with newly added options
 * Cache current thread for better performance
@@ -154,21 +199,27 @@ Performance and minor enhancement release with the following changes:
 
 
 
-## Version 0.1.1 (2021-01-20)
+## [0.1.1] - 2021-01-20
 
-Bugfix and enhancement release with the following changes:
+### Added
 
-* Add ability to run in a loop at a set interval
-* Fix various minor bugs
+* Ability to run in a loop at a set interval
+
+
+### Changed
+
 * Refactor config/variable names to make more sense
 
 
+### Fixed
 
-## Version 0.1.0 (2021-01-01)
+* Fix various minor bugs
 
-Initial deployed release.
 
-Major features:
+
+## [0.1.0] - 2021-01-01
+
+### Added
 
 * Create and approve new megathreads at a customizable interval
 * Sync current metathread content from wiki page when changed
@@ -176,9 +227,6 @@ Major features:
 * Load and sync post text drawn from a wiki page
 * Customizable replace patterns for post text
 * Pin the new thread and unpin the old thread
-
-Under the hood:
-
 * Supports any subreddit; no hardcoding
 * Session and timestamp caching to avoid unnecessary requests
 * Controlled from automatically-generated JSON config file
