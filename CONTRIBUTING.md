@@ -57,25 +57,8 @@ git remote add upstream https://github.com/r-spacex/submanager.git
 
 ### Create and activate a fresh venv
 
-While it can be installed in your system Python, particularly for development installs we highly recommend you create and activate a virtual environment to avoid any conflicts with other packages on your system or causing any other issues.
-Using the standard tool ``venv``, you can create an environment as follows:
-
-```bash
-python -m venv your-env-name
-```
-
-And activate it with the following on Linux and macOS
-
-```bash
-source your-env-name/bin/activate
-```
-
-or on Windows (cmd),
-
-```cmd
-.\your-env-name\Scripts\activate.bat
-```
-
+Particularly for development installs, we highly recommend you create and activate a virtual environment to avoid any conflicts with other packages on your system or causing any other issues.
+See the corresponding section in the [README](https://github.com/r-spacex/submanager/blob/master/README.md) for an example of how to do so with Python's built-in ``venv``.
 Of course, you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc).
 
 

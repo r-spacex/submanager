@@ -24,7 +24,7 @@ PARAMS_GOOD: Final[list[str]] = [
     "--version",
 ]
 PARAMS_BAD: Final[list[str]] = [
-    "--non-existant-flag",
+    "--non-existent-flag",
 ]
 
 

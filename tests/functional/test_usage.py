@@ -23,7 +23,7 @@ from tests.functional.conftest import (
 
 HELP_COMMANDS: Final[list[str]] = ["-h", "--help"]
 GOOD_COMMANDS: Final[list[str]] = ["--version"]
-BAD_COMMANDS: Final[list[str]] = ["", " ", "--non-existant-cli-flag"]
+BAD_COMMANDS: Final[list[str]] = ["", " ", "--non-existent-cli-flag"]
 
 CUSTOM_CONFIG_PATHS: Final[list[Literal[False] | None]] = [False, None]
 CUSTOM_CONFIG_PATH_IDS: Final[list[str]] = ["default_paths", "custom_paths"]

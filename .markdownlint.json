@@ -8,10 +8,10 @@
         "style": "asterisk"
     },
     "ul-indent": {
-        "number": 4
+        "indent": 4
     },
     "no-trailing-spaces": {
-        "number": 0,
+        "br_spaces": 0,
         "strict": true
     },
     "no-multiple-blanks": {

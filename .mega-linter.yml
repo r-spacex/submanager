@@ -1,0 +1,30 @@
+# Configuration file for Mega-Linter
+# See all available variables at https://nvuillam.github.io/mega-linter/configuration/ and in linters documentation
+
+# ENABLE:  # If you use ENABLE variable, all other languages/formats/tooling-formats will be disabled by default
+# ENABLE_LINTERS:  # If you use ENABLE_LINTERS variable, all other linters will be disabled by default
+# DISABLE:
+# - COPYPASTE  # Uncomment to disable checks of abusive copy-pastes
+# - SPELL  # Uncomment to disable checks of spelling mistakes
+DISABLE_LINTERS:
+- MARKDOWN_MARKDOWN_TABLE_FORMATTER  # Unable to locally autoformat tables
+- PYTHON_BANDIT  # Unable to set to use repo config file; re-enable when fixed
+- PYTHON_BLACK  # Version in Mega-Linter doesn't yet support Python 3.9
+- PYTHON_MYPY  # Managed externally; relies on locally installed packages
+- PYTHON_PYLINT  # Managed externally; relies on locally installed packages
+- SPELL_CSPELL  # Vast number of false positives
+- YAML_PRETTIER  # Avoid conflicts with local formatter
+
+APPLY_FIXES: none  # all, none, or list of linter keys
+DEFAULT_BRANCH: master  # Usually master or main
+FILEIO_REPORTER: false
+FORMATTERS_DISABLE_ERRORS: false
+SHOW_ELAPSED_TIME: true
+
+MARKDOWN_MARKDOWNLINT_CONFIG_FILE: LINTER_DEFAULT
+# PYTHON_BANDIT_CONFIG_FILE: LINTER_DEFAULT  # Uncomment when Bandit config supported
+PYTHON_BLACK_CONFIG_FILE: LINTER_DEFAULT
+PYTHON_FLAKE8_CONFIG_FILE: LINTER_DEFAULT
+PYTHON_ISORT_CONFIG_FILE: LINTER_DEFAULT
+YAML_PRETTIER_CONFIG_FILE: LINTER_DEFAULT
+YAML_YAMLLINT_CONFIG_FILE: LINTER_DEFAULT

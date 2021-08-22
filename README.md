@@ -4,18 +4,20 @@
 <!-- Project status -->
 [![License](https://img.shields.io/github/license/r-spacex/submanager?label=License)](https://github.com/r-spacex/submanager/blob/master/LICENSE.txt)
 [![GitHub version](https://img.shields.io/github/v/tag/r-spacex/submanager?include_prereleases&label=GitHub)](https://github.com/r-spacex/submanager/releases)
+<!-- markdown-link-check-disable -->
 [![PyPI version](https://img.shields.io/pypi/v/submanager?label=PyPI)](https://pypi.org/project/submanager/)
 [![PyPI status](https://img.shields.io/pypi/status/submanager?label=Status)](https://pypi.org/project/submanager/)
 [![PyPI wheel](https://img.shields.io/pypi/wheel/submanager?label=Wheel)](https://pypi.org/project/submanager/)
 [![PyPI Python version](https://img.shields.io/pypi/pyversions/submanager?label=Python)](https://pypi.org/project/submanager/)
+<!-- markdown-link-check-enable -->
 [![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/spacex?label=r%2FSpaceX%20Subs)](https://www.reddit.com/r/spacex/)
 
 <!-- Build status -->
 [![Tests status](https://github.com/r-spacex/submanager/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/test.yaml)
 [![Lint status](https://github.com/r-spacex/submanager/actions/workflows/lint.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/lint.yaml)
+[![Mega-Linter](https://github.com/r-spacex/submanager/actions/workflows/mega-linter.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/mega-linter.yaml)
 [![Semgrep scan](https://github.com/r-spacex/submanager/actions/workflows/semgrep-analysis.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/semgrep-analysis.yaml)
 [![CodeQL analysis](https://github.com/r-spacex/submanager/actions/workflows/codeql-analysis.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/codeql-analysis.yaml)
-[![Pylint score](https://img.shields.io/badge/Pylint-10.0-brightgreen.svg)](https://www.pylint.org/)
 [![Checked with MyPy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
 [![Pre-Commit](https://img.shields.io/badge/Pre--Commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
 
@@ -23,6 +25,7 @@
 [![Maintainer](https://img.shields.io/badge/Maintainer-CAM--Gerlach-blue)](https://github.com/CAM-Gerlach)
 [![Framework](https://img.shields.io/badge/Framework-PRAW-orange.svg)](https://github.com/pytest-dev/pytest)
 [![Tests Pytest](https://img.shields.io/badge/Testing-Pytest-blue.svg)](https://pytest.org/)
+[![Linting Pylint](https://img.shields.io/badge/Linting-Pylint-brightgreen.svg)](https://www.pylint.org/)
 [![Code style Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Code style wemake](https://img.shields.io/badge/style-wemake-000000.svg)](https://wemake-python-stylegui.de/en/stable/)
 [![Awesome badges](https://img.shields.io/badge/Badges-Awesome-brightgreen.svg)](https://github.com/Naereen/badges)
@@ -42,6 +45,8 @@ It includes support for automatically installing a Systemd service unit for real
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [Installation](#installation)
+  - [Create and activate fresh virtual environment](#create-and-activate-fresh-virtual-environment)
+  - [Download and install](#download-and-install)
 - [Usage](#usage)
 - [Contributing](#contributing)
 - [Configuration](#configuration)
@@ -59,21 +64,17 @@ It includes support for automatically installing a Systemd service unit for real
 
 **Note**: You may need to substitute ``python3`` for ``python`` in the commands below on some Linux distros where ``python`` isn't mapped to ``python3`` (yet).
 
-To install, first clone the repo to any desired directory with ``git`` (PyPI support coming with the next release).
 
-```bash
-git clone <REPO-URL>
-cd submanager
-```
+### Create and activate fresh virtual environment
 
-Then, while it can be installed in your system Python, we highly recommend you create and activate a virtual environment to avoid any conflicts with other packages on your system or causing any other issues.
+While Sub Manager can be installed in your system Python, we highly recommend you create and activate a virtual environment to avoid any conflicts with other packages on your system or causing any other issues.
 Using the standard tool ``venv``, you can create an environment as follows:
 
 ```bash
 python -m venv your-env-name
 ```
 
-And activate it with the following on Linux and macOS,
+You can then activate it with the following on Linux and macOS,
 
 ```bash
 source your-env-name/bin/activate
@@ -85,7 +86,17 @@ or on Windows (cmd),
 .\your-env-name\Scripts\activate.bat
 ```
 
-Of course you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc).
+Of course, you're free to use any environment management tool of your choice (conda, virtualenvwrapper, pyenv, etc); these steps are just an example.
+
+
+### Download and install
+
+First, clone the repo to any desired directory with ``git`` (PyPI support coming with the next release).
+
+```bash
+git clone <REPO-URL>
+cd submanager
+```
 
 To install the latest pinned known-good versions of the dependencies (optional, but recommended), use the included ``requirements.txt`` file:
 
@@ -104,7 +115,7 @@ python -m pip install .
 ## Usage
 
 To use Sub Manager, you'll need to activate the appropriate environment you created previously, and then execute its main entrypoint.
-For example, with venv,
+For example, with venv under bash,
 
 ```bash
 source your-env-name/bin/activate
