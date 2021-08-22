@@ -147,7 +147,7 @@ def handle_pin_thread(
     # Unpin previous thread if not in auto pin mode
     if not auto and thread_context_mod.current_thread:
         thread_context_mod.current_thread.mod.sticky(state=False)
-        time.sleep(2)
+        time.sleep(2)  # nosemgrep
 
     # Get currently pinned threads
     current_pins: list[praw.models.reddit.submission.Submission] = []

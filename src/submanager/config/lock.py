@@ -111,7 +111,7 @@ def wait_for_lock(
                 f"retrying for {timeout_s} s...",
             )
             first_attempt = False
-        time.sleep(check_interval_s)
+        time.sleep(check_interval_s)  # nosemgrep
 
     if not raise_error_on_timeout:
         return False

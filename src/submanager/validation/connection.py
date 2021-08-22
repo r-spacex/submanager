@@ -13,6 +13,9 @@ from typing import (
 # Third party imports
 import requests
 import requests.exceptions
+from typing_extensions import (
+    Final,
+)
 
 # Local imports
 import submanager.exceptions
@@ -20,6 +23,8 @@ from submanager.constants import (
     REDDIT_BASE_URL,
     USER_AGENT,
 )
+
+REQUEST_TIMEOUT_S: Final[float] = 5
 
 
 def get_reddit_oauth_scopes(
@@ -39,6 +44,7 @@ def get_reddit_oauth_scopes(
         scopes_endpoint_url,
         params=query_params,
         headers=headers,
+        timeout=REQUEST_TIMEOUT_S,
     )
     response.raise_for_status()
     response_json: dict[str, dict[str, str]] = response.json()

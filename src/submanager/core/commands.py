@@ -6,7 +6,7 @@ from __future__ import (
 )
 
 # Standard library imports
-import importlib.resources
+import importlib.resources  # nosemgrep
 import sys
 from pathlib import (
     Path,

@@ -99,7 +99,7 @@ def generate_requirements_files(
             output_filename,
             *extra_args,
         ]
-        pip_compile_result = subprocess.run(
+        pip_compile_result = subprocess.run(  # nosemgrep
             pip_compile_invocation,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
