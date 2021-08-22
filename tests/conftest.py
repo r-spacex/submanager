@@ -6,6 +6,7 @@ from __future__ import (
 )
 
 # Standard library imports
+import configparser
 from pathlib import (
     Path,
 )
@@ -15,6 +16,7 @@ from typing import (
 )
 
 # Third party imports
+import platformdirs
 import pytest
 from _pytest.config import (  # noqa: WPS436
     Config,
@@ -32,8 +34,32 @@ PACKAGE_NAME: Final[str] = "submanager"
 
 RUN_ONLINE_OPTION: Final[str] = "--run-online"
 
+PRAW_INI_FILENAME: Final[str] = "praw.ini"
+PRAW_INI_PATH_LOCAL: Final[Path] = Path() / PRAW_INI_FILENAME
+
+TEST_SITE_NAME: Final[str] = "testbot"
+DUMMY_ACCOUNT_CONFIG: Final[dict[str, str]] = {
+    "client_id": "abcdefgABCDEFG",
+    "client_secret": "abcdefghijklmnopqrstuvwxyzABCD",
+    "refresh_token": "123456789100-abcdefghijklmnopqrstuvwxyzABCD",
+}
+
 
 # ---- Helpers ----
+
+
+def _get_praw_ini_has_site_name(site_name: str) -> bool | None:
+    """Determine whether the default praw.ini file contains the site."""
+    praw_config = configparser.ConfigParser()
+    user_config_path = platformdirs.user_config_path(roaming=True)
+    praw_ini_path = user_config_path / PRAW_INI_FILENAME
+    if not praw_ini_path.exists():
+        return None
+    try:
+        praw_config.read(praw_ini_path)
+    except configparser.Error:
+        return None
+    return praw_config.has_section(site_name)
 
 
 def _get_val_id_from_collection(
@@ -81,6 +107,36 @@ def pytest_addoption(parser: Parser) -> None:
         default=False,
         help="Run tests that require interacting with live Reddit",
     )
+
+
+def pytest_configure(config: Config) -> None:
+    """Add a temporary local PRAW.ini with the testbot site if not found."""
+    if config.getoption(RUN_ONLINE_OPTION):
+        if not _get_praw_ini_has_site_name(TEST_SITE_NAME):
+            with open(
+                PRAW_INI_PATH_LOCAL,
+                mode="w",
+                encoding="utf-8",
+            ) as praw_ini_file_online:
+                praw_ini_file_online.write(f"[{TEST_SITE_NAME}]\n")
+    else:
+        praw_config = configparser.ConfigParser()
+        praw_config[TEST_SITE_NAME] = DUMMY_ACCOUNT_CONFIG
+        with open(
+            PRAW_INI_PATH_LOCAL,
+            mode="w",
+            encoding="utf-8",
+        ) as praw_ini_file_offline:
+            praw_config.write(praw_ini_file_offline)
+
+
+def pytest_unconfigure(
+    config: Config,  # pylint: disable = unused-argument
+) -> None:
+    """Remove the temporary PRAW.ini in the working directory."""
+    praw_ini_path = PRAW_INI_PATH_LOCAL
+    if praw_ini_path.exists():
+        praw_ini_path.unlink()
 
 
 def pytest_collection_modifyitems(
