@@ -1,16 +1,22 @@
 # Sub Manager
 
 
+<!-- Things used -->
+[![PyPI Python version](https://img.shields.io/pypi/pyversions/submanager?label=Python)](https://pypi.org/project/submanager/)  <!-- markdown-link-check-disable-line -->
+[![Framework](https://img.shields.io/badge/Framework-PRAW-orange.svg)](https://github.com/pytest-dev/pytest)
+[![Tests Pytest](https://img.shields.io/badge/Testing-Pytest-blue.svg)](https://pytest.org/)
+[![Pre-Commit](https://img.shields.io/badge/Linting-Pre--Commit-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
+[![Code style wemake](https://img.shields.io/badge/Code-wemake-000000.svg)](https://wemake-python-stylegui.de/en/stable/)
+[![Code style Black](https://img.shields.io/badge/Style-Black-000000.svg)](https://github.com/psf/black)
+
 <!-- Project status -->
 [![License](https://img.shields.io/github/license/r-spacex/submanager?label=License)](https://github.com/r-spacex/submanager/blob/master/LICENSE.txt)
+[![Maintainer](https://img.shields.io/badge/Maintainer-CAM--Gerlach-blue)](https://github.com/CAM-Gerlach)
+[![PyPI status](https://img.shields.io/pypi/status/submanager?label=Status)](https://pypi.org/project/submanager/)  <!-- markdown-link-check-disable-line -->
 [![GitHub version](https://img.shields.io/github/v/tag/r-spacex/submanager?include_prereleases&label=GitHub)](https://github.com/r-spacex/submanager/releases)
-<!-- markdown-link-check-disable -->
-[![PyPI version](https://img.shields.io/pypi/v/submanager?label=PyPI)](https://pypi.org/project/submanager/)
-[![PyPI status](https://img.shields.io/pypi/status/submanager?label=Status)](https://pypi.org/project/submanager/)
-[![PyPI wheel](https://img.shields.io/pypi/wheel/submanager?label=Wheel)](https://pypi.org/project/submanager/)
-[![PyPI Python version](https://img.shields.io/pypi/pyversions/submanager?label=Python)](https://pypi.org/project/submanager/)
-<!-- markdown-link-check-enable -->
-[![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/spacex?label=r%2FSpaceX%20Subs)](https://www.reddit.com/r/spacex/)
+[![PyPI version](https://img.shields.io/pypi/v/submanager?label=PyPI)](https://pypi.org/project/submanager/)  <!-- markdown-link-check-disable-line -->
+[![PyPI wheel](https://img.shields.io/pypi/wheel/submanager?label=Wheel)](https://pypi.org/project/submanager/)  <!-- markdown-link-check-disable-line -->
+[![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/spacex?label=Subs)](https://www.reddit.com/r/spacex/)
 
 <!-- Build status -->
 [![Tests status](https://github.com/r-spacex/submanager/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/test.yaml)
@@ -19,15 +25,6 @@
 [![Semgrep scan](https://github.com/r-spacex/submanager/actions/workflows/semgrep-analysis.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/semgrep-analysis.yaml)
 [![CodeQL analysis](https://github.com/r-spacex/submanager/actions/workflows/codeql-analysis.yaml/badge.svg?branch=master)](https://github.com/r-spacex/submanager/actions/workflows/codeql-analysis.yaml)
 [![Checked with MyPy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
-[![Pre-Commit](https://img.shields.io/badge/Pre--Commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
-
-<!-- Conventions followed -->
-[![Maintainer](https://img.shields.io/badge/Maintainer-CAM--Gerlach-blue)](https://github.com/CAM-Gerlach)
-[![Framework](https://img.shields.io/badge/Framework-PRAW-orange.svg)](https://github.com/pytest-dev/pytest)
-[![Tests Pytest](https://img.shields.io/badge/Testing-Pytest-blue.svg)](https://pytest.org/)
-[![Linting Pylint](https://img.shields.io/badge/Linting-Pylint-brightgreen.svg)](https://www.pylint.org/)
-[![Code style Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Code style wemake](https://img.shields.io/badge/style-wemake-000000.svg)](https://wemake-python-stylegui.de/en/stable/)
 [![Awesome badges](https://img.shields.io/badge/Badges-Awesome-brightgreen.svg)](https://github.com/Naereen/badges)
 
 
@@ -91,22 +88,18 @@ Of course, you're free to use any environment management tool of your choice (co
 
 ### Download and install
 
-First, clone the repo to any desired directory with ``git`` (PyPI support coming with the next release).
+To download and install the package from the [Python Package Index (PyPI)](https://pypi.org/project/submanager/), simply activate your environment and run  <!-- markdown-link-check-disable-line -->
 
 ```bash
-git clone <REPO-URL>
+python -m pip install submanager
+```
+
+Alternatively, if you want to use the exact pinned dependencies we do, you can ``clone`` this repo and install from the ``requirements.txt`` file:
+
+```bash
+git clone https://github.com/r-spacex/submanager.git
 cd submanager
-```
-
-To install the latest pinned known-good versions of the dependencies (optional, but recommended), use the included ``requirements.txt`` file:
-
-```bash
-python -m pip -r requirements.txt
-```
-
-Finally, install the package itself (and its dependencies, if not installed in the previous step):
-
-```bash
+python -m pip install -r requirements.txt
 python -m pip install .
 ```
 
@@ -123,6 +116,7 @@ submanager <command>
 ```
 
 To see the various commands and options available, pass it the ``--help`` flag.
+
 
 
 ## Contributing
