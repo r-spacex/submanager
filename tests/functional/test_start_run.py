@@ -32,6 +32,7 @@ from tests.functional.conftest import (
     CONFIG_PATHS_ONLINE,
     RunAndCheckCLICallable,
     RunAndCheckDebugCallable,
+    apply_marks_to_param_configs,
 )
 
 # ---- Types ----
@@ -67,6 +68,11 @@ TEST_CONFIG_VAR_NAMES: Final[list[str]] = [
     "check_text",
     "check_error",
 ]
+TEST_IDS: Final[list[str]] = [
+    "invalid_noskip_minimal",
+    "invalid_noskip_validate",
+    "valid_skipvalidate",
+]
 TEST_CONFIGS: Final[list[RunConfigTuple]] = [
     (
         {"accounts": None},
@@ -97,17 +103,7 @@ TEST_CONFIGS: Final[list[RunConfigTuple]] = [
         [pytest.mark.online, pytest.mark.slow],
     ),
 ]
-TEST_CONFIGS_MARKED: Final = [
-    pytest.param(*config[:-1], marks=config[-1])
-    if config[-1] is not None
-    else config[:-1]
-    for config in TEST_CONFIGS
-]
-TEST_IDS: Final[list[str]] = [
-    "invalid_noskip_minimal",
-    "invalid_noskip_validate",
-    "valid_skipvalidate",
-]
+TEST_CONFIGS_MARKED: Final = apply_marks_to_param_configs(TEST_CONFIGS)
 
 
 # ---- Tests ----

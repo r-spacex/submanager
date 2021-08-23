@@ -83,7 +83,7 @@ READONLY_EXPECTED: Final[ExpectedTuple] = (
 )
 
 BAD_VALIDATE_OFFLINE_PARAMS: Final[ParamConfigs] = {
-    "non_existant_key": (
+    "non_existent_key": (
         {PSEUDORANDOM_STRING: PSEUDORANDOM_STRING},
         VALIDATION_EXPECTED,
     ),
@@ -126,7 +126,7 @@ BAD_VALIDATE_OFFLINE_PARAMS: Final[ParamConfigs] = {
 }
 
 # Onlne validation param configs
-NON_ACCESSABLE_PAGE: Final[str] = "non_accessable_page"
+NON_ACCESSIBLE_PAGE: Final[str] = "non_accessible_page"
 NON_MOD_SUBREDDIT: Final[str] = "SubManagerTesting2"
 NON_SUPPORTED_WIDGET: Final[str] = "Bad Type Widget"
 NON_WRITEABLE_PAGE: Final[str] = "non_writable_page"
@@ -325,13 +325,13 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
         ),
         ("found", submanager.exceptions.RedditObjectNotFoundError),
     ),
-    "wiki_notaccessable_source": (
+    "wiki_notaccessible_source": (
         (
             {
                 "sync_manager": {
                     "items": {
                         "cross_sub_sync": {
-                            "source": {"endpoint_name": NON_ACCESSABLE_PAGE},
+                            "source": {"endpoint_name": NON_ACCESSIBLE_PAGE},
                         },
                     },
                 },
@@ -347,7 +347,7 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                     "items": {
                         "disabled_sync_item": {
                             "targets": {
-                                "non_existant": {
+                                "non_existent": {
                                     "endpoint_name": PSEUDORANDOM_STRING,
                                 },
                             },
@@ -355,14 +355,14 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                     },
                 },
             },
-            "sync_manager.items.disabled_sync_item.targets.non_existant",
+            "sync_manager.items.disabled_sync_item.targets.non_existent",
         ),
         ("found", submanager.exceptions.RedditObjectNotFoundError),
     ),
-    "wiki_notaccessable_target": (
+    "wiki_notaccessible_target": (
         (
             {},
-            "sync_manager.items.disabled_sync_item.targets.non_existant",
+            "sync_manager.items.disabled_sync_item.targets.non_existent",
         ),
         ("access", submanager.exceptions.RedditObjectNotAccessibleError),
     ),
@@ -373,7 +373,7 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                     "items": {
                         "disabled_sync_item": {
                             "targets": {
-                                "non_existant": {
+                                "non_existent": {
                                     "endpoint_name": NON_WRITEABLE_PAGE,
                                     "context": {
                                         "subreddit": NON_MOD_SUBREDDIT,
@@ -384,7 +384,7 @@ BAD_VALIDATE_ONLINE_PARAMS: Final[ParamConfigs] = {
                     },
                 },
             },
-            "sync_manager.items.disabled_sync_item.targets.non_existant",
+            "sync_manager.items.disabled_sync_item.targets.non_existent",
         ),
         ("edit", submanager.exceptions.WikiPagePermissionError),
     ),

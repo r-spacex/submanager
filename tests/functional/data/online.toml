@@ -87,7 +87,7 @@ repeat_interval_s = 60
             enabled = false
             [thread_manager.items.disabled_thread.source]
                 description = "Non-existent wiki page"
-                endpoint_name = "non_existant_source"
+                endpoint_name = "non_existent_source"
                 endpoint_type = "WIKI_PAGE"
 
 
@@ -106,14 +106,14 @@ repeat_interval_s = 60
             enabled = true
 
             [sync_manager.items.disabled_sync_item.defaults]
-                endpoint_name = "non_accessable_page"
+                endpoint_name = "non_accessible_page"
                 endpoint_type = "WIKI_PAGE"
 
             [sync_manager.items.disabled_sync_item.source]
                 description = "Non existent source"
 
             [sync_manager.items.disabled_sync_item.targets]
-                [sync_manager.items.disabled_sync_item.targets.non_existant]
+                [sync_manager.items.disabled_sync_item.targets.non_existent]
                     context.subreddit = "SubManagerTesting2"
                     description = "Non existent target"
                     enabled = false

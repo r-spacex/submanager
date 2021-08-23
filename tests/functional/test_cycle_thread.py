@@ -30,6 +30,7 @@ import submanager.models.config
 from tests.functional.conftest import (
     CONFIG_PATHS_ONLINE,
     RunAndCheckCLICallable,
+    apply_marks_to_param_configs,
 )
 
 # ---- Types ----
@@ -57,6 +58,13 @@ TEST_CONFIG_VAR_NAMES: Final[list[str]] = [
     "thread_keys",
     "check_text",
     "check_error",
+]
+TEST_IDS: Final[list[str]] = [
+    "no_thread_keys",
+    "one_invalid_thread_key",
+    "mix_valid_invalid_thread_keys",
+    "one_valid_thread_key",
+    "multiple_valid_thread_keys",
 ]
 TEST_CONFIGS: Final[list[CycleConfigTuple]] = [
     (
@@ -90,19 +98,7 @@ TEST_CONFIGS: Final[list[CycleConfigTuple]] = [
         [pytest.mark.slow, pytest.mark.online],
     ),
 ]
-TEST_CONFIGS_MARKED: Final = [
-    pytest.param(*config[:-1], marks=config[-1])
-    if config[-1] is not None
-    else config[:-1]
-    for config in TEST_CONFIGS
-]
-TEST_IDS: Final[list[str]] = [
-    "no_thread_keys",
-    "one_invalid_thread_key",
-    "mix_valid_invalid_thread_keys",
-    "one_valid_thread_key",
-    "multiple_valid_thread_keys",
-]
+TEST_CONFIGS_MARKED: Final = apply_marks_to_param_configs(TEST_CONFIGS)
 
 
 # ---- Tests ----

@@ -154,6 +154,22 @@ CONFIG_PATHS_ALL: Final[list[Path]] = (
 )
 
 
+# ---- Parameter helper functions ----
+
+
+def apply_marks_to_param_configs(
+    param_configs: Sequence[tuple[Any, ...]],
+) -> list[tuple[Any, ...]]:
+    """Apply the marks given as the last element in a tuple to the configs."""
+    param_configs_marked = [
+        pytest.param(*config[:-1], marks=config[-1])
+        if config[-1] is not None
+        else config[:-1]
+        for config in param_configs
+    ]
+    return param_configs_marked
+
+
 # ---- Test helper fixtures ----
 
 
