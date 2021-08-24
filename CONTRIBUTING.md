@@ -148,10 +148,14 @@ When you start to work on a new pull request (PR), you need to be sure that your
 To guide you, issues on Github are marked with a milestone that indicates the correct branch to use.
 If not, follow these guidelines:
 
-* Use the latest release branch (e.g. ``0.3.x`` for bugfixes only (*e.g.* milestones ``v0.3.1`` or ``v0.3.2``)
+* Use the latest release branch (e.g. ``0.3.x``) for small/critical bugfixes only (*e.g.* milestones ``v0.3.1`` or ``v0.3.2``)
 * Use ``master`` to introduce new features or break compatibility with previous versions (*e.g.* milestones ``v0.4alpha2`` or ``v0.4beta1``).
 
-You should also submit bugfixes to the release branch or ``master`` for errors that are only present in those respective branches.
+However, if an error is only present in a respective branch, please submit bugfixes to that branch.
+
+Also, please set the target for pull requests from external forks to be ``staging`` instead of ``master``, and ``staging-release`` instead of the release branch, so that the online checks (which are not possible to run from forks, as they require repository secrets) don't fail the build.
+Once merged to the respective staging branch, those checks will run, and it will then be merged to the appropriate production branch once the checks pass and any issues discovered are fixed.
+If you're a frequent, reliable contributor, please let us know if you'd like collaborator status, which will allow you to push branches to the repo directly and run the checks yourself.
 
 
 
