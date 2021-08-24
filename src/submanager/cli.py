@@ -29,6 +29,7 @@ import submanager.utils.output
 from submanager.constants import (
     CONFIG_PATH_DYNAMIC,
     CONFIG_PATH_STATIC,
+    LINE_LENGTH,
 )
 from submanager.types import (
     PathLikeStr,
@@ -288,8 +289,7 @@ def cli(sys_argv: Sequence[str] | None = None) -> None:
         if debug:
             raise
         formatted_error = submanager.utils.output.format_error(error)
-        line_length = 70
-        sep_top, sep_bottom = (f"{sep * line_length}" for sep in ("v", "^"))
+        sep_top, sep_bottom = (f"{sep * LINE_LENGTH}" for sep in ("v", "^"))
         print(  # noqa: WPS421
             f"\n{sep_top}\n{formatted_error}\n{sep_bottom}\n",
             file=sys.stderr,

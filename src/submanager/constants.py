@@ -24,6 +24,7 @@ import submanager
 
 PACKAGE_NAME: Final[str] = "submanager"
 
+LINE_LENGTH: Final[int] = 70
 USER_AGENT: Final[
     str
 ] = f"praw:{PACKAGE_NAME}:v{submanager.__version__} (by u/CAM-Gerlach)"

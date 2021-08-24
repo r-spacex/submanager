@@ -108,7 +108,7 @@ Once you're satisfied, ``git add .`` and commit again.
 ## Running Tests
 
 This package uses the [Pytest](https://pytest.org) framework for its unit and integration tests, which are located inside the ``tests/`` directory in the root of the project.
-As you might expect, unit tests, which mirror the structure of the package and test individual components, are found in the `unit` subdirectory, while integration tests, which test the functionality of the package as a whole, like in the `integration` subdirectory, and functional tests, which test the package's behavior though the user-facing CLI, are in the `functional` subdirectory.
+As you might expect, unit tests, which mirror the structure of the package and test individual components, are found in the ``unit`` subdirectory, while integration tests, which test the functionality of the package as a whole, like in the ``integration`` subdirectory, and functional tests, which test the package's behavior though the user-facing CLI, are in the ``functional`` subdirectory.
 We **strongly** suggest you run the full test suite before every commit (it should only take around 10 seconds without the online tests), as while our pre-commit suite catches most errors, it is impossible to statically determine whether the code does what it is intended to without a test suite.
 
 Currently, given the project's development status, it has a substantial test suite but is primarily focused on high-level functional testing, with more granular unit and integration tests to be added later.
@@ -134,9 +134,9 @@ Finally, to run the online tests, pass ``--run-online``
 pytest --run-online
 ```
 
-**Note**: The online tests require a PRAW ``site`` named ``testbot`` that has mod access to the r/SubManagerTesting sub and approved user access to the r/SubManagerTesting2 sub, with scopes `modconfig`, `read`, `wikiread`, `edit`, `modwiki`, `submit`, `structuredstyles`, and `wikiedit`, as well as optionally `identity` and `mysubreddits`.
+**Note**: The online tests require a PRAW ``site`` named ``submanager_testbot`` that has mod access to the r/SubManagerTesting sub and approved user access to the r/SubManagerTesting2 sub, with scopes ``modconfig``, ``read``, ``wikiread``, ``edit``, ``modwiki``, ``submit``, ``structuredstyles``, and ``wikiedit``, as well as optionally ``identity`` and ``mysubreddits``.
 As such, they are normally only run by the core team and the CIs, and you can exercise most of the code by running ``submanager validate-config`` on your local config.
-However, if you would like to help with PRAW's development, we can consider giving a user account under your control access to the appropriate subs, so you can run the online tests locally as well by simply configuring the ``testbot`` site in your ``praw.ini`` with the credentials of your user.
+However, if you would like to help with PRAW's development, we can consider giving a user account under your control access to the appropriate subs, so you can run the online tests locally as well by simply configuring the ``submanager_testbot`` site in your ``praw.ini`` with the credentials of your user.
 Feel free to contact us if you're interested.
 
 

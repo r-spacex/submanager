@@ -7,6 +7,7 @@ from __future__ import (
 
 # Standard library imports
 import configparser
+import os
 from pathlib import (
     Path,
 )
@@ -32,12 +33,23 @@ from typing_extensions import (
 
 PACKAGE_NAME: Final[str] = "submanager"
 
+LINE_LENGTH: Final[int] = 70
+
 RUN_ONLINE_OPTION: Final[str] = "--run-online"
 
 PRAW_INI_FILENAME: Final[str] = "praw.ini"
 PRAW_INI_PATH_LOCAL: Final[Path] = Path() / PRAW_INI_FILENAME
+PRAW_ENV_VARS_REQUIRED: Final[set[str]] = {
+    "praw_client_id",
+    "praw_client_secret",
+}
+PRAW_ENV_VARS_REFRESH: Final[set[str]] = {"praw_refresh_token"}
+PRAW_ENV_VARS_PASSWORD: Final[set[str]] = {"praw_username", "praw_password"}
+PRAW_ENV_VARS_ALL: Final[set[str]] = (
+    PRAW_ENV_VARS_REQUIRED | PRAW_ENV_VARS_REFRESH | PRAW_ENV_VARS_PASSWORD
+)
+TEST_SITE_NAME: Final[str] = "submanager_testbot"
 
-TEST_SITE_NAME: Final[str] = "testbot"
 DUMMY_ACCOUNT_CONFIG: Final[dict[str, str]] = {
     "client_id": "abcdefgABCDEFG",
     "client_secret": "abcdefghijklmnopqrstuvwxyzABCD",
@@ -60,6 +72,37 @@ def _get_praw_ini_has_site_name(site_name: str) -> bool | None:
     except configparser.Error:
         return None
     return praw_config.has_section(site_name)
+
+
+def _check_env_var_set(env_var: str) -> bool:
+    """Check if the environment variable is set to a non-whitespace value."""
+    env_var_value = os.getenv(env_var)
+    return bool(env_var_value and env_var_value.strip())
+
+
+def _get_missing_env_vars(required_env_vars: Collection[str]) -> set[str]:
+    """Get the current environment variables missing from a given set."""
+    missing_env_vars = {
+        required_env_var
+        for required_env_var in required_env_vars
+        if not _check_env_var_set(required_env_var)
+    }
+    return missing_env_vars
+
+
+def _get_missing_praw_env_vars() -> set[str]:
+    """Get the required PRAW environment variables that are not present."""
+    missing_env_vars: set[str] = set()
+    missing_env_vars |= _get_missing_env_vars(PRAW_ENV_VARS_REQUIRED)
+    missing_refresh = _get_missing_env_vars(PRAW_ENV_VARS_REFRESH)
+    missing_password = _get_missing_env_vars(PRAW_ENV_VARS_PASSWORD)
+    if not missing_refresh or not missing_password:
+        return missing_env_vars
+    if missing_password != PRAW_ENV_VARS_PASSWORD:
+        missing_env_vars |= missing_password
+        return missing_env_vars
+    missing_env_vars |= missing_refresh
+    return missing_env_vars
 
 
 def _get_val_id_from_collection(
@@ -110,24 +153,35 @@ def pytest_addoption(parser: Parser) -> None:
 
 
 def pytest_configure(config: Config) -> None:
-    """Add a temporary local PRAW.ini with the testbot site if not found."""
-    if config.getoption(RUN_ONLINE_OPTION):
-        if not _get_praw_ini_has_site_name(TEST_SITE_NAME):
-            with open(
-                PRAW_INI_PATH_LOCAL,
-                mode="w",
-                encoding="utf-8",
-            ) as praw_ini_file_online:
-                praw_ini_file_online.write(f"[{TEST_SITE_NAME}]\n")
-    else:
-        praw_config = configparser.ConfigParser()
-        praw_config[TEST_SITE_NAME] = DUMMY_ACCOUNT_CONFIG
-        with open(
-            PRAW_INI_PATH_LOCAL,
-            mode="w",
-            encoding="utf-8",
-        ) as praw_ini_file_offline:
-            praw_config.write(praw_ini_file_offline)
+    """Add a temporary local PRAW.ini with the test bot site if not found."""
+    run_online = config.getoption(RUN_ONLINE_OPTION)
+    has_test_site_name = _get_praw_ini_has_site_name(TEST_SITE_NAME)
+    if run_online and has_test_site_name:
+        return
+
+    if run_online:
+        missing_env_vars = _get_missing_praw_env_vars()
+        if missing_env_vars:
+            error_highlight = "*" * (LINE_LENGTH // 2)
+            error_divider = f"{error_highlight} WARNING {error_highlight}"
+            error_message = (
+                f"PRAW site {TEST_SITE_NAME!r} missing in praw.ini "
+                f"and environment variable(s) not found:\n{missing_env_vars}\n"
+                "Online tests will fail due to lacking Reddit authentication"
+            )
+            error_message_full = "\n".join(
+                ["", error_divider, error_message, error_divider, ""],
+            )
+            print(error_message_full)  # noqa: WPS421
+
+    praw_config = configparser.ConfigParser()
+    praw_config[TEST_SITE_NAME] = DUMMY_ACCOUNT_CONFIG
+    with open(
+        PRAW_INI_PATH_LOCAL,
+        mode="w",
+        encoding="utf-8",
+    ) as praw_ini_file_offline:
+        praw_config.write(praw_ini_file_offline)
 
 
 def pytest_unconfigure(
