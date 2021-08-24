@@ -44,7 +44,7 @@ jobs:
     - name: Install development dependencies
       run: pip install --upgrade -r requirements-dev.txt
     - name: Install package
-      run: pip install --upgrade .
+      run: pip install .
     - name: Pip check
       run: pip check
     - name: Run main Pre-Commit hooks
