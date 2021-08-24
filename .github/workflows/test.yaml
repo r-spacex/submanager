@@ -3,10 +3,10 @@ name: Tests
 
 on:  # yamllint disable-line rule:truthy
   push:
-    branches: [master, main, '*.*']
+    branches: [master, main, '*.*', 'staging*']
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [master, main, '*.*']
+    branches: [master, main, '*.*', 'staging*']
 
 jobs:
   test:
@@ -58,7 +58,7 @@ jobs:
     - name: Run offline tests
       run: python -bb -X dev -W error -m pytest
     - name: Run online tests
-      if: matrix.online == 'ONLINE'
+      if: matrix.online == 'ONLINE' && ! contains(github.ref, 'staging')
       env:
         praw_client_id: ${{ secrets.TESTBOT_CLIENT_ID }}
         praw_client_secret: ${{ secrets.TESTBOT_CLIENT_SECRET }}
