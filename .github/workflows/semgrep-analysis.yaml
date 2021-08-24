@@ -2,10 +2,10 @@ name: Semgrep
 
 on:  # yamllint disable-line rule:truthy
   push:
-    branches: [master, main, '*.*']
+    branches: [master, main, '*.*', 'staging*']
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [master, main, '*.*']
+    branches: [master, main, '*.*', 'staging*']
 
 jobs:
   semgrep:
