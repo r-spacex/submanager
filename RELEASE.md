@@ -30,8 +30,8 @@ A step by step checklist for cutting a new release.
 0. Check that no release steps need updating
 1. Ensure all issues/PRs linked to Github milestone are closed or moved to next release
 2. Check ``git status`` and ``git diff`` for any untracked local changes and handle as needed
-3. Sync ``upstream`` repo with ``hub sync``/``git pull upstream``, push to ``origin`` and clean up old branches
-4. Create a new branch ``prepare-release-XYZ``, push to ``upstream`` and open a PR
+3. Sync from ``upstream`` repo, push to ``origin`` and clean up old branches: ``git fetch --all``, then ``hub sync``/``git pull upstream``, then ``git push origin``, and finally ``git branch -d <BRANCH>`` and ``git push -d <REMOTE> <BRANCH>`` for any branches
+4. Create a new branch ``prepare-release-XYZ`` and push to ``upstream``: ``git switch -c prepare-release-XYZ`` then ``git push -u upstream prepare-release-XYZ``
 
 
 
@@ -39,14 +39,14 @@ A step by step checklist for cutting a new release.
 
 0. Check ``MANIFEST.in`` and ``setup.cfg`` to ensure they are up to date and all data files are included
 1. Check each dependency for new upper bound version and examine changelogs for breaking changes
-2. Commit and push if changes made to run regen deps on Linux machine (RPi)
+2. Commit and push if changes made to run regen deps on Linux machine (RPi), and open PR against base branch
 3. On RPi, activate env and run ``python -X dev tools/generate_requirements_files.py build`` to update build deps
 4. Run ``python -m pip install --upgrade -r requirements-build.txt`` to install updated build deps
 5. Run ``python -X dev tools/generate_requirements_files.py`` to update all reqs files
 6. Run ``pip install --upgrade -r requirements-dev.txt`` install updated dev deps
-7. Run ``pip check`` to verify environment integrity
-8. Run ``pip install -e .`` to ensure package install is up to date
-9. Run ``python -bb -X dev -W error pytest --run-online`` and fix any issues
+7. Run ``pip install -e .`` to ensure package install is up to date
+8. Run ``pip check`` to verify environment integrity
+9. Run ``python -bb -X dev -W error -m pytest --run-online`` and fix any issues
 10. Run ``pre-commit run --all-files`` and fix any issues
 11. Sync back changes to dev machine and fixup prior commit
 12. Push and test on PR and ``git reset --hard`` on Pi
