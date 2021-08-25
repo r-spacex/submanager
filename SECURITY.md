@@ -7,7 +7,7 @@ The following summarizes the support status of recent Sub Manager versions.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.6.x   | :white_check_mark: |
+| 0.6.x   | :heavy_check_mark: |
 | < 0.6   | :x:                |
 
 
