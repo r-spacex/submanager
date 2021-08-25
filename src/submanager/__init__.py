@@ -6,4 +6,4 @@ from __future__ import annotations
 
 # Make Final in Python 3.8
 
-__version__: str = "0.6.0"
+__version__: str = "0.6.1dev0"
