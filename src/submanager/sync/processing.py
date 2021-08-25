@@ -112,6 +112,7 @@ def process_target_endpoint(
     # Perform the target-specific pattern replacements
     if isinstance(source_content, str):
         source_content = process_source_text(source_content, target_config)
+        source_content = f"\n\n{source_content.strip()}\n\n"
 
     # If the target is a menu, build the source into one if not already one
     target_content = target_obj.content
