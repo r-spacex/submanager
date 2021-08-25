@@ -101,7 +101,7 @@ repos:
 
 # Fix Python
 - repo: https://github.com/asottile/pyupgrade
-  rev: v2.23.3
+  rev: v2.24.0
   hooks:
   - id: pyupgrade
     name: Fix Python with Pyupgrade
@@ -172,9 +172,10 @@ repos:
     name: Check for logger.warn
 
 - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
-  rev: v1.2.0
+  rev: v1.2.1
   hooks:
   - id: python-safety-dependencies-check
+    name: Run Safety check on dependencies
     files: 'requirements.txt'
 
 # Lint Python
@@ -254,7 +255,7 @@ repos:
 
 # Lint YAML
 - repo: https://github.com/adrienverge/yamllint.git
-  rev: v1.26.2
+  rev: v1.26.3
   hooks:
   - id: yamllint
     name: Lint Yaml
