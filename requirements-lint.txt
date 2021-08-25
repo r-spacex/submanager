@@ -8,7 +8,7 @@ aenum==3.1.0
     # via pyanalyze
 ast-decompiler==0.4.0
     # via pyanalyze
-astroid==2.6.6
+astroid==2.7.2
     # via pylint
 asynq==1.4.0
     # via pyanalyze
@@ -55,6 +55,7 @@ nodeenv==1.6.0
     # via pre-commit
 platformdirs==2.2.0
     # via
+    #   pylint
     #   submanager (setup.py)
     #   virtualenv
 praw==7.4.0
@@ -69,7 +70,7 @@ pydantic==1.8.2
     # via submanager (setup.py)
 pygments==2.10.0
     # via asynq
-pylint==2.9.6
+pylint==2.10.2
     # via submanager (setup.py)
 python-dateutil==2.8.2
     # via submanager (setup.py)

@@ -114,7 +114,9 @@ def create_new_thread(
     end_suffix = thread_config.source.pattern_end
     post_lines = [
         pattern.format(suffix=start_suffix),
-        str(post_text),
+        "",
+        str(post_text).strip(),
+        "",
         pattern.format(suffix=end_suffix),
     ]
     post_text = "\n".join(post_lines)

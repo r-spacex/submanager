@@ -2,7 +2,7 @@
 
 A step by step checklist for cutting a new release.
 
-**Note:** This guide uses [``hub``](https://hub.github.com/) branches more easily, but it can be replaced by switching to the ``master``/release branch and running ``git pull upstream <BRANCH-NAME>``.
+**Note:** This guide uses [``hub``](https://hub.github.com/) to sync branches more easily, but it can be substituted with switching to the ``master``/release branch and running ``git pull upstream <BRANCH-NAME>``.
 
 
 <!-- markdownlint-disable -->
@@ -30,8 +30,8 @@ A step by step checklist for cutting a new release.
 0. Check that no release steps need updating
 1. Ensure all issues/PRs linked to Github milestone are closed or moved to next release
 2. Check ``git status`` and ``git diff`` for any untracked local changes and handle as needed
-3. Sync ``upstream`` repo with ``hub sync``/``git pull upstream``, push to ``origin`` and clean up old branches
-4. Create a new branch ``prepare-release-XYZ``, push to ``upstream`` and open a PR
+3. Sync from ``upstream`` repo, push to ``origin`` and clean up old branches: ``git fetch --all``, then ``hub sync``/``git pull upstream``, then ``git push origin``, and finally ``git branch -d <BRANCH>`` and ``git push -d <REMOTE> <BRANCH>`` for any branches
+4. Create a new branch ``prepare-release-XYZ`` and push to ``upstream``: ``git switch -c prepare-release-XYZ`` then ``git push -u upstream prepare-release-XYZ``
 
 
 
@@ -39,14 +39,14 @@ A step by step checklist for cutting a new release.
 
 0. Check ``MANIFEST.in`` and ``setup.cfg`` to ensure they are up to date and all data files are included
 1. Check each dependency for new upper bound version and examine changelogs for breaking changes
-2. Commit and push if changes made to run regen deps on Linux machine (RPi)
+2. Commit and push if changes made to run regen deps on Linux machine (RPi), and open PR against base branch
 3. On RPi, activate env and run ``python -X dev tools/generate_requirements_files.py build`` to update build deps
 4. Run ``python -m pip install --upgrade -r requirements-build.txt`` to install updated build deps
 5. Run ``python -X dev tools/generate_requirements_files.py`` to update all reqs files
 6. Run ``pip install --upgrade -r requirements-dev.txt`` install updated dev deps
-7. Run ``pip check`` to verify environment integrity
-8. Run ``pip install -e .`` to ensure package install is up to date
-9. Run ``python -bb -X dev -W error pytest --run-online`` and fix any issues
+7. Run ``pip install -e .`` to ensure package install is up to date
+8. Run ``pip check`` to verify environment integrity
+9. Run ``python -bb -X dev -W error -m pytest --run-online`` and fix any issues
 10. Run ``pre-commit run --all-files`` and fix any issues
 11. Sync back changes to dev machine and fixup prior commit
 12. Push and test on PR and ``git reset --hard`` on Pi
@@ -60,7 +60,7 @@ A step by step checklist for cutting a new release.
 2. Manually check ``additional_dependencies`` for updates and update as needed
 3. Check hook/dep changelogs and add/update any new settings
 4. Run ``pre-commit run --all-files`` and fix any issues
-5. Run ``python -bb -X dev -W error pytest --run-online`` and fix any issues
+5. Run ``python -bb -X dev -W error -m pytest --run-online`` and fix any issues
 6. Commit changes, push & test on PR
 
 
@@ -75,27 +75,27 @@ A step by step checklist for cutting a new release.
 5. Create a fresh, clean virtual environment, e.g. ``deactivate`` then ``python3 -m venv clean-env``
 6. Activate the new environment, e.g. ``source clean-env/bin/activate``
 7. Install/upgrade core install deps in new environment: ``python -m pip install --upgrade pip setuptools wheel``
-8. Install the build in the new environment: ``pip install dist/*.whl[test]``
+8. Install the build in the new environment: ``pip install dist/submanager-X.Y.Z.dev0-py3-none-any.whl[test]``
 9. Check the env with pip: ``pip check``
-10. Test the installed version: ``python -bb -X dev -W error pytest --run-online``
+10. Test the installed version: ``python -bb -X dev -W error -m pytest --run-online``
 11. Fix any bugs, commit, push and retest
 
 
 
 ## Transition new version to production on RPi
 
-0. Disable and stop production service
+0. Disable and stop production service: ``systemctl --user disable submanager`` then ``systemctl --user stop submanager``
 1. Activate production venv (e.g. ``source env/bin/activate``)
 2. Upgrade core install deps ``python -m pip install --upgrade pip setuptools wheel``
 3. Install/upgrade pinned deps from requirements file: ``pip install --upgrade -r requirements.txt``
-4. Install package from built wheel: ``pip install dist/*.wheel``
+4. Install package from built wheel: ``pip install dist/submanager-X.Y.Z.dev0-py3-none-any.whl``
 5. Ensure config/state dir names, locations and structure is up to date
 6. Sync static config and praw.ini from dev machine
 7. Update local dynamic config as needed
 8. Validate config with ``python -b -X dev -m submanager validate-config``
 9. Start running and verify nominal performance: ``python -b -X dev -m submanager start``
-10. Install service with ``python -b -X dev -m install-service``
-11. Enable, start, wait 30 seconds and verify ``status``, ``journalctl`` log output and on sub
+10. Install service with ``python -bb -X dev -W error -m submanager install-service``
+11. Enable and start service, wait 30 seconds and verify ``status``, ``journalctl`` log output and on sub
 
 
 
@@ -112,9 +112,9 @@ A step by step checklist for cutting a new release.
 ## Rebuild and upload to PyPI on RPi/production machine
 
 0. Repeat steps 0 through 4 (inclusive) in "Build and test on RPi" section to rebuild release version
-1. Install built wheel in dev environment: ``pip install dist/*.wheel[lint,test]``
+1. Install built wheel in dev environment: ``pip install dist/submanager-X.Y.Z.dev0-py3-none-any.whl[lint,test]``
 2. Verify version is correct: ``submanager --version``
-3. Run basic tests one last time: ``python -bb -X dev -W error pytest``
+3. Run basic tests one last time: ``python -bb -X dev -W error -m pytest``
 4. Merge PR and wait for checks to pass
 5. Upload to live PyPI: ``twine upload dist/*``
 
