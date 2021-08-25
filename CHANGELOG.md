@@ -11,41 +11,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-- [[0.5.1] - 2021-06-15](#051---2021-06-15)
-  - [Fixed](#fixed)
-- [[0.5.0] - 2021-05-18](#050---2021-05-18)
+- [[0.6.0] - 2021-08-24](#060---2021-08-24)
   - [Added](#added)
   - [Changed](#changed)
-- [[0.4.0] - 2021-03-24](#040---2021-03-24)
+  - [Fixed](#fixed)
+  - [Removed](#removed)
+- [[0.5.1] - 2021-06-15](#051---2021-06-15)
+  - [Fixed](#fixed-1)
+- [[0.5.0] - 2021-05-18](#050---2021-05-18)
   - [Added](#added-1)
   - [Changed](#changed-1)
-- [[0.3.1] - 2021-03-01](#031---2021-03-01)
-  - [Changed](#changed-2)
-  - [Fixed](#fixed-1)
-- [[0.3.0] - 2021-02-08](#030---2021-02-08)
+- [[0.4.0] - 2021-03-24](#040---2021-03-24)
   - [Added](#added-2)
+  - [Changed](#changed-2)
+- [[0.3.1] - 2021-03-01](#031---2021-03-01)
   - [Changed](#changed-3)
-- [[0.2.2] - 2021-02-01](#022---2021-02-01)
-  - [Added](#added-3)
   - [Fixed](#fixed-2)
-- [[0.2.1] - 2021-01-22](#021---2021-01-22)
+- [[0.3.0] - 2021-02-08](#030---2021-02-08)
+  - [Added](#added-3)
+  - [Changed](#changed-4)
+- [[0.2.2] - 2021-02-01](#022---2021-02-01)
   - [Added](#added-4)
   - [Fixed](#fixed-3)
-- [0.2.0 - 2021-01-21](#020---2021-01-21)
+- [[0.2.1] - 2021-01-22](#021---2021-01-22)
   - [Added](#added-5)
-  - [Changed](#changed-4)
   - [Fixed](#fixed-4)
-- [[0.1.2] - 2021-01-20](#012---2021-01-20)
-  - [Changed](#changed-5)
-- [[0.1.1] - 2021-01-20](#011---2021-01-20)
+- [0.2.0 - 2021-01-21](#020---2021-01-21)
   - [Added](#added-6)
-  - [Changed](#changed-6)
+  - [Changed](#changed-5)
   - [Fixed](#fixed-5)
-- [[0.1.0] - 2021-01-01](#010---2021-01-01)
+- [[0.1.2] - 2021-01-20](#012---2021-01-20)
+  - [Changed](#changed-6)
+- [[0.1.1] - 2021-01-20](#011---2021-01-20)
   - [Added](#added-7)
+  - [Changed](#changed-7)
+  - [Fixed](#fixed-6)
+- [[0.1.0] - 2021-01-01](#010---2021-01-01)
+  - [Added](#added-8)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 <!-- markdownlint-restore -->
+
+
+
+## [0.6.0] - 2021-08-24
+
+### Added
+
+* Full command-based CLI with many more options, including separate ``start`` and ``run`` commands
+* Command ``get-config-info`` to print information about the config and list endpoints
+* Command ``install-service`` to automatically install a systemd service to run the bot
+* Command ``generate-config`` to generate a user config file with example defaults
+* Command ``validate-config`` to validate the current config file, offline or online
+* Command ``cycle-threads`` to post new versions of the indicated threads
+* ``--debug`` flag, to control whether user-friendly error messages or full tracebacks are printed
+* Config option ``approve_new`` to control if new posted threads are automatically approved (default)
+* ``"auto"`` option for ``pin_mode`` (default) will unpin the old thread and pin the new if currently pinned
+* ``truncate_lines`` option for source and target endpoints, to truncate to a specified number of lines
+* More fillable/replaceable variables in thread titles
+* Comprehensive offline and online functional tests exercising the options of every supported command
+* Exhaustive suite of pre-commit checks to validate correctness, best-practices, conventions and style
+* Tests, linting and analysis all run across a matrix of platforms/versions in CIs via Github Actions
+
+
+### Changed
+
+* Reorganize much of user and dynamic config for consistency and future extensibility
+* Use Platformdirs to install config and state files into platform-appropriate locations
+* Validate config and resync all sources for the first run, to handle any config changes
+* Use Pydantic for config, allowing robust access and user-friendly validation
+* Vastly improved error handing of almost all areas, with much more helpful, user friendly messages
+* Safety run multiple instances via locking, to enable new commands and avoid strange bugs
+* Enable thread redirect in OP and sticky by default (configurable)
+* Inject start and end comments into thread targets, to allow easily adding extra content
+* Formally rename everything to Sub Manager, with consistent naming everywhere
+* Refactor from a monolithic script into a modular package, greatly improving organization
+* Make a Python package for installing from Github or from PyPI and add lint and test extras
+* Package is now fully statically typed, improving correctness, robustness and documentation
+* Add/greatly improve docs including Readme, Contributing Guide, security policy and more
+* Auto-generate pinned requirements files for reproducible dev and production installation
+
+
+### Fixed
+
+* Issues with hierarchical config defaults not getting inherited correctly
+* Not syncing new targets until a change is made in the source
+* Not injecting appropriate line breaks in targets for some sources, causing formatting issues
+* Many other edge-case bugs and issues
+
+
+### Removed
+
+* Config file no longer generated automatically if its not present, use ``generate-config`` instead
+* Drop previous support for token managers, in line with Reddit and PRAW changes
 
 
 
