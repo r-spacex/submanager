@@ -2,7 +2,7 @@
 
 
 <!-- Things used -->
-[![PyPI Python version](https://img.shields.io/pypi/pyversions/submanager?label=Python)](https://pypi.org/project/submanager/)  <!-- markdown-link-check-disable-line -->
+[![PyPI Python version](https://img.shields.io/pypi/pyversions/submanager?label=Python)](https://pypi.org/project/submanager/)
 [![Framework](https://img.shields.io/badge/Framework-PRAW-orange.svg)](https://github.com/pytest-dev/pytest)
 [![Tests Pytest](https://img.shields.io/badge/Testing-Pytest-blue.svg)](https://pytest.org/)
 [![Pre-Commit](https://img.shields.io/badge/Linting-Pre--Commit-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
@@ -12,10 +12,10 @@
 <!-- Project status -->
 [![License](https://img.shields.io/github/license/r-spacex/submanager?label=License)](https://github.com/r-spacex/submanager/blob/master/LICENSE.txt)
 [![Maintainer](https://img.shields.io/badge/Maintainer-CAM--Gerlach-blue)](https://github.com/CAM-Gerlach)
-[![PyPI status](https://img.shields.io/pypi/status/submanager?label=Status)](https://pypi.org/project/submanager/)  <!-- markdown-link-check-disable-line -->
+[![PyPI status](https://img.shields.io/pypi/status/submanager?label=Status)](https://pypi.org/project/submanager/)
 [![GitHub version](https://img.shields.io/github/v/tag/r-spacex/submanager?include_prereleases&label=GitHub)](https://github.com/r-spacex/submanager/releases)
-[![PyPI version](https://img.shields.io/pypi/v/submanager?label=PyPI)](https://pypi.org/project/submanager/)  <!-- markdown-link-check-disable-line -->
-[![PyPI wheel](https://img.shields.io/pypi/wheel/submanager?label=Wheel)](https://pypi.org/project/submanager/)  <!-- markdown-link-check-disable-line -->
+[![PyPI version](https://img.shields.io/pypi/v/submanager?label=PyPI)](https://pypi.org/project/submanager/)
+[![PyPI wheel](https://img.shields.io/pypi/wheel/submanager?label=Wheel)](https://pypi.org/project/submanager/)
 [![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/spacex?label=Subs)](https://www.reddit.com/r/spacex/)
 
 <!-- Build status -->
@@ -88,7 +88,7 @@ Of course, you're free to use any environment management tool of your choice (co
 
 ### Download and install
 
-To download and install the package from the [Python Package Index (PyPI)](https://pypi.org/project/submanager/), simply activate your environment and run  <!-- markdown-link-check-disable-line -->
+To download and install the package from the [Python Package Index (PyPI)](https://pypi.org/project/submanager/), simply activate your environment and run
 
 ```bash
 python -m pip install submanager
