@@ -1,5 +1,5 @@
 # Mega-Linter GitHub Action configuration file
-# More info at https://nvuillam.github.io/mega-linter
+# More info at https://megalinter.github.io
 name: Mega-Linter
 
 on:  # yamllint disable-line rule:truthy
@@ -20,16 +20,11 @@ permissions:
   pull-requests: write
   statuses: write
 
-jobs:
-  # Cancel duplicate jobs: https://github.com/fkirc/skip-duplicate-actions#option-3-cancellation-only
-  cancel_duplicates:
-    name: Cancel duplicate jobs
-    runs-on: ubuntu-latest
-    steps:
-    - uses: fkirc/skip-duplicate-actions@master
-      with:
-        github_token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
 
+jobs:
   build:
     name: Mega-Linter
     runs-on: ubuntu-latest
@@ -45,11 +40,11 @@ jobs:
     - name: Mega-Linter
       id: ml
       # You can override Mega-Linter flavor used to have faster performance
-      # More info at https://nvuillam.github.io/mega-linter/flavors/
-      uses: nvuillam/mega-linter/flavors/python@v4
+      # More info at https://megalinter.github.io/flavors/
+      uses: megalinter/megalinter/flavors/python@v5
       env:
         # All available variables are described in documentation
-        # https://nvuillam.github.io/mega-linter/configuration/
+        # https://megalinter.github.io/configuration/
         VALIDATE_ALL_CODEBASE: true  # Set ${{ github.event_name == &#39;push&#39; &amp;&amp; github.ref == &#39;refs/heads/master&#39; }} to validate only diff with master branch
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # ADD YOUR CUSTOM ENV VARIABLES HERE TO OVERRIDE VALUES OF .mega-linter.yml AT THE ROOT OF YOUR REPOSITORY
